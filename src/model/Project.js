@@ -243,7 +243,9 @@ export class Project {
   }
 
   /**
+   * Remove a clip from the song.
    * @param {number} id
+   * @throws {Error} when no clip has that id
    * @fires clip:removed
    */
   removeClip(id) {

@@ -2,8 +2,8 @@ import { BooleanType, NumberType } from "../params/types.js";
 import { ParameterDescriptor, ParameterGroup } from "../params/ParameterGroup.js";
 
 /**
- * Start values of a track's channel strip. They mirror the mixer channel the
- * audio engine builds for a new track (`new Tone.Channel(-8)`).
+ * Start values of a track's channel strip, matching the audio engine's initial
+ * channel gain (-8 dB), centre pan and unmuted state.
  */
 export const CHANNEL_DEFAULTS = { volume: -8, pan: 0, mute: false };
 
