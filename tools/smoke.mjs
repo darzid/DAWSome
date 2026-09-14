@@ -19,7 +19,8 @@
  *
  * Output
  *   A JSON summary { url, passed, failed, results, consoleErrors } on stdout.
- *   Exit code 0 when every check passed, 1 otherwise.
+ *   Exit code 0 when every check passed, 1 otherwise (set via process.exitCode so the
+ *   summary is fully flushed before Node exits).
  *
  * Dependencies
  *   Node built-ins plus Playwright (loaded from the global install at
@@ -343,4 +344,8 @@ const failed = results.filter((r) => !r.ok).length;
 
 console.log(JSON.stringify({ url, passed, failed, results, consoleErrors }, null, 2));
 
-process.exit(failed ? 1 : 0);
+// Set the exit code instead of calling process.exit(): writes to a pipe are
+// asynchronous on POSIX, and exiting immediately can truncate the JSON summary when
+// the run is piped (CI logs, tee). The browser and server are already closed in the
+// finally block above, so nothing holds the event loop open and Node exits on its own.
+process.exitCode = failed ? 1 : 0;
