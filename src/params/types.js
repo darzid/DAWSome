@@ -76,13 +76,15 @@ export class NumberType {
 
   /**
    * Position of a value inside the range, normally 0..1. Returns `null` when
-   * the type is unbounded or the value is not a number. A value outside the
-   * range normalizes outside 0..1, because the matrix never clamps values.
+   * the type is unbounded or the value is not a number, and `0` for a range of
+   * zero width, where every value sits at the same position. A value outside
+   * the range normalizes outside 0..1, because the matrix never clamps values.
    * @param {*} value
    * @returns {number|null}
    */
   normalize(value) {
     if (!this.bounded || typeof value !== "number") return null;
+    if (this.max === this.min) return 0;
     return (value - this.min) / (this.max - this.min);
   }
 
@@ -180,9 +182,10 @@ export class StringType {
  * Guess a type from a live value, for parameters that exist on a Tone node but
  * are not described by devices.json.
  *
- * Returns `null` for anything that is not a primitive (arrays, objects,
- * functions, `null`, `undefined`), which marks the value as "not a parameter"
- * so the caller can skip it.
+ * Only numbers, strings and booleans get a type. Everything else — arrays,
+ * objects, functions, `null`, `undefined`, and any other primitive such as a
+ * bigint or a symbol — returns `null`, which marks the value as "not a
+ * parameter" so the caller can skip it.
  * @param {*} value
  * @returns {NumberType|StringType|BooleanType|null}
  */

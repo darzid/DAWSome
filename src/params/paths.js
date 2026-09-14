@@ -94,7 +94,9 @@ export function nest(path, value) {
 
 /**
  * Inverse of {@link flatten}: rebuild the nested object from flat entries.
- * Throws when one entry would have to nest inside another entry's leaf value.
+ * Throws when two entries collide — when one would have to nest inside
+ * another's leaf value, or would overwrite the branch another nested into —
+ * in whichever order the two entries arrive.
  * @param {Object<string, *>} flat
  * @returns {Object<string, *>}
  */
@@ -112,7 +114,11 @@ export function unflatten(flat) {
       }
       cursor = cursor[segment];
     }
-    cursor[segments[segments.length - 1]] = value;
+    const last = segments[segments.length - 1];
+    if (isPlainObject(cursor[last])) {
+      throw new Error(`Path "${path}" conflicts with the values already nested under "${path}".`);
+    }
+    cursor[last] = value;
   }
   return root;
 }
