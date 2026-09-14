@@ -164,6 +164,7 @@ export class ToneAudioEngine extends AudioEngine {
    * Rebuild the device chain of a track after its devices changed. Parts look
    * their instrument up at event time, so scheduled clips need no rebuild.
    * @param {import("../model/Track.js").Track} track
+   * @throws {Error} If no audio chain exists for the track.
    */
   rebuildTrack(track) {
     const chain = this.#chains.get(track.id);
@@ -209,6 +210,7 @@ export class ToneAudioEngine extends AudioEngine {
   /**
    * (Re)schedule a clip as a `Tone.Part` on the transport.
    * @param {import("../model/Clip.js").Clip} clip
+   * @throws {Error} If no audio chain exists for the clip's track.
    */
   rebuildClip(clip) {
     const old = this.#parts.get(clip.id);
