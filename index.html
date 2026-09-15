@@ -86,8 +86,12 @@
   .scroller::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
   .scroller::-webkit-scrollbar-corner { background: #1c1c1c; }
   
-  .devices, .mixer { flex: 1; min-height: 100; display: none; flex-direction: row; border: 1px solid white}
-  
+  .devices, .mixer { flex: 1; min-height: 100; display: none; flex-direction: row; border-top: 2px solid black}
+  .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; width: 60px; border: 1px solid rgba(255,255,255,0.2); margin-left: 1px; margin-right: 1px; }
+  .mixer .track-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: smaller; background: var(--panel); padding-top: 2px; padding-bottom: 2px; }
+  .mixer .track-fader-container button { margin: 2px; }
+  .mixer .track-fader { writing-mode: vertical-lr;
+    direction: rtl; }
   .hint {
     padding: 3px 8px; background: var(--panel); border-top: 1px solid var(--border); flex: none;
     color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -685,16 +689,23 @@
         transport.loopEnd = toTicks(endBeats);
       },
       addTrack: (track) => {
-        const channel = new Tone.Channel(-8).toDestination();
+        const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
         chains.set(track.id, { 
           synth: makeSynth(track.device.name, track.instrumentPreset).connect(channel), 
           channel, 
           instrument: track.device.name });
+        
       },
       updateTrack: (track) => {
         const ch = chain(track.id);
         ch.channel.mute = track.mute;
+        if (ch.channel.volume != track.volume) {
+          ch.channel.volume.value = track.volume;
+        }
+        if (ch.channel.mute != track.mute) {
+          ch.channel.mute = track.mute;
+        }
         if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
           ch.synth.dispose();
           ch.synth = makeSynth(track.instrument, track.instrumentPreset).connect(ch.channel);
@@ -830,16 +841,19 @@
     const track = {
       id: state.nextId++, name, color: TRACK_COLORS[state.tracks.length % TRACK_COLORS.length],
       instrument: device.name, instrumentPreset: device.parameters, device: device, mute: false,
+      volume: -8
     };
     state.tracks.push(track);
     audio.addTrack(track);
     state.selectedTrackId = track.id;
+    mixer.addTrackFader(track);
     return track;
   }
 
   function removeTrack(trackId) {
     for (const clip of state.clips.filter((c) => c.trackId === trackId)) removeClip(clip.id);
     audio.removeTrack(trackId);
+    mixer.removeTrackFader(state.tracks.find((t) => t.id == trackId));
     state.tracks = state.tracks.filter((t) => t.id !== trackId);
     if (state.selectedTrackId === trackId) state.selectedTrackId = state.tracks[0]?.id ?? null;
   }
@@ -1722,7 +1736,7 @@
   let arrangement = document.querySelector(".arrangement");
   let editor = document.querySelector(".editor");
   let devices = document.querySelector(".devices");
-  let mixer = document.querySelector(".mixer");
+  let mixerPanel = document.querySelector(".mixer");
   
   dom.clipEditorTabBtn.addEventListener("click", () => {
     dom.clipEditorTabBtn.classList.toggle("on");
@@ -1783,12 +1797,12 @@
   function showMixer() {
     hideClipEditor();
     hideDevices();
-    mixer.style.display = "flex";
-    arrangement.style.flex = "0 0 35%";
+    mixerPanel.style.display = "flex";
+    arrangement.style.flex = "0 0 50%";
   }
   function hideMixer() {
     dom.mixerTabBtn.classList.remove("on");
-    mixer.style.display = "none";
+    mixerPanel.style.display = "none";
     arrangement.style.flex = "0 0 80%";
   }
   
@@ -1982,6 +1996,116 @@
     }
   }
 
+  class Mixer {
+    constructor() {
+      this.mixer = document.querySelector(".mixer");
+    }
+    
+    addTrackFader(track) {
+      try {
+        
+      
+      let faderContainer = document.createElement("div");
+      faderContainer.className = "track-fader-container";
+      this.mixer.appendChild(faderContainer);
+      
+    
+      faderContainer.innerHTML += `<label>${track.name}</label><input id="${track.id}-fader" type="range" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader"/>`
+      let numberInput = faderContainer.querySelector("input");
+      
+      numberInput.oninput = ()=> {
+        track.volume = numberInput.value;
+        audio.updateTrack(track);
+      }
+      console.log("track vol", track)
+      let muteButton = document.createElement("button");
+      muteButton.id=`${track.id}-mute`;
+      muteButton.innerText = "Mute";
+      muteButton.className = "btn mute-button";
+      faderContainer.appendChild(muteButton);
+      let soloedMuteButtons = [];
+      muteButton.onclick = async () => {
+        muteButton.classList.toggle("on");
+        if (!muteButton.classList.contains("on")) {
+          track.mute = false;
+          console.log("track unmuted")
+        }
+        else {
+          track.mute = true;
+          console.log("track muted")
+        }
+        audio.updateTrack(track);
+      };
+      
+      let soloButton = document.createElement("button");
+      soloButton.innerText = "Solo";
+      soloButton.className = "btn cyan solo-button";
+      soloButton.id=`${track.id}-solo`;
+      faderContainer.appendChild(soloButton);
+      soloButton.onclick = async () => {
+        let muteButtons = this.mixer.querySelectorAll(".mute-button");
+        
+        soloButton.classList.toggle("on");
+        if (soloButton.classList.contains("on")) {
+          track.mute = false;
+        
+          soloedMuteButtons.push(muteButton);
+        //  soloedMuteButtons = soloedMuteButtons.splice(soloedMuteButtons.indexOf(muteButton),1);
+          state.tracks.forEach(projectTrack => {
+            if (track != projectTrack) {
+              projectTrack.mute = true;
+              audio.updateTrack(projectTrack);
+            }
+          })
+          muteButtons.forEach(projectMuteButton => {
+            if (projectMuteButton != muteButton) {
+              
+              projectMuteButton.classList.add("on");
+              projectMuteButton.disabled="true";
+            }
+          })
+          
+          console.log("track solod")
+        }
+        else {
+          muteButtons.forEach(projectMuteButton => {
+            projectMuteButton.disabled="";
+            projectMuteButton.classList.remove("on");
+          })
+          
+          state.tracks.forEach(projectTrack => {
+            if (track != projectTrack) {
+              projectTrack.mute = false;
+              audio.updateTrack(projectTrack);
+            }
+          })
+          muteButtons.forEach(projectMuteButton => {
+            //if (projectMuteButton != muteButton) {
+              let projectSoloButton = projectMuteButton.closest(".fader-container").querySelector(".solo-button");
+             // if (!projectSoloButton.classList.contains("on")) {
+                projectMuteButton.disabled="";
+                projectMuteButton.classList.remove("on");
+            //  }
+           // }
+            console.log("soloed", soloedMuteButtons)
+          })
+          muteButton.classList.remove("on");
+        
+          console.log("track unsolod")
+        }
+        audio.updateTrack(track);
+      };
+      }
+      catch (error) {
+        console.log("AddTrackFader: " + error);
+      }
+    }
+    
+    removeTrackFader(track) {
+      
+    }
+  }
+  
   // ===== Init =====
   function layoutAll() {
     av.layout();
@@ -1991,6 +2115,8 @@
 
   var deviceBrowser = new DeviceBrowser();
   var presetBrowser = new PresetBrowser();
+  var mixer = new Mixer();
+  
   async function init() {
     await deviceBrowser.loadDevices();
     await presetBrowser.loadPresets();

@@ -361,7 +361,7 @@
     }
   },
   "instrument\\MembraneSynth\\Default": {},
-  "instrument\\MembraneSynth\\Kick": {
+  "instrument\\MembraneSynth\\PsyKick": {
     "detune": -1000,
     "pitchDecay": 0.05,
     "octaves": 8,
