@@ -87,16 +87,17 @@
   .scroller::-webkit-scrollbar-corner { background: #1c1c1c; }
   
   .devices, .mixer { flex: 1; min-height: 100; display: none; flex-direction: row; border-top: 2px solid black}
-  .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; width: 60px; border: 1px solid rgba(255,255,255,0.2); margin-left: 1px; margin-right: 1px; }
+  .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; width: 60px; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; margin: 1px; }
   .mixer .track-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: smaller; background: var(--panel); padding-top: 2px; padding-bottom: 2px; }
   .mixer .track-fader-container button { margin: 2px; }
-  .mixer .track-fader { writing-mode: vertical-lr;
-    direction: rtl; }
+  .mixer .track-fader { writing-mode: vertical-lr; direction: rtl; }
+  .mixer .track-fader-value { text-align: center; border: 0px; background: transparent; }
   .hint {
     padding: 3px 8px; background: var(--panel); border-top: 1px solid var(--border); flex: none;
     color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #midiFile { display: none; }
+}
 </style>
 </head>
 <body>
@@ -1798,7 +1799,7 @@
     hideClipEditor();
     hideDevices();
     mixerPanel.style.display = "flex";
-    arrangement.style.flex = "0 0 50%";
+    arrangement.style.flex = "0 0 47%";
   }
   function hideMixer() {
     dom.mixerTabBtn.classList.remove("on");
@@ -2010,14 +2011,24 @@
       this.mixer.appendChild(faderContainer);
       
     
-      faderContainer.innerHTML += `<label>${track.name}</label><input id="${track.id}-fader" type="range" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader"/>`
-      let numberInput = faderContainer.querySelector("input");
-      
-      numberInput.oninput = ()=> {
-        track.volume = numberInput.value;
+      faderContainer.innerHTML += `<label>${track.name}</label>
+        <input type="number" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value" />
+        <input id="${track.id}-fader" type="range" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader"/>`;
+        
+      let faderInput = faderContainer.querySelector("input[type=range]");
+      let faderValue = faderContainer.querySelector("input[type=number]");
+      faderInput.oninput = ()=> {
+        track.volume = faderInput.value;
+        faderValue.value = faderInput.value;
+        audio.updateTrack(track);
+      }
+      faderValue.oninput = ()=> {
+        track.volume = faderValue.value;
+        faderInput.value = faderValue.value;
         audio.updateTrack(track);
       }
       console.log("track vol", track)
+      
       let muteButton = document.createElement("button");
       muteButton.id=`${track.id}-mute`;
       muteButton.innerText = "Mute";
