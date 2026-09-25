@@ -1565,7 +1565,7 @@
     playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
     keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
     keyTextDark: "#333333", keyTextLight: "#b0b0b0",
-    clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipSelected: "#ffffff", message: "#777777",
+    clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
   };
 
   // ===== State =====
@@ -1618,7 +1618,7 @@
   const trackById = (id) => state.tracks.find((t) => t.id === id);
   const clipById = (id) => state.clips.find((c) => c.id === id);
   const currentClip = () => clipById(state.selectedClipId) ?? null;
-  const clipEnd = (clip) => clip.start + clip.length;
+  const clipEnd = (clip) => clip.end ? clip.end : clip.start + clip.length;
   const songEndBeats = () => Math.max(MIN_SONG_BEATS, ceilBars(state.clips.reduce((m, c) => Math.max(m, clipEnd(c)), 0)));
 
   function gridStep(mode, triplet, pxPerBeat) {
@@ -1690,7 +1690,7 @@
       });
     }
 
-    beatToX(beat) { return beat * this.pxPerBeat; }
+    beatToX(beats) { return beats * this.pxPerBeat; }
 
     // Visible viewport in content units.
     viewport() {
@@ -2023,22 +2023,56 @@
         ch.channel.dispose();
         chains.delete(trackId);
       },
+      beatsToTime: (beats) => { 
+        let remainingBeats = beats;
+        let bars = Math.floor(beats / 4);
+        remainingBeats -= (bars * 4);
+        let barBeats = Math.floor(beats % 4);
+        remainingBeats -= barBeats;
+        if (remainingBeats > 1) throw "eeror";
+        let beatSixteenths = remainingBeats * 4;
+        return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`); },
       rebuildClip: (clip) => {
-        const old = parts.get(clip.id);
-        if (old) old.dispose();
-        const ch = chain(clip.trackId);
-        if (!ch) throw "No chain found for track " + clip.trackId;
-        const events = clip.notes
-          .filter((n) => n.start < clip.length - EPS)
-          .map((n) => ({
-            time: toTicks(clip.start + n.start), 
-            hz: hz(n.pitch),
-            dur: toTicks(Math.min(n.duration, clip.length - n.start)), 
-            vel: n.velocity / 127,
-          }));
-        const part = new Tone.Part((time, ev) => ch.synth.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel), events);
-        part.start(0);
-        parts.set(clip.id, part);
+        
+        try {
+          const old = parts.get(clip.id);
+          if (old) old.dispose();
+          
+          const ch = chain(clip.trackId);
+          if (!ch) throw "No chain found for track " + clip.trackId;
+          //console.log("rebuildClip, create events", clip)
+          const events = clip.notes
+            .filter((n) => n.start < clip.length - EPS)
+            .map((n) => ({
+              //time: toTicks(clip.start + n.start), 
+              time: toTicks(n.start), 
+              hz: hz(n.pitch),
+              dur: toTicks(Math.min(n.duration, clip.length - n.start)), 
+              vel: n.velocity / 127,
+            }));
+          
+          const part = new Tone.Part((time, ev) => ch.synth.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel), events);
+          part.start(audio.beatsToTime(clip.start));
+          //console.log("part started", audio.beatsToTime(clip.start));
+          
+          //part.start(0);
+          //console.log("check repeating clip")
+          if (clip.end > clip.start + clip.length) {
+           // console.log("repeating clip")
+            let loopEnd = audio.beatsToTime(clip.length);
+            let partStop = audio.beatsToTime(clip.end);
+            part.loopStart = 0;
+            part.loopEnd = loopEnd;
+            part.loop = true;
+            part.stop(audio.beatsToTime(clip.end));
+           // console.log("part, start, loopEnd, clipEnd, partStop", clip.start, loopEnd.toBarsBeatsSixteenths(), clip.end, partStop.toBarsBeatsSixteenths())
+          }
+          //console.log("rebuild clip")
+          parts.set(clip.id, part);
+        }
+        catch (error) {
+          console.error("rebuild clip", error)
+        }
       },
       removeClip: (clipId) => {
         const part = parts.get(clipId);
@@ -2203,9 +2237,14 @@
     if (state.selectedTrackId === trackId) selectTrack(state.tracks[0]?.id ?? null);
   }
 
-  function createClip(track, start, length, notes = []) {
+  function createClip(track, start, length, notes = [], end = null) {
     const count = state.clips.filter((c) => c.trackId === track.id).length + 1;
-    const clip = { id: state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start, length, notes };
+    
+    if (!end) {
+      end = start + length;
+      console.log("determined clip end, start, length, end", start, length, end)
+    }
+    const clip = { id: state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start, length, end, notes };
     state.clips.push(clip);
     audio.rebuildClip(clip);
     return clip;
@@ -2318,7 +2357,8 @@
     for (const clip of state.clips) {
       const row = state.tracks.findIndex((t) => t.id === clip.trackId);
       if (row < firstRow || row > lastRow) continue;
-      const x0 = av.beatToX(clip.start) - sx, x1 = av.beatToX(clipEnd(clip)) - sx;
+      const x0 = av.beatToX(clip.start) - sx;
+      const x1 = av.beatToX(clipEnd(clip)) - sx;
       if (x1 < 0 || x0 > W) continue;
       const y = row * rh - sy + 2, h = rh - 5;
       const w = Math.max(2, x1 - x0 - 1);
@@ -2339,19 +2379,56 @@
       }
       // mini note preview
       const body = h - 16;
+      
       if (body > 6 && clip.notes.length) {
         let lo = 127, hi = 0;
         for (const n of clip.notes) { lo = Math.min(lo, n.pitch); hi = Math.max(hi, n.pitch); }
         const span = Math.max(hi - lo + 1, 12);
         const rowPx = body / span;
-        c.fillStyle = COLORS.clipNote;
-        for (const n of clip.notes) {
-          if (n.start >= clip.length) continue;
-          const nx = x0 + av.beatToX(n.start), nw = Math.max(1, av.beatToX(Math.min(n.duration, clip.length - n.start)) - 1);
-          const ny = y + 15 + (hi - n.pitch) * rowPx;
-          c.fillRect(Math.round(nx), ny, nw, Math.max(1, rowPx - 1));
+
+        
+        let clipRepeatStart = clip.start;
+        let clipRepeats = (clip.end - clip.start) / clip.length;
+        let clipWidth = (x1 - x0) / clipRepeats;
+        let clipStartX = x0;
+        c.strokeStyle = "rgba(0,0,0,0.5)";
+        c.lineWidth = "5px";
+        for (let clipRepeatIndex = 0; clipRepeatIndex < clipRepeats; clipRepeatIndex++) {
+          c.fillStyle = clipRepeatIndex == 0 ? COLORS.clipNote : COLORS.clipRepeatNote;
+          for (const n of clip.notes) {
+            if (n.start >= clip.length) continue;
+            const nx = clipStartX + av.beatToX(n.start);
+            if (nx > x1) continue;
+            const nw = Math.max(1, av.beatToX(Math.min(n.duration, clip.length - n.start)) - 1);
+            const ny = y + 15 + (hi - n.pitch) * rowPx;
+            c.fillRect(Math.round(nx), ny, nw, Math.max(1, rowPx - 1));
+          }
+
+          clipStartX += clipWidth;
+          c.beginPath();
+          c.moveTo(clipStartX + 0.5, y);
+          c.lineTo(clipStartX + 0.5, y + h);
+          c.closePath();
+          c.stroke();
         }
+       /* let clipStartX = x0;
+        while (clipRepeatStart <= clip.end) {
+          c.fillStyle = clipRepeatStart == clip.start ? COLORS.clipNote : COLORS.clipRepeatNote;
+          
+          
+          for (const n of clip.notes) {
+            let noteStart = clipRepeatStart + n.start;
+            if (noteStart >= clip.end) continue;
+            const nx = clipStartX + av.beatToX(noteStart);
+            const nw = Math.max(1, av.beatToX(Math.min(n.duration, clip.end - noteStart)) - 1);
+            const ny = y + 15 + (hi - n.pitch) * rowPx;
+            c.fillRect(Math.round(nx), ny, nw, Math.max(1, rowPx - 1));
+          }
+          clipStartX += 
+          clipRepeatStart += clip.length;
+        }*/
       }
+      
       if (selected) {
         c.strokeStyle = COLORS.clipSelected;
         c.lineWidth = 2;
@@ -3022,7 +3099,7 @@
       clips.forEach(c => {
         console.log("adding clip", c)
         const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-        const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes);
+        const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes, c.end);
         console.log("added clip")
         first = first ?? clip;
       })
@@ -3831,17 +3908,17 @@
     console.log("creating kick", EFFECTS[1]);
     const kick = addTrack("Kick", DEVICES[0], [EFFECTS[1], EFFECTS[0]]);
     console.log("creating kick clip", EFFECTS[0])
-    let kickClip = createClip(kick, 0, BEATS_PER_BAR / 4, mk([
+    createClip(kick, 0, BEATS_PER_BAR / 4, mk([
       [36, 0, 0.25]
-    ]));
-    selectClip(kickClip);
-    for (let copy = 1; copy <= 15; copy++)
-      duplicateClip();
-    console.log("created kick")
+    ]), 15);
+    createClip(kick, 16, BEATS_PER_BAR / 4, mk([
+      [36, 0, 0.25]
+    ]), 28);
+    console.log("created kick clip")
     
     console.log("creating bass")
     const bass = addTrack("Bass", DEVICES[1], null);
-    let bassClip = createClip(bass, 0, BEATS_PER_BAR, mk([ 
+    const bassNotes = mk([ 
       [29, 0.25, 0.2], 
       [32, 0.5, 0.25], 
       [34, 0.75, 0.2],
@@ -3857,35 +3934,29 @@
       [34, 3.25, 0.2], 
       [37, 3.5, 0.25], 
       [32, 3.75, 0.2]
-    ]));
-    selectClip(bassClip);
-    for (let copy = 1; copy <= 3; copy++)
-      duplicateClip();
+    ]);
+    createClip(bass, 4, BEATS_PER_BAR, bassNotes, 14);
+    createClip(bass, 16, BEATS_PER_BAR, bassNotes, 30);
     console.log("created bass")
     
     console.log("creating closedhat")
     const closedHat = addTrack("ClosedHat", DEVICES[2], null);
-    let chClip = createClip(closedHat, 0, BEATS_PER_BAR / 4, mk([ 
+    let chNotes = mk([ 
       [42, 0.0, 0.125], 
       [42, 0.25, 0.125], 
       [42, 0.5, 0.125],
       [42, 0.75, 0.125]
-    ]));
-    selectClip(chClip);
-    
-    for (let copy = 1; copy <= 15; copy++)
-      duplicateClip();
+    ]);
+    createClip(closedHat, 8, BEATS_PER_BAR / 4, chNotes, 14);
+    createClip(closedHat, 16, BEATS_PER_BAR / 4, chNotes, 30);
     console.log("created closed hat")
     
     console.log("creating opemhat")
     const openHat = addTrack("OpenHat", DEVICES[3], null);
-    let ohClip = createClip(openHat, 0, BEATS_PER_BAR / 4, mk([ 
+    let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([ 
       [42, 0.5, 0.125]
-    ]));
-    selectClip(ohClip);
+    ]), 30);
     
-    for (let copy = 1; copy <= 15; copy++)
-      duplicateClip();
     console.log("created open hat")
     
     deselectClip();
