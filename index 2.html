@@ -9,7 +9,20 @@
     :root {
     --bg: #1c1c1c; --panel: #2a2a2a; --border: #3b3b3b; --text: #d8d8d8; --muted: #8f8f8f;
     --accent: #f2b544; --play: #8be34d;
+
+    --knob-width: 28px;
+    --knob-height: 10px;
+    --knob-margin: -14px;
+    --knob-bg: rgba(95,201,216,0.7);;
+        
+    --disabled-bg: rgba(20, 20, 20, 0.5);
+    
+    --track-width: 4px;
+    --track-bg: rgba(95,201,216,0.2);
+    --track-border: 2px solid rgba(40,120,120,0.2);
+    --track-border-radius: 3.2px;
   }
+  
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
@@ -150,8 +163,104 @@
     margin-left: 0px;
     user-select: none; 
   }
+
+.mixer input[type=range] {
+  width: 10px;
+  margin-left: 25px;
+  margin-right: 20px;
+  background-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  
+  writing-mode: vertical-lr;
+  direction: rtl;
+  /* appearance: slider-vertical; */
 }
 
+.mixer  input[type="range"].disabled::-webkit-slider-runnable-track {
+  background: var(--disabled-bg);
+}
+
+.mixer  input[type=range]::-webkit-slider-runnable-track {
+  background: var(--track-bg);
+  border: var(--track-border);
+  border-radius: var(--track-border-radius);
+  width: var(--track-width);
+  cursor: pointer;
+}
+
+.mixer  input[type=range]::-webkit-slider-thumb {
+  width: var(--knob-width);
+  height: var(--knob-height);
+  
+  margin-left: var(--knob-margin);
+  background: var(--knob-bg);
+  border: 1px solid #1d5a50;
+  border-radius: 2px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  box-shadow: 1pt 1pt 1pt rgba(0, 0, 0, 0.5);
+}
+
+.mixer  input[type=range].disabled::-webkit-slider-thumb {
+  background: #1d5a50;
+}
+
+.mixer  input[type=range]::-moz-range-track {
+  background: yellow;
+  border: 2.2px solid #010101;
+  border-radius: 3.2px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.mixer  input[type=range]::-moz-range-thumb {
+  width: 150px;
+  border: 3.2px solid #0bb0ff;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.mixer  input[type=range]::-ms-track {
+  background: yellow;
+  /* border-color: transparent; */
+  border-width: 25.65px 0;
+  color: transparent;
+  width: 100%;
+  height2: 9.9px;
+  cursor: pointer;
+}
+
+.mixer  input[type=range]::-ms-thumb {
+  width: 150px;
+  height22: 36px;
+  background: #3e9ec4;
+  border: 3.2px solid #0bb0ff;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 0px;
+  /*Needed to keep the Edge thumb centred*/
+}
+
+
+.mixer  input[type="range"]::-moz-range-progress {
+  background-color: var(--fader-bg-progress);
+}
+
+.mixer  input[type="range"]::-moz-range-track {
+  background-color: var(--fader-bg-off);
+}
+
+.mixer  input[type="range"]::-ms-fill-lower {
+  background-color: var(--fader-bg-progress);
+  border: 2.2px solid #010101;
+  border-radius: 6.4px;
+}
+
+.mixer  input[type="range"]::-ms-fill-upper {
+  background-color: var(--fader-bg-off);
+}
+}
 
 </style>
 </head>
@@ -1409,7 +1518,7 @@
     
     <div class="instrument-panel"></div>
     <div class="effects-panel"></div>
-    <div class="mixer"></div>
+    <div class="mixer faders"></div>
 
     <div class="tab-strip">
       <button id="clip-editor-tab-button" class="btn on">Clip editor</button>
@@ -3758,13 +3867,13 @@
         
       
       let faderContainer = document.createElement("div");
-      faderContainer.className = "track-fader-container";
+      faderContainer.className = "track-fader-container faders";
       this.mixer.appendChild(faderContainer);
       
     
       faderContainer.innerHTML += `<label>${track.name}</label>
         <input type="number" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value" />
-        <input id="${track.id}-fader" type="range" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader"/>`;
+        <input id="${track.id}-fader" type="range" min="-100" max="0.0" step="0.1" value="${track.volume}" />`;
         
       let faderInput = faderContainer.querySelector("input[type=range]");
       let faderValue = faderContainer.querySelector("input[type=number]");
