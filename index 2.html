@@ -132,7 +132,7 @@
   .bottom-panel .tab-strip { border-top: 1pt solid black; }
   .bottom-panel .tab-strip button { font-size: 3vw; height: auto; }
     
-  #midiFile { display: none; }
+  #projectFile, #midiFile { display: none; }
   
   number-input {
     color: var(--text);
@@ -1339,6 +1339,9 @@
       <button id="delClipBtn" class="btn" title="Delete selected clip">Delete clip</button>
     </div>
     <div class="group">
+      <button id="loadBtn" class="btn" title="Load project">Load</button>
+      <input id="projectFile" type="file" accept=".json">
+      <button id="saveBtn" class="btn" title="Save project">Save</button>
       <span class="readout" style="min-width: 0">Zoom</span>
       <button id="arrZoomOutH" class="btn">H−</button><button id="arrZoomInH" class="btn">H+</button>
       <button id="arrZoomOutV" class="btn">V−</button><button id="arrZoomInV" class="btn">V+</button>
@@ -1566,7 +1569,8 @@
   };
 
   // ===== State =====
-  const state = {
+  var state = {
+    name: "Project01",
     bpm: 140,
     loop: true,
     follow: true,
@@ -1597,6 +1601,7 @@
     play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), loop: $("loopBtn"), follow: $("followBtn"),
     importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
+    loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
     trackHeaders: $("trackHeaders"),
     clipTitle: $("clipTitle"), len: $("lenInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
     snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"),
@@ -1987,11 +1992,20 @@
           ch.channel.mute = track.mute;
         }
         if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
+          let trackInstrument = makeToneNode(track.device.name, track.instrumentPreset);
+          trackInstrument.connect(channel);
+          let source = trackInstrument;
+          let trackEffects = makeToneNodes(track.effects);
+          trackEffects.forEach(fx => {
+            source.connect(fx);
+            source = fx;
+          });
           ch.synth.dispose();
-          ch.synth = makeToneNode(track.instrument, track.instrumentPreset).connect(ch.channel);
+          ch.synth = trackInstrument;
           console.log("updated synth", track.instrument, track.instrumentPreset);
           ch.instrument = track.instrument;
           ch.instrumentPreset = track.instrumentPreset;
+          ch.effects = track.effects
         }
       },
       getTrackSynth: (track) => {
@@ -2996,6 +3010,47 @@
     return parsed.tracks.length;
   }
 
+  function loadProject(projectData, fileName) {
+    console.log("loadProject " + fileName, projectData)
+    const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
+    let first = null;
+    for (const t of projectData.tracks) {
+      let track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEVICES[1]);
+      console.log("added track");
+      
+      let clips = projectData.clips.filter(c => c.trackId == t.id);
+      clips.forEach(c => {
+        console.log("adding clip", c)
+        const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
+        const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes);
+        console.log("added clip")
+        first = first ?? clip;
+      })
+    }
+    
+    console.log("loadProject parsed " + fileName, projectData)
+    state = projectData;
+    if (first) selectClip(first);
+    arrangementChanged();
+    editorClipChanged();
+    console.log("loaded project", state.tracks.length)
+    return projectData.tracks.length;
+  }
+  
+  function saveProject() {
+    let projectJson = JSON.stringify(state);
+    if (window.navigator.userAgent.toString().startsWith("Mozilla/5.0 (Linux; Android 16; SM-A556B")) {
+      console.log("Project saved", { "json": projectJson});
+      return;
+    }
+    
+    var a = document.createElement("a");
+    var file = new Blob([projectJson], { type: "text/plain" });
+    a.href = URL.createObjectURL(file);
+    a.download = `${state.name}.json`;
+    a.click();
+  }
+  
   dom.importBtn.addEventListener("click", () => dom.midiFile.click());
   dom.midiFile.addEventListener("change", async () => {
     const file = dom.midiFile.files[0];
@@ -3010,6 +3065,37 @@
     }
   });
 
+  dom.loadBtn.addEventListener("click", () => dom.projectFile.click());
+  dom.projectFile.addEventListener("change", async () => {
+    const file = dom.projectFile.files[0];
+    console.log("loading file", file)
+    dom.projectFile.value = "";
+    if (!file) return;
+    try {
+      var reader = new FileReader();
+      reader.addEventListener("load", (e) => {
+        var contents = e.target.result;
+        try {
+          let projectFile = JSON.parse(contents);
+          console.log("loading file", projectFile);
+          loadProject(projectFile, file.name.replace(/\.json?$/i, ""));
+        }
+        catch (error) {
+          console.error("Error while loading project", error)
+        }
+        finally {
+          projectFile.style.display = "none";
+        }
+      });
+  
+      reader.readAsText(file);
+    } catch (err) {
+      dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
+    }
+  });
+  
+  dom.saveBtn.addEventListener("click", () => saveProject());
+  
   // ===== Controls =====
   function setBpm(bpm) {
     state.bpm = bpm;
