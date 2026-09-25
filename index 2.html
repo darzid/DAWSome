@@ -156,7 +156,7 @@
 </style>
 </head>
 <body>
-    <script src="https://cdn.jsdelivr.net/gh/darzid/html-components@FocusFill/number-input/number-input.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/darzid/html-components@Quantize/number-input/number-input.js"></script>
 <script>
   let presetBankJson = {
   "effect\\AutoFilter\\Evolve": {
@@ -966,7 +966,8 @@
     "Knee": { "min": 0, "max": 40, "step": 0.1 },
     "Ratio": { "min": 1, "max": 20, "step": 0.01 },
     "AttackNoise": { "min": 0.1, "max": 20, "step": 0.01 },
-    "MaxPolyphony": { "min": 1, "max": 20, "step": 1 }
+    "MaxPolyphony": { "min": 1, "max": 20, "step": 1 },
+    "PitchDecay": { "min": 0, "max": "12000", "step": 0.01 },
   },
   
   "enumTypes": {
@@ -1111,7 +1112,7 @@
         "detune": "unitTypes/Cents",
         "portamento": "unitTypes/Time",
         "volume": "unitTypes/Decibels",
-        "pitchDecay": "unitTypes/Time",
+        "pitchDecay": "unitTypes/PitchDecay",
         "octaves": "unitTypes/Octaves",
         "envelope": "modules/AmplitudeEnvelope",
         "oscillator": "modules/OmniOscillator"
@@ -3228,8 +3229,12 @@
   function duplicateClip() {
     const clip = currentClip();
     if (!clip) return;
-    const copy = createClip(trackById(clip.trackId), clipEnd(clip), clip.length,
-      clip.notes.map((n) => ({ ...n, id: state.nextId++ })));
+    const copy = createClip(
+      trackById(clip.trackId), 
+      clipEnd(clip), 
+      clip.length,
+      clip.notes.map((n) => ({ ...n, id: state.nextId++ })), 
+      clipEnd(clip) + (clip.end - clip.start));
     selectClip(copy);
     arrangementChanged();
   }
@@ -3328,8 +3333,10 @@
     devicePanel.dataset.trackid = track.id;
     parentPanel.appendChild(devicePanel);
     
+    let deviceType = isInstrument ? "Instrument: &nbsp;" : "Effect: &nbsp;";
     let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
     devicePanel.innerHTML += `<div class="device-header">
+    ${deviceType}
         <select class="inst" title="Instrument">${deviceOptionsHtml}</select>
         <select class="instPreset" title="Preset"></select>
       </div>
