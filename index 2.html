@@ -1685,8 +1685,8 @@
 
   // ===== State =====
   var state = {
-    name: "Project01",
-    bpm: 140,
+    name: "DemoProject",
+    bpm: 146,
     loop: true,
     follow: true,
     drawClips: true,
@@ -2108,7 +2108,7 @@
           ch.channel.mute = track.mute;
         }
         if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset || track.effects.length > ch.effects.length) {
-          let trackInstrument = makeToneNode(track.device.name, track.instrumentPreset);
+          let trackInstrument = makeToneNode(track.instrument, track.instrumentPreset);
           trackInstrument.connect(ch.channel);
           let source = trackInstrument;
           let trackEffects = makeToneNodes(track.effects);
@@ -2671,6 +2671,7 @@
     presetSelect.innerHTML = "";
     if (!presets[deviceName]) 
       return;
+    console.log("found presets for " + deviceName, presets[deviceName])
     Object.keys(presets[deviceName]).forEach(presetName => {
       presetSelect.innerHTML += `<option value="${presetName}">${presetName}</option>`;
     })
@@ -3513,8 +3514,12 @@
         track.instrument = e.target.value;
         track.instrumentPreset = "default";
         audio.updateTrack(track);
+        
         deviceNode = audio.getTrackSynth(track);
-        console.log("device changed", deviceNode)
+        if (deviceNode.name !== track.instrument)
+          throw "mismatch"
+        fillDevicePresets(devicePanel, devicePresets, track.instrument);
+        console.log("device changed to " + track.instrument, deviceNode)
       }
       else {
         if (deviceNode.name === "") {
@@ -3526,11 +3531,11 @@
           let effects = audio.getTrackEffects(track);
           deviceNode = effects[effects.length - 1];
           console.log("added effect")
-          
+          fillDevicePresets(devicePanel, devicePresets, deviceNode.name);
           createDeviceHtml(effectsPanel, track, { name: "" }, effects.length, effectNames, effectPresets, false);
         }
       }
-      fillDevicePresets(devicePanel, devicePresets, deviceNode.name);
+      
       renderDeviceParameters(deviceNode);
       document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value }}));
     };
