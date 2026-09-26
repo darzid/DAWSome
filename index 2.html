@@ -11,7 +11,7 @@
     --accent: #f2b544; --play: #8be34d;
 
     --knob-width: 28px;
-    --knob-height: 10px;
+    --knob-height: 14px;
     --knob-margin: -14px;
     --knob-bg: rgba(95,201,216,0.7);;
         
@@ -114,6 +114,7 @@
   .instrument-panel {}
   .device { background: var(--panel); height: max-content; padding-bottom: 5pt; } 
   .device .device-header { display: flex; flex-direction: row; background: rgba(70,70,70,0.5); height: auto; font-size: 3.5vw; font-weight: bold; padding-left: 0.2em; border-bottom: 1px solid rgba(180,180,180,0.5); }
+  .device .device-header button { border: 1pt solid transparent; background: transparent; margin: 0pt; padding: 0pt; }
   .device .device-header select.inst { max-width: 50vw; height: auto; float: right; }
   .device .device-header select.instPreset { max-width: 50vw; height: auto; margin-left: auto; margin-right: 2pt; float: right; }
   
@@ -3452,7 +3453,7 @@
     editor.style.display = "none";
   }
   
-  function createDeviceHtml(parentPanel, track, deviceNode, deviceNames, devicePresets, isInstrument = true) {
+  function createDeviceHtml(parentPanel, track, deviceNode, deviceIndex, deviceNames, devicePresets, isInstrument = true) {
     console.log("create device html", parentPanel, track, deviceNode, deviceNames);
     
     let devicePanel = document.createElement("div");
@@ -3462,13 +3463,29 @@
     
     let deviceType = isInstrument ? "Instrument: &nbsp;" : "Effect: &nbsp;";
     let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
-    devicePanel.innerHTML += `<div class="device-header">
+    devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
         ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
-        <select class="instPreset" title="Preset"></select>
+        <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
       </div>
       <div class="device-parameters"></div>`;
     
     let parametersPanel = devicePanel.querySelector(".device-parameters");
+    let prevBtn = devicePanel.querySelector(".prev");
+    let nextBtn = devicePanel.querySelector(".next");
+    if (!isInstrument) {
+      console.log("dev indez", deviceIndex)
+      prevBtn.style.display = "inline";
+      nextBtn.style.display = "inline";
+      prevBtn.disabled = deviceIndex == 0 ? "disabled" : "";
+      nextBtn.disabled = deviceIndex == track.effects.length ? "disabled" : "";
+      prevBtn.onclick = (e)=> devicePanel.previousElementSibling.scrollIntoView();
+      nextBtn.onclick = (e)=> devicePanel.nextElementSibling.scrollIntoView();
+      
+    }
+    else {
+      prevBtn.style.display = "none";
+      nextBtn.style.display = "none";
+    }
     let instrumentSelect = devicePanel.querySelector(".inst");
     console.log("get instrument select", instrumentSelect);
     let instrumentPresetSelect = devicePanel.querySelector(".instPreset");
@@ -3498,7 +3515,7 @@
           deviceNode = effects[effects.length - 1];
           console.log("added effect")
           
-          createDeviceHtml(effectsPanel, track, { name: "" }, effectNames, effectPresets, false);
+          createDeviceHtml(effectsPanel, track, { name: "" }, effects.length, effectNames, effectPresets, false);
         }
       }
       fillDevicePresets(devicePanel, devicePresets, deviceNode.name);
@@ -3621,7 +3638,7 @@
     
     let deviceToInspect = audio.getTrackSynth(track);
     parentPanel.innerHTML = "";
-    createDeviceHtml(parentPanel, track, deviceToInspect, instrumentNames, instrumentPresets, true);
+    createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, true);
     parentPanel.style.display = "flex";
   }
   
@@ -3651,8 +3668,8 @@
     let trackEffects = audio.getTrackEffects(track);
     
     effectsPanel.innerHTML = "";
-    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, effectNames, effectPresets, false));
-    createDeviceHtml(effectsPanel, track, { name: "" }, effectNames, effectPresets, false);
+    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, trackEffects.indexOf(fx), effectNames, effectPresets, false));
+    createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, false);
     effectsPanel.style.display = "flex";
   }
   
@@ -3966,6 +3983,7 @@
             if (track != projectTrack) {
               projectTrack.mute = true;
               audio.updateTrack(projectTrack);
+              document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: projectTrack.id, muted: true }}));
             }
           })
           muteButtons.forEach(projectMuteButton => {
@@ -3988,6 +4006,7 @@
             if (track != projectTrack) {
               projectTrack.mute = false;
               audio.updateTrack(projectTrack);
+              document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: projectTrack.id, muted: false }}));
             }
           })
           muteButtons.forEach(projectMuteButton => {
