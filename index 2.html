@@ -2328,13 +2328,20 @@
   }
   
   // ===== Model operations =====
-  function addTrack(name, device, effects) {
+  function addTrack(name, instrument, effects) {
     if (!effects) effects = []
-    console.log("add track model")
+    
+    let devices = [];
+    devices.push(instrument);
+    effects.forEach(fx => devices.push(fx));
+    console.log("add track model", devices)
     const track = {
       id: state.nextId++, name, color: TRACK_COLORS[state.tracks.length % TRACK_COLORS.length],
-      instrument: device.name, instrumentPreset: device.parameters, instrumentPresetName: "Default", device: device, 
-      effects: effects, mute: false,
+      instrument: instrument.name, instrumentPreset: instrument.parameters, instrumentPresetName: "Default", 
+      device: instrument, 
+      devices: devices,
+      effects: effects, 
+      mute: false,
       volume: -8
     };
     state.tracks.push(track);
