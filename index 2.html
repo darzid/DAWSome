@@ -2068,6 +2068,17 @@
       });
       return effects;
     }
+    const connectDevices = (ch) => {
+      console.log("connecting devices");
+      let source = ch.synth;
+      console.log("connecting devices, srx", source);
+      ch.effects.forEach(fx => {
+        source.connect(fx);
+        source = fx;
+      });
+      source.connect(ch.channel);
+    };
+    
     const chain = (trackId) => chains.get(trackId);
 
     return {
@@ -2083,20 +2094,14 @@
         console.log("adding track")
         const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
-        let trackInstrument = makeToneNode(track.devices[0].name, track.instrumentPreset);
-        trackInstrument.connect(channel);
-        let source = trackInstrument;
-        let trackEffects = makeToneNodes(track.effects);
-        trackEffects.forEach(fx => {
-          source.connect(fx);
-          source = fx;
-        });
-        source.connect(channel);
         chains.set(track.id, { 
-          synth: trackInstrument, 
+          synth: makeToneNode(track.devices[0].name, track.instrumentPreset), 
           channel, 
           instrument: track.devices[0].name,
-          effects: trackEffects});
+          effects: makeToneNodes(track.effects)});
+        
+        const ch = chain(track.id);
+        connectDevices(ch);
         console.log("added track", chain(track.id));
       },
       updateTrack: (track) => {
@@ -2108,23 +2113,20 @@
         if (ch.channel.mute != track.mute) {
           ch.channel.mute = track.mute;
         }
-        if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset || track.effects.length > ch.effects.length) {
-          let trackInstrument = makeToneNode(track.instrument, track.instrumentPreset);
-          trackInstrument.connect(ch.channel);
-          let source = trackInstrument;
-          let trackEffects = makeToneNodes(track.effects);
-          trackEffects.forEach(fx => {
-            source.connect(fx);
-            source = fx;
-          });
+        if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
           ch.synth.dispose();
-          ch.synth = trackInstrument;
+          ch.synth = makeToneNode(track.instrument, track.instrumentPreset);
           console.log("updated synth", track.instrument, track.instrumentPreset);
           ch.instrument = track.instrument;
           ch.instrumentPreset = track.instrumentPreset;
-          ch.effects = trackEffects
+          connectDevices(ch);
+        }
+        if (track.effects.length > ch.effects.length) {
+          ch.effects = makeToneNodes(track.effects);
+          connectDevices(ch);
         }
       },
+      
       getTrackSynth: (track) => {
         const ch = chain(track.id);
         return ch.synth;
@@ -3493,9 +3495,18 @@
     hideInstrument();
     hideEffects();
     hideMixer();
+    
+    console.log("th", dom.trackHeaders);
+    
+    
     dom.clipEditorTabBtn.classList.add("on");
     editor.style.display = "flex";
     dom.loopClip.classList.toggle("on", currentClip().loop);
+    
+    /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
+    const trackElement = trackHeader.closest(".track");
+    trackElement.scrollIntoView();
+    console.log("scroll into view", trackElement);*/
   }
   
   function hideClipEditor() {
@@ -3555,7 +3566,7 @@
         track.instrumentPreset = "default";
         audio.updateTrack(track);
         
-        deviceNode = audio.getTrackSynth(track);
+        trackDeviceNode = audio.getTrackSynth(track);
         if (trackDeviceNode.name !== track.instrument)
           throw "mismatch"
         fillDevicePresets(devicePanel, devicePresets, track.instrument);
@@ -3588,8 +3599,7 @@
       
       console.log("Preset selected " + e.target.value, track.instrumentPreset)
       audio.updateTrack(track);
-      deviceNode = audio.getTrackSynth(track);
-      renderDeviceParameters(deviceNode);
+      renderDeviceParameters();
       document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value }}));
     };
     
