@@ -114,8 +114,9 @@
   .instrument-panel {}
   .device { background: var(--panel); height: max-content; padding-bottom: 5pt; } 
   .device .device-header { display: flex; flex-direction: row; background: rgba(70,70,70,0.5); height: auto; font-size: 3.5vw; font-weight: bold; padding-left: 0.2em; border-bottom: 1px solid rgba(180,180,180,0.5); }
-  .device .device-header select.inst { max-width: 50vw; height: auto; }
-  .device .device-header select.instPreset { max-width: 50vw; height: auto; margin-left: auto; margin-right: 2pt; }
+  .device .device-header select.inst { max-width: 50vw; height: auto; float: right; }
+  .device .device-header select.instPreset { max-width: 50vw; height: auto; margin-left: auto; margin-right: 2pt; float: right; }
+  
   .device .device-parameters { max-height: 200px; display: flex; flex-direction: column; width: 100vw; overflow-y: auto; padding: 5px; }
   .device .device-parameters .parameter { flex-direction: row; }
   .device .device-parameters .parameter label { display: inline-block; width: 60vw; color: var(--muted); font-size: 3.5vw; vertical-align: middle; text-overflow: ellipsis; overflow: hidden; }
@@ -1439,6 +1440,7 @@
       <label>BPM <input id="bpmInput" type="number" min="20" max="300" step="1" value="140"></label>
       <button id="loopBtn" class="btn on" title="Loop the arrangement">Loop</button>
       <button id="followBtn" class="btn on" title="Scroll with the playhead">Follow</button>
+      <button id="drawClipsBtn" class="btn on" title="Draw clips">Draw</button>
     </div>
     <div class="group">
       <button id="importBtn" class="btn" title="Import a Standard MIDI File (.mid)">Import MIDI</button>
@@ -1684,6 +1686,7 @@
     bpm: 140,
     loop: true,
     follow: true,
+    drawClips: true,
     playing: false,
     playheadBeat: 0,
     tracks: [],          // { id, name, color, instrument, mute }
@@ -1708,11 +1711,11 @@
   // ===== DOM =====
   const $ = (id) => document.getElementById(id);
   const dom = {
-    play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), loop: $("loopBtn"), follow: $("followBtn"),
+    play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
     importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
     loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
-    trackHeaders: $("trackHeaders"),
+    trackHeadersWrap: $("trackHeadersWrap"), trackHeaders: $("trackHeaders"),
     clipTitle: $("clipTitle"), len: $("lenInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
     snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"),
     edKeysWrap: $("edKeysWrap"), edKeysCanvas: $("edKeysCanvas"), hint: $("hint"),
@@ -2101,9 +2104,9 @@
         if (ch.channel.mute != track.mute) {
           ch.channel.mute = track.mute;
         }
-        if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
+        if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset || track.effects.length > ch.effects.length) {
           let trackInstrument = makeToneNode(track.device.name, track.instrumentPreset);
-          trackInstrument.connect(channel);
+          trackInstrument.connect(ch.channel);
           let source = trackInstrument;
           let trackEffects = makeToneNodes(track.effects);
           trackEffects.forEach(fx => {
@@ -2115,7 +2118,7 @@
           console.log("updated synth", track.instrument, track.instrumentPreset);
           ch.instrument = track.instrument;
           ch.instrumentPreset = track.instrumentPreset;
-          ch.effects = track.effects
+          ch.effects = trackEffects
         }
       },
       getTrackSynth: (track) => {
@@ -2368,6 +2371,8 @@
 
   function deselectClip() {
     state.selectedClipId = null;
+    ed.selected.clear();
+    editorClipChanged();
   }
   function selectClip(clip) {
     if (state.selectedClipId === clip.id) return;
@@ -2501,7 +2506,7 @@
         let clipRepeats = (clip.end - clip.start) / clip.length;
         let clipWidth = (x1 - x0) / clipRepeats;
         let clipStartX = x0;
-        c.strokeStyle = "rgba(0,0,0,0.5)";
+        c.strokeStyle = "rgba(100,100,100,0.5)";
         c.lineWidth = "5px";
         for (let clipRepeatIndex = 0; clipRepeatIndex < clipRepeats; clipRepeatIndex++) {
           c.fillStyle = clipRepeatIndex == 0 ? COLORS.clipNote : COLORS.clipRepeatNote;
@@ -2596,6 +2601,11 @@
     dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
   });
 
+  dom.trackHeadersWrap.addEventListener("click", (e) => {
+    console.log("click", e.currentTarget, e.target, e.srcElement)
+    if (e.target === dom.trackHeadersWrap) deselectTrack();
+  }
+  );
   dom.trackHeaders.addEventListener("click", (e) => {
     const el = e.target.closest(".track");
     if (!el) return;
@@ -2619,7 +2629,10 @@
       return false;
     }
     arrangementChanged();
+    e.preventDefault();
+    e.cancelBubble();
   });
+  
   dom.trackHeaders.addEventListener("change", (e) => {
     const el = e.target.closest(".track");
     if (!el) return;
@@ -2669,7 +2682,11 @@
     if (av.trackDown(e)) { aDrag = null; return; }
     const p = av.point(e);
     const clip = clipAt(p.beat, p.row);
-    if (!clip) return;
+    if (!clip) {
+      deselectClip();
+      console.log("deselect xlip")
+      return;
+    }
     selectClip(clip);
     aDrag = {
       type: onClipRightEdge(clip, p.x) ? "resize" : "move", pointerId: e.pointerId, clip,
@@ -2734,6 +2751,7 @@
     const track = state.tracks[p.row];
     if (!track || clipAt(p.beat, p.row)) return;
     const start = snapFloor(p.beat, BEATS_PER_BAR);
+    if (!state.drawClips) return;
     selectClip(createClip(track, start, BEATS_PER_BAR));
     arrangementChanged();
   });
@@ -3313,7 +3331,7 @@
   dom.bpm.addEventListener("change", () => setBpm(clamp(Number(dom.bpm.value) || state.bpm, 20, 300)));
   bindToggle(dom.loop, state, "loop", () => audio.setLoop(state.loop, songEndBeats()));
   bindToggle(dom.follow, state, "follow", () => {});
-
+  bindToggle(dom.drawClips, state, "drawClips", () => {});
   dom.addTrack.addEventListener("click", () => {
     addTrack(`Track ${state.tracks.length + 1}`, DEVICES[1]);
     arrangementChanged();
@@ -3445,8 +3463,7 @@
     let deviceType = isInstrument ? "Instrument: &nbsp;" : "Effect: &nbsp;";
     let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
     devicePanel.innerHTML += `<div class="device-header">
-    ${deviceType}
-        <select class="inst" title="Instrument">${deviceOptionsHtml}</select>
+        ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
         <select class="instPreset" title="Preset"></select>
       </div>
       <div class="device-parameters"></div>`;
@@ -3467,10 +3484,23 @@
         track.instrument = e.target.value;
         track.instrumentPreset = "default";
         audio.updateTrack(track);
+        deviceNode = audio.getTrackSynth(track);
+        console.log("device changed", deviceNode)
       }
-      
-      deviceNode = audio.getTrackSynth(track);
-      console.log("device changed", deviceNode)
+      else {
+        if (deviceNode.name === "") {
+          track.effects.push(
+            {name: e.target.value, parameters: {}}
+          );
+          audio.updateTrack(track);
+          console.log("updated track")
+          let effects = audio.getTrackEffects(track);
+          deviceNode = effects[effects.length - 1];
+          console.log("added effect")
+          
+          createDeviceHtml(effectsPanel, track, { name: "" }, effectNames, effectPresets, false);
+        }
+      }
       fillDevicePresets(devicePanel, devicePresets, deviceNode.name);
       renderDeviceParameters(deviceNode);
       document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value }}));
@@ -3622,6 +3652,7 @@
     
     effectsPanel.innerHTML = "";
     trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, effectNames, effectPresets, false));
+    createDeviceHtml(effectsPanel, track, { name: "" }, effectNames, effectPresets, false);
     effectsPanel.style.display = "flex";
   }
   
