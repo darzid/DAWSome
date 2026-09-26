@@ -1627,7 +1627,7 @@
         release: 1.4
       }
     }
-   },
+  },
   {
     name: "MetalSynth",
     type: "Instrument",
@@ -1647,8 +1647,7 @@
         "releaseCurve": "exponential"
       }
     }
-  
-}
+  }
   ];
   
   const EFFECTS = [
@@ -1659,7 +1658,7 @@
       "knee": 25,
       "ratio": 20,
       "attack": 0.6,
-      "release:": 0.25
+      "release": 0.25
     }
   },
   {
@@ -2060,6 +2059,8 @@
     const makeToneNode = (name, parameters) => new Tone[name](parameters);
     const makeToneNodes = (effectInfos) => {
       let effects = [];
+      if (!effectInfos) return effects;
+      
       effectInfos.forEach(effectInfo => {
         let effect = makeToneNode(effectInfo.name, effectInfo.parameters);
         effects.push(effect);
@@ -2108,9 +2109,6 @@
         if (ch.channel.volume != track.volume) {
           ch.channel.volume.value = track.volume;
         }
-        if (ch.channel.mute != track.mute) {
-          ch.channel.mute = track.mute;
-        }
         if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
           ch.synth.dispose();
           ch.synth = makeToneNode(track.instrument, track.instrumentPreset);
@@ -2146,7 +2144,7 @@
         remainingBeats -= (bars * 4);
         let barBeats = Math.floor(beats % 4);
         remainingBeats -= barBeats;
-        if (remainingBeats > 1) throw "eeror";
+        if (remainingBeats > 1) throw "error";
         let beatSixteenths = remainingBeats * 4;
         return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`); },
       rebuildClip: (clip) => {
