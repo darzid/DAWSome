@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MIDI Arranger</title>
+<title>DAWSome</title>
 <link rel="stylesheet" href="midi-arranger.css">
 <style>
     :root {
@@ -114,13 +114,14 @@
   .instrument-panel {}
   .device { background: var(--panel); height: max-content; padding-bottom: 5pt; } 
   .device .device-header { display: flex; flex-direction: row; background: rgba(70,70,70,0.5); height: auto; font-size: 3.5vw; font-weight: bold; padding-left: 0.2em; border-bottom: 1px solid rgba(180,180,180,0.5); }
+  .device .device-header .prev { margin-right: 4pt; }
   .device .device-header button { border: 1pt solid transparent; background: transparent; margin: 0pt; padding: 0pt; }
   .device .device-header select.inst { max-width: 50vw; height: auto; float: right; }
-  .device .device-header select.instPreset { max-width: 50vw; height: auto; margin-left: auto; margin-right: 2pt; float: right; }
+  .device .device-header select.instPreset { max-width: 50vw; height: auto; margin-left: auto; margin-right: 4pt; float: right; }
   
   .device .device-parameters { max-height: 200px; display: flex; flex-direction: column; width: 100vw; overflow-y: auto; padding: 5px; }
   .device .device-parameters .parameter { flex-direction: row; }
-  .device .device-parameters .parameter label { display: inline-block; width: 60vw; color: var(--muted); font-size: 3.5vw; vertical-align: middle; text-overflow: ellipsis; overflow: hidden; }
+  .device .device-parameters .parameter label { display: inline-block; width: 60vw;  color: var(--muted); font-size: 3.5vw; vertical-align: middle; text-overflow: ellipsis; overflow: hidden; }
   .device .device-parameters .parameter input { margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-size: 2.5vw; height: auto; }
   .device .device-parameters .parameter select { margin-left: 0.2em; margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-size: 2.5vw; font-weight: bold; height: auto; text-align: center; }
   
@@ -129,7 +130,7 @@
   .mixer::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
   .mixer::-webkit-scrollbar-corner { background: #1c1c1c; }
   
-  .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; width: 60px; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; margin: 1px; }
+  .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; width: 60px; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; margin: 1px; background: rgba(50,50,50,0.2)}
   .mixer .track-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: smaller; background: var(--panel); padding-top: 2px; padding-bottom: 2px; }
   .mixer .track-fader-container button { margin: 2px; }
   .mixer .track-fader { writing-mode: vertical-lr; direction: rtl; margin-bottom: 10px; }
@@ -1478,6 +1479,7 @@
       <div class="toolbar">
         <div class="group"><span id="clipTitle" class="title">No clip selected</span>
           <label>Len <input id="lenInput" type="number" min="0.25" max="256" step="0.25" value="1"> bars</label>
+          <button id="loopClipBtn" class="btn">Loop</button>
         </div>
         <div class="group">
           <label>Grid
@@ -1697,7 +1699,7 @@
     selectedClipId: null,
   };
   const ed = {           // clip-editor settings
-    gridMode: "medium", triplet: false, snap: true, drawMode: true,
+    gridMode: "medium", triplet: false, snap: true, loop: true, drawMode: true,
     lastDuration: 0.25, selected: new Set(), activeKey: null,
   };
   var deviceList = null;
@@ -1717,7 +1719,7 @@
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
     loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
     trackHeadersWrap: $("trackHeadersWrap"), trackHeaders: $("trackHeaders"),
-    clipTitle: $("clipTitle"), len: $("lenInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
+    clipTitle: $("clipTitle"), len: $("lenInput"), loopClip: $("loopClipBtn"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
     snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"),
     edKeysWrap: $("edKeysWrap"), edKeysCanvas: $("edKeysCanvas"), hint: $("hint"),
     clipEditorTabBtn: $("clip-editor-tab-button"), instrumentTabBtn: $("instrument-panel-tab-button"), effectsTabBtn: $("effects-panel-tab-button"), mixerTabBtn: $("mixer-tab-button"), 
@@ -2171,7 +2173,7 @@
           
           //part.start(0);
           //console.log("check repeating clip")
-          if (clip.end > clip.start + clip.length) {
+          if (clip.loop) { //clip.end > clip.start + clip.length
            // console.log("repeating clip")
             let loopEnd = audio.beatsToTime(clip.length);
             let partStop = audio.beatsToTime(clip.end);
@@ -2358,7 +2360,8 @@
       end = start + length;
       console.log("determined clip end, start, length, end", start, length, end)
     }
-    const clip = { id: state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start, length, end, notes };
+    let loop = end - start > length;
+    const clip = { id: state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
     state.clips.push(clip);
     audio.rebuildClip(clip);
     return clip;
@@ -3382,6 +3385,14 @@
     dom.gridReadout.textContent = editorGrid().label;
     ev.requestRender();
   });
+  dom.loopClip.addEventListener("click", () => {
+    const clip = currentClip();
+    if (!clip) return;
+    dom.loopClip.classList.toggle("on");
+    clip.loop = dom.loopClip.classList.contains("on");
+    console.log("loop changed", clip.loop)
+  });
+  bindToggle(dom.loopClip, ed, "loop", () => {});
   bindToggle(dom.triplet, ed, "triplet", () => { dom.gridReadout.textContent = editorGrid().label; ev.requestRender(); });
   bindToggle(dom.snap, ed, "snap", () => {});
   dom.draw.addEventListener("click", () => setDrawMode(!ed.drawMode));
@@ -3446,6 +3457,7 @@
     hideMixer();
     dom.clipEditorTabBtn.classList.add("on");
     editor.style.display = "flex";
+    dom.loopClip.classList.toggle("on", currentClip().loop);
   }
   
   function hideClipEditor() {
