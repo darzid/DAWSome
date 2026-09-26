@@ -25,30 +25,32 @@
           "release": 0.1
         }
       },
-      "instrumentPresetName": "Default",
-      "device": {
-        "name": "MembraneSynth",
-        "type": "Instrument",
-        "parameters": {
-          "detune": -1000,
-          "pitchDecay": 0.05,
-          "octaves": 8,
-          "volume": 0,
-          "envelope": {
-            "attack": 0.001,
-            "attackCurve": "linear",
-            "decay": 0.1,
-            "sustain": 0.2,
-            "release": 0.1
-          }
-        }
-      },
-      "effects": [
+      "devices": [
+        {
+          "name": "MembraneSynth",
+          "type": "Instrument",
+          "parameters": {
+            "detune": -1000,
+            "pitchDecay": 0.05,
+            "octaves": 8,
+            "volume": 0,
+            "envelope": {
+              "attack": 0.001,
+              "attackCurve": "linear",
+              "decay": 0.1,
+              "sustain": 0.2,
+              "release": 0.1
+            }
+          },
+          "presetName": "PsyKick"
+        },
         {
           "name": "Distortion",
           "parameters": {
             "distortion": 10.4
-          }
+          },
+          "type": "Effect",
+          "presetName": "Default"
         },
         {
           "name": "Compressor",
@@ -58,7 +60,31 @@
             "ratio": 20,
             "attack": 0.6,
             "release:": 0.25
-          }
+          },
+          "type": "Effect",
+          "presetName": "Default"
+        }
+      ],
+      "effects": [
+        {
+          "name": "Distortion",
+          "parameters": {
+            "distortion": 10.4
+          },
+          "type": "Effect",
+          "presetName": "Default"
+        },
+        {
+          "name": "Compressor",
+          "parameters": {
+            "threshold": -12,
+            "knee": 25,
+            "ratio": 20,
+            "attack": 0.6,
+            "release:": 0.25
+          },
+          "type": "Effect",
+          "presetName": "Default"
         }
       ],
       "mute": false,
@@ -99,41 +125,43 @@
           "octaves": 5
         }
       },
-      "instrumentPresetName": "Default",
-      "device": {
-        "name": "MonoSynth",
-        "type": "Instrument",
-        "parameters": {
-          "volume": 0,
-          "portamento": 0,
-          "oscillator": {
-            "type": "sawtooth"
+      "devices": [
+        {
+          "name": "MonoSynth",
+          "type": "Instrument",
+          "parameters": {
+            "volume": 0,
+            "portamento": 0,
+            "oscillator": {
+              "type": "sawtooth"
+            },
+            "filter": {
+              "Q": 0.3,
+              "detune": -1000,
+              "frequency": 0,
+              "gain": 0,
+              "rolloff": -48,
+              "type": "bandpass"
+            },
+            "envelope": {
+              "attack": 0.01,
+              "decay": 0.4,
+              "sustain": 0.01,
+              "release": 0.01
+            },
+            "filterEnvelope": {
+              "attack": 0.1,
+              "decay": 1.3,
+              "sustain": 1,
+              "release": 0.7,
+              "releaseCurve": "linear",
+              "baseFrequency": 20,
+              "octaves": 5
+            }
           },
-          "filter": {
-            "Q": 0.3,
-            "detune": -1000,
-            "frequency": 0,
-            "gain": 0,
-            "rolloff": -48,
-            "type": "bandpass"
-          },
-          "envelope": {
-            "attack": 0.01,
-            "decay": 0.4,
-            "sustain": 0.01,
-            "release": 0.01
-          },
-          "filterEnvelope": {
-            "attack": 0.1,
-            "decay": 1.3,
-            "sustain": 1,
-            "release": 0.7,
-            "releaseCurve": "linear",
-            "baseFrequency": 20,
-            "octaves": 5
-          }
+          "presetName": "PsyBass"
         }
-      },
+      ],
       "effects": [],
       "mute": false,
       "volume": -8
@@ -155,23 +183,25 @@
           "release": 1.4
         }
       },
-      "instrumentPresetName": "Default",
-      "device": {
-        "name": "MetalSynth",
-        "type": "Instrument",
-        "parameters": {
-          "volume": -10,
-          "portamento": 100,
-          "modulationIndex": 1,
-          "octaves": 0,
-          "envelope": {
-            "attack": 0.01,
-            "decay": 0.05,
-            "sustain": 0.1,
-            "release": 1.4
-          }
+      "devices": [
+        {
+          "name": "MetalSynth",
+          "type": "Instrument",
+          "parameters": {
+            "volume": -10,
+            "portamento": 100,
+            "modulationIndex": 1,
+            "octaves": 0,
+            "envelope": {
+              "attack": 0.01,
+              "decay": 0.05,
+              "sustain": 0.1,
+              "release": 1.4
+            }
+          },
+          "presetName": "ClosedHat"
         }
-      },
+      ],
       "effects": [],
       "mute": false,
       "volume": -8
@@ -197,27 +227,29 @@
           "releaseCurve": "exponential"
         }
       },
-      "instrumentPresetName": "Default",
-      "device": {
-        "name": "MetalSynth",
-        "type": "Instrument",
-        "parameters": {
-          "volume": -7.5,
-          "portamento": 0,
-          "harmonicity": 0.65,
-          "modulationIndex": 1,
-          "octaves": 0,
-          "envelope": {
-            "attack": 0.01,
-            "attackCurve": "linear",
-            "decay": 0.715,
-            "decayCurve": "expontential",
-            "sustain": 0.05,
-            "release": 0.3,
-            "releaseCurve": "exponential"
-          }
+      "devices": [
+        {
+          "name": "MetalSynth",
+          "type": "Instrument",
+          "parameters": {
+            "volume": -7.5,
+            "portamento": 0,
+            "harmonicity": 0.65,
+            "modulationIndex": 1,
+            "octaves": 0,
+            "envelope": {
+              "attack": 0.01,
+              "attackCurve": "linear",
+              "decay": 0.715,
+              "decayCurve": "expontential",
+              "sustain": 0.05,
+              "release": 0.3,
+              "releaseCurve": "exponential"
+            }
+          },
+          "presetName": "Default"
         }
-      },
+      ],
       "effects": [],
       "mute": false,
       "volume": -8
@@ -548,6 +580,6 @@
     }
   ],
   "nextId": 31,
-  "selectedTrackId": null,
+  "selectedTrackId": 1,
   "selectedClipId": null
 }
