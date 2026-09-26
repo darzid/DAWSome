@@ -2116,7 +2116,7 @@
         if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
           ch.synth.dispose();
           ch.synth = makeToneNode(track.instrument, track.instrumentPreset);
-          console.log("updated synth", track.instrument, track.instrumentPreset);
+          //console.log("updated synth", track.instrument, track.instrumentPreset);
           ch.instrument = track.instrument;
           ch.instrumentPreset = track.instrumentPreset;
           connectDevices(ch);
@@ -2159,7 +2159,7 @@
           
           const ch = chain(clip.trackId);
           if (!ch) throw "No chain found for track " + clip.trackId;
-          //console.log("rebuildClip, create events", clip)
+          console.log("rebuildClip, create events", clip)
           const events = clip.notes
             .filter((n) => n.start < clip.length - EPS)
             .map((n) => ({
@@ -3515,9 +3515,6 @@
   }
   
   function createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, isInstrument = true) {
-    let trackDeviceState = track.devices[deviceIndex].parameters;
-    let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
-    console.log("create device html", track, trackDeviceNode, trackDeviceState);
     
     let devicePanel = document.createElement("div");
     devicePanel.className = "device";
@@ -3535,6 +3532,7 @@
     let parametersPanel = devicePanel.querySelector(".device-parameters");
     let prevBtn = devicePanel.querySelector(".prev");
     let nextBtn = devicePanel.querySelector(".next");
+
     if (!isInstrument) {
       console.log("dev indez", deviceIndex)
       prevBtn.style.display = "inline";
@@ -3543,7 +3541,6 @@
       nextBtn.disabled = deviceIndex == track.effects.length ? "disabled" : "";
       prevBtn.onclick = (e)=> devicePanel.previousElementSibling.scrollIntoView();
       nextBtn.onclick = (e)=> devicePanel.nextElementSibling.scrollIntoView();
-      
     }
     else {
       prevBtn.style.display = "none";
@@ -3560,6 +3557,7 @@
       instrumentPresetSelect.value = track.devices[0].presetName;
       console.log("Preset", track.devices[0].presetName)
     }
+    
     instrumentSelect.oninput = (e) => {
       if (isInstrument) {
         track.instrument = e.target.value;
@@ -3574,16 +3572,23 @@
       }
       else {
         if (trackDeviceNode.name === "") {
-          track.effects.push(
-            {name: e.target.value, parameters: {}}
-          );
+          let newFx = {name: e.target.value, parameters: {}};
+          track.effects.push(newFx);
+          track.devices.push(newFx);
           audio.updateTrack(track);
-          console.log("updated track")
+          console.log("updated track with new effect " + e.target.value);
           let effects = audio.getTrackEffects(track);
           trackDeviceNode = effects[effects.length - 1];
-          console.log("added effect")
+          console.log("added effect", trackDeviceNode)
           fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
-          createDeviceHtml(effectsPanel, track, { name: "" }, effects.length, effectNames, effectPresets, false);
+          
+          nextBtn.disabled = deviceIndex == track.effects.length ? "disabled" : "";
+          renderDeviceParameters();
+          createDeviceHtml(effectsPanel, track, { name: "", parameters: {}}, effects.length, effectNames, effectPresets, false);
+        }
+        else {
+          fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
+          
         }
       }
       
@@ -3607,8 +3612,13 @@
     
     function renderDeviceParameters() {
       parametersPanel.innerHTML = "";
+      if (deviceIndex < track.devices.length) {
+        let trackDeviceState = track.devices[deviceIndex].parameters;
+        let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
+        console.log("create device html", track, trackDeviceNode, trackDeviceState);
       
-      Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata));
+        Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata));
+      }
     }
     
     function createParamHtml(parameterPath, deviceMetadata) {
