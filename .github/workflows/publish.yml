@@ -21,63 +21,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout branch
         uses: actions/checkout@v4
-
-      - name: Merge CSS and scripts into HTML
+        
+      - name: Merge CSS and script into HTML
         run: |
           mkdir -p _site
 
           node <<'NODE'
           const fs = require('fs');
 
-          let html = fs.readFileSync('DAWSome.html', 'utf8');
+          const html = fs.readFileSync('DAWSome.html', 'utf8');
           const css = fs.readFileSync('DAWSome.css', 'utf8');
-
+          const styleBlock = `<style>\n${css}\n</style>\n`;
+          
+          const mainScript = fs.readFileSync('DAWSome.js', 'utf8');
+          const mainScriptBlock = `<script>\n${mainScript}\n</script>\n`;
+          
+          const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
+          const dataScriptBlock = `<script>\n${dataScript}\n</script>\n`;
+          
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
 
-          html = html.replace(/<\/head>/i, `<style>\n${css}\n</style>\n</head>`);
-
-          if (fs.existsSync('DAWSome.js')) {
-            const mainScript = fs.readFileSync('DAWSome.js', 'utf8');
-            html = html.replace(/<\/body>/i, `<script>\n${mainScript}\n</script>\n</body>`);
-          }
-
-          if (fs.existsSync('DAWSome-data.js')) {
-            const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
-            html = html.replace(/<\/body>/i, `<script>\n${dataScript}\n</script>\n</body>`);
-          }
-
-          if (!/rel=["']manifest["']/i.test(html)) {
-            html = html.replace(
-              /<\/head>/i,
-              `<link rel="manifest" href="./manifest.json">\n<meta name="theme-color" content="#f2b544">\n</head>`
-            );
-          }
-
-          if (!/serviceWorker/i.test(html)) {
-            html = html.replace(
-              /<\/body>/i,
-              `<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js', { scope: './' })
-      .catch((err) => console.warn('SW registration failed:', err));
-  });
-}
-</script>\n</body>`
-            );
-          }
-
-          fs.writeFileSync('_site/index.html', html);
+          const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
+            .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
+            .replace(/<script src="DAWSome.js"><\/script>/i, `${mainScriptBlock}`);
+          
+          fs.writeFileSync('_site/index.html', merged);
           NODE
-
-      - name: Copy PWA support files
-        run: |
-          cp manifest.json _site/manifest.json
-          cp service-worker.js _site/service-worker.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
