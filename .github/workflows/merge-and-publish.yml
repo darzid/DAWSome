@@ -1,0 +1,66 @@
+name: Build and publish merged DAWSome page
+
+on:
+  push:
+    branches:
+      - DAWSome2
+    paths:
+      - DAWSome.html
+      - DAWSome.css
+      - .github/workflows/merge-css-and-publish.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout DAWSome2
+        uses: actions/checkout@v4
+        with:
+          ref: DAWSome2
+
+      - name: Merge CSS into HTML
+        run: |
+          mkdir -p _site
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const html = fs.readFileSync('DAWSome.html', 'utf8');
+          const css = fs.readFileSync('DAWSome.css', 'utf8');
+          const styleBlock = `<style>\n${css}\n</style>\n`;
+
+          if (!/<\/head>/i.test(html)) {
+            throw new Error('DAWSome.html does not contain a </head> tag');
+          }
+
+          const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`);
+          fs.writeFileSync('_site/index.html', merged);
+          NODE
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
