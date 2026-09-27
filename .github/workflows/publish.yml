@@ -23,34 +23,117 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
-        
-      - name: Merge CSS and script into HTML
+
+      - name: Merge CSS and scripts into HTML
         run: |
           mkdir -p _site
 
           node <<'NODE'
           const fs = require('fs');
 
-          const html = fs.readFileSync('DAWSome.html', 'utf8');
-          const css = fs.readFileSync('DAWSome.css', 'utf8');
+          let html = fs.readFileSync('DAWSome.html', 'utf8');
+          let css = fs.readFileSync('DAWSome.css', 'utf8');
+
           const styleBlock = `<style>\n${css}\n</style>\n`;
-          
-          const mainScript = fs.readFileSync('DAWSome.js', 'utf8');
-          const mainScriptBlock = `<script>\n${mainScript}\n</script>\n`;
-          
-          const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
-          const dataScriptBlock = `<script>\n${dataScript}\n</script>\n`;
-          
+
+          // Merge CSS into head
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
+          html = html.replace(/<\/head>/i, `${styleBlock}</head>`);
 
-          const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
-            .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
-            .replace(/<script src="DAWSome.js"><\/script>/i, `${mainScriptBlock}`);
-          
-          fs.writeFileSync('_site/index.html', merged);
+          // Merge DAWSome.js if it exists
+          if (fs.existsSync('DAWSome.js')) {
+            const mainScript = fs.readFileSync('DAWSome.js', 'utf8');
+            const mainScriptBlock = `<script>\n${mainScript}\n</script>\n`;
+            html = html.replace(/<\/body>/i, `${mainScriptBlock}</body>`);
+          }
+
+          // Merge DAWSome-data.js if it exists
+          if (fs.existsSync('DAWSome-data.js')) {
+            const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
+            const dataScriptBlock = `<script>\n${dataScript}\n</script>\n`;
+            html = html.replace(/<\/body>/i, `${dataScriptBlock}</body>`);
+          }
+
+          // Add manifest link if needed
+          if (!/rel=["']manifest["']/i.test(html)) {
+            html = html.replace(
+              /<\/head>/i,
+              `<link rel="manifest" href="./manifest.json">\n<meta name="theme-color" content="#f2b544">\n</head>`
+            );
+          }
+
+          // Add service worker registration if needed
+          if (!/serviceWorker/i.test(html)) {
+            html = html.replace(
+              /<\/body>/i,
+              `<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+      .catch((err) => console.warn('SW registration failed:', err));
+  });
+}
+</script>\n</body>`
+            );
+          }
+
+          fs.writeFileSync('_site/index.html', html);
           NODE
+
+      - name: Generate app icons
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Create simple PNG icons using a data URL approach
+          // These are minimal 1x1 PNGs that we'll expand
+          const createSimpleIcon = (size) => {
+            // Create a simple PNG buffer for a solid color square
+            // This is a minimal valid PNG with the accent color
+            const width = size;
+            const height = size;
+            
+            // We'll use a simpler approach: create an SVG and convert to PNG via imagemagick
+            // For now, create placeholder files that the workflow can handle
+            const color = '#f2b544';
+            
+            // Simple base64 PNG (1x1 transparent for now - placeholder)
+            // In production, you'd use imagemagick or similar
+            const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+              <defs>
+                <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#f2b544;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#e0a33c;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <rect width="${width}" height="${height}" fill="url(#grad)"/>
+              <text x="50%" y="50%" font-size="${Math.floor(width * 0.4)}" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#1c1c1c" font-family="Arial, sans-serif">D</text>
+            </svg>`;
+            
+            return Buffer.from(svgData);
+          };
+          
+          // Write SVG versions for now
+          fs.writeFileSync('icon-192.svg', createSimpleIcon(192).toString());
+          fs.writeFileSync('icon-512.svg', createSimpleIcon(512).toString());
+          NODE
+
+      - name: Convert SVG icons to PNG
+        run: |
+          # Install imagemagick if needed
+          which convert || sudo apt-get update && sudo apt-get install -y imagemagick
+          
+          # Convert SVGs to PNGs
+          convert -background none icon-192.svg -resize 192x192 _site/icon-192.png
+          convert -background none icon-512.svg -resize 512x512 _site/icon-512.png
+
+      - name: Copy PWA support files
+        run: |
+          cp manifest.json _site/manifest.json
+          cp service-worker.js _site/service-worker.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
