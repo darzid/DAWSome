@@ -1363,7 +1363,6 @@ jobs:
           }
 
           fs.writeFileSync('_site/index.html', merged);
-          NODE
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
