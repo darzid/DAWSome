@@ -2127,7 +2127,7 @@
           channel, 
           instrument: track.devices[0].name,
           effects: makeToneNodes(track.effects),
-          modulators: makeToneNodes(track.modulators)
+          modulators: makeToneNodes(track.modulators.map(m => m.modulator))
         });
         console.log("made chain")
         const ch = chain(track.id);
@@ -3775,13 +3775,17 @@
     
     }
     else if (isLFO) {
-      let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
-      let targetParameterSelect = devicePanel.querySelector(".targetParameter");
-      fillTargetParameters(targetDeviceSelect, targetParameterSelect);
-      targetDeviceSelect.oninput = (e) => {
-        fillTargetParameters(targetDeviceSelect, targetParameterSelect);
-      }
+      let modulation = track.modulators[deviceIndex];
       
+      let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
+      targetDeviceSelect.value = modulation.targetDeviceIndex;
+      
+      let targetParameterSelect = devicePanel.querySelector(".targetParameter");
+      
+      fillTargetParameters(targetDeviceSelect, targetParameterSelect);
+      targetParameterSelect.value = modulation.targetParameter;
+      
+      targetDeviceSelect.oninput = (e) => fillTargetParameters(targetDeviceSelect, targetParameterSelect);
     }
     
     renderDeviceParameters();
@@ -4382,7 +4386,7 @@
     const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));
     
     console.log("creating kick", EFFECTS[1]);
-    const kick = addTrack("Kick", DEVICES[0], [EFFECTS[1], EFFECTS[0]], [MODULATORS[0]]);
+    const kick = addTrack("Kick", DEVICES[0], [EFFECTS[1], EFFECTS[0]]);
     console.log("creating kick clip", EFFECTS[0])
     createClip(kick, 0, BEATS_PER_BAR / 4, mk([
       [36, 0, 0.25]
@@ -4393,7 +4397,7 @@
     console.log("created kick clip")
     
     console.log("creating bass")
-    const bass = addTrack("Bass", DEVICES[1], null, [MODULATORS[0]]);
+    const bass = addTrack("Bass", DEVICES[1], null, [{ modulator: MODULATORS[0], targetDeviceIndex: 0, targetParameter: "filter.frequency"}]);
     const bassNotes = mk([ 
       [29, 0.25, 0.2], 
       [32, 0.5, 0.25], 
