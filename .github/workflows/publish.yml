@@ -46,7 +46,7 @@ jobs:
           }
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
-            .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`
+            .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
             .replace(/<script src="DAWSome.js"><\/script>/i, `${mainScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
