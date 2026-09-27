@@ -26,7 +26,7 @@ jobs:
         with:
           ref: DAWSome2
 
-      - name: Merge CSS into HTML
+      - name: Merge CSS and script into HTML
         run: |
           mkdir -p _site
 
@@ -35,13 +35,17 @@ jobs:
 
           const html = fs.readFileSync('DAWSome.html', 'utf8');
           const css = fs.readFileSync('DAWSome.css', 'utf8');
+          const script = fs.readFileSync('DAWSome.js', 'utf8');
           const styleBlock = `<style>\n${css}\n</style>\n`;
+          const scriptBlock = `<script>\n${script}\n</script>\n`;
 
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
 
-          const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`);
+          const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
+            .replace(/<script src="DAWSome.js"><\/script>/i, `${scriptBlock}`);
+          
           fs.writeFileSync('_site/index.html', merged);
           NODE
 
