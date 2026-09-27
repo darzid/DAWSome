@@ -41,12 +41,20 @@ jobs:
           const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
           const dataScriptBlock = `<script>\n${dataScript}\n</script>\n`;
           
+          const presetBrowserScript = fs.readFileSync('presetbrowser.js', 'utf8');
+          const presetBrowserScriptBlock = `<script>\n${presetBrowserScript}\n</script>\n`;
+          
+          const mixerScript = fs.readFileSync('mixer.js', 'utf8');
+          const mixerScriptBlock = `<script>\n${mixerScript}\n</script>\n`;
+          
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
             .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
+            .replace(/<script src="presetbrowser.js"><\/script>/i, `${presetBrowserScriptBlock}`)
+            .replace(/<script src="mixer.js"><\/script>/i, `${mixerScriptBlock}`)
             .replace(/<script src="DAWSome.js"><\/script>/i, `${mainScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
