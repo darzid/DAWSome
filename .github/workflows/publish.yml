@@ -59,7 +59,7 @@ jobs:
           
           fs.writeFileSync('_site/index.html', merged);
           
-          cp favicon.ico _site
+          cp 'favicon.ico' '_site/favicon.ico'
           NODE
 
       - name: Upload Pages artifact
