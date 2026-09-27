@@ -112,12 +112,13 @@
   .editor3 { font-size: 1.5vw; }
   
   .instrument-panel {}
+  .effects-panel { overflow-x: hidden; }
   .device { background: var(--panel); height: max-content; padding-bottom: 5pt; } 
   .device .device-header { display: flex; flex-direction: row; background: rgba(70,70,70,0.5); height: auto; font-size: 3.5vw; font-weight: bold; padding-left: 0.2em; border-bottom: 1px solid rgba(180,180,180,0.5); }
   .device .device-header .prev { margin-right: 4pt; }
   .device .device-header button { border: 1pt solid transparent; background: transparent; margin: 0pt; padding: 0pt; }
-  .device .device-header select.inst { max-width: 50vw; height: auto; float: right; }
-  .device .device-header select.instPreset { max-width: 50vw; height: auto; margin-left: auto; margin-right: 4pt; float: right; }
+  .device .device-header select.inst, select.targetDevice { max-width: 50vw; height: auto; float: right; }
+  .device .device-header select.instPreset, select.targetParameter { max-width: 50vw; height: auto; margin-left: auto; margin-right: 4pt; float: right; }
   
   .device .device-parameters { max-height: 200px; display: flex; flex-direction: column; width: 100vw; overflow-y: auto; padding: 5px; }
   .device .device-parameters .parameter { flex-direction: row; }
@@ -1147,7 +1148,9 @@
         "decayCurve": "enumTypes/EnvelopeCurve",
         "sustain": "unitTypes/NormalRange",
         "release": "unitTypes/AdrRange",
-        "releaseCurve": "enumTypes/EnvelopeCurve"
+        "releaseCurve": "enumTypes/EnvelopeCurve",
+        "baseFrequency": "unitTypes/Frequency",
+        "octaves": "unitTypes/Octaves",
       }
     },
 
@@ -1523,12 +1526,14 @@
     
     <div class="instrument-panel"></div>
     <div class="effects-panel"></div>
+    <div class="modulation-panel"></div>
     <div class="mixer faders"></div>
 
     <div class="tab-strip">
       <button id="clip-editor-tab-button" class="btn on">Clip editor</button>
       <button id="instrument-panel-tab-button" class="btn">Instrument</button>
       <button id="effects-panel-tab-button" class="btn">Effects</button>
+      <button id="modulation-panel-tab-button" class="btn">Modulation</button>
       <button id="mixer-tab-button" class="btn">Mixer</button>
     </div>
   </div>
@@ -1670,6 +1675,13 @@
   }
   ];
   
+  const MODULATORS = [
+    {
+      name: "LFO",
+      parameters: {}
+    }
+  ];
+    
   const COLORS = {
     void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
     laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
@@ -1708,6 +1720,8 @@
   var instrumentPresets = {};
   var effectPresetNames = [];
   var effectPresets = {};
+  var modulatorNames = ["LFO"];
+  var modulatorPresets = {};
   var presets = null;
   
   // ===== DOM =====
@@ -1721,7 +1735,7 @@
     clipTitle: $("clipTitle"), len: $("lenInput"), loopClip: $("loopClipBtn"), end: $("endInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
     snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"),
     edKeysWrap: $("edKeysWrap"), edKeysCanvas: $("edKeysCanvas"), hint: $("hint"),
-    clipEditorTabBtn: $("clip-editor-tab-button"), instrumentTabBtn: $("instrument-panel-tab-button"), effectsTabBtn: $("effects-panel-tab-button"), mixerTabBtn: $("mixer-tab-button"), 
+    clipEditorTabBtn: $("clip-editor-tab-button"), instrumentTabBtn: $("instrument-panel-tab-button"), effectsTabBtn: $("effects-panel-tab-button"), modulationTabBtn: $("modulation-panel-tab-button"), mixerTabBtn: $("mixer-tab-button"), 
   };
 
   // ===== Helpers =====
@@ -1745,6 +1759,7 @@
     let beatSixteenths = remainingBeats * 4;
     return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
   }
+  const isObject = (value) => { typeof value === 'object' && !Array.isArray(value) && value !== null; }
   
   function gridStep(mode, triplet, pxPerBeat) {
     if (mode === "off") return { step: null, label: "Off" };
@@ -2068,15 +2083,16 @@
       envelope: { attack: 0.005, decay: 0.12, sustain: 0.6, release: 0.3 },
     });*/
     const makeToneNode = (name, parameters) => new Tone[name](parameters);
-    const makeToneNodes = (effectInfos) => {
-      let effects = [];
-      if (!effectInfos) return effects;
+    const makeToneNodes = (deviceInfos) => {
+      let devices = [];
+      if (!deviceInfos || deviceInfos.length == 0) return devices;
       
-      effectInfos.forEach(effectInfo => {
-        let effect = makeToneNode(effectInfo.name, effectInfo.parameters);
-        effects.push(effect);
+      deviceInfos.forEach(deviceInfo => {
+        console.log("Making tone node " + deviceInfo.name);
+        let device = makeToneNode(deviceInfo.name, deviceInfo.parameters);
+        devices.push(device);
       });
-      return effects;
+      return devices;
     }
     const connectDevices = (ch) => {
       console.log("connecting devices");
@@ -2104,12 +2120,16 @@
         console.log("adding track")
         const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
-        chains.set(track.id, { 
+        
+        chains.set(track.id, 
+        { 
           synth: makeToneNode(track.devices[0].name, track.instrumentPreset), 
           channel, 
           instrument: track.devices[0].name,
-          effects: makeToneNodes(track.effects)});
-        
+          effects: makeToneNodes(track.effects),
+          modulators: makeToneNodes(track.modulators)
+        });
+        console.log("made chain")
         const ch = chain(track.id);
         connectDevices(ch);
         console.log("added track", chain(track.id));
@@ -2132,6 +2152,9 @@
           ch.effects = makeToneNodes(track.effects);
           connectDevices(ch);
         }
+        if (track.modulators.length > ch.modulators.length) {
+          ch.modulators = makeToneNodes(track.modulators);
+        }
       },
       
       getTrackSynth: (track) => {
@@ -2141,6 +2164,18 @@
       getTrackEffects: (track) => {
         const ch = chain(track.id);
         return ch.effects;
+      },
+      getTrackDevices: (track) => {
+        const ch = chain(track.id);
+        return [ch.synth, ch.effects];
+      },
+      getTrackModulators: (track) => {
+        const ch = chain(track.id);
+        if (!ch.modulators) {
+          console.log("chain doesnt have modulstora")
+          return [];
+        }
+        return ch.modulators;
       },
       removeTrack: (trackId) => {
         const ch = chain(trackId);
@@ -2329,9 +2364,11 @@
   }
   
   // ===== Model operations =====
-  function addTrack(name, instrument, effects) {
+  function addTrack(name, instrument, effects, modulators = null) {
     if (!effects) effects = []
+    if (!modulators) modulators = [];
     
+    console.log("addTrack " + name)
     let devices = [];
     instrument.presetName = "Default";
     devices.push(instrument);
@@ -2340,21 +2377,32 @@
       fx.presetName = "Default";
       devices.push(fx);
     });
+    console.log("addingTrack " + name)
+    //modulators.forEach(modulator => devices.push(modulator));
     console.log("add track model", devices)
     const track = {
-      id: state.nextId++, name, color: TRACK_COLORS[state.tracks.length % TRACK_COLORS.length],
-      instrument: instrument.name, instrumentPreset: instrument.parameters, 
+      id: state.nextId++, 
+      name, 
+      color: TRACK_COLORS[state.tracks.length % TRACK_COLORS.length],
+      instrument: instrument.name, 
+      instrumentPreset: instrument.parameters, 
       //device: instrument, 
       devices: devices,
       effects: effects, 
+      modulators: modulators,
       mute: false,
       volume: -8
     };
-    state.tracks.push(track);
+    try {
+      state.tracks.push(track);
     audio.addTrack(track);
     selectTrack(track);
     mixer.addTrackFader(track);
     console.log("added track model", track)
+    }
+    catch (error) {
+      console.error("error while adding track", error)
+    }
     return track;
   }
 
@@ -3433,13 +3481,13 @@
     notesChanged();
   });
   
-  console.log("finding elements")
   let arrangement = document.querySelector(".arrangement");
   let editor = document.querySelector(".editor");
   let instrumentPanel = document.querySelector(".instrument-panel");
   let effectsPanel = document.querySelector(".effects-panel");
+  let modulationPanel = document.querySelector(".modulation-panel");
   let mixerPanel = document.querySelector(".mixer");
-  console.log("found elements")
+
   dom.clipEditorTabBtn.addEventListener("click", () => {
     dom.clipEditorTabBtn.classList.toggle("on");
     if (dom.clipEditorTabBtn.classList.contains("on")) {
@@ -3470,6 +3518,16 @@
     }
   });
   
+  dom.modulationTabBtn.addEventListener("click", () => {
+    dom.modulationTabBtn.classList.toggle("on");
+    if (dom.modulationTabBtn.classList.contains("on")) {
+      showModulationPanel();
+    }
+    else {
+      hideModulationPanel();
+    }
+  });
+  
   dom.mixerTabBtn.addEventListener("click", () => {
     dom.mixerTabBtn.classList.toggle("on");
     if (dom.mixerTabBtn.classList.contains("on")) {
@@ -3483,6 +3541,7 @@
   function showClipEditor() {
     hideInstrument();
     hideEffects();
+    hideModulationPanel();
     hideMixer();
     
     console.log("th", dom.trackHeaders);
@@ -3503,27 +3562,143 @@
     editor.style.display = "none";
   }
   
-  function createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, isInstrument = true) {
+  
+  function showInstrument() {
+    hideClipEditor();
+    hideEffects();
+    hideModulationPanel();
+    hideMixer();
     
+    let parentPanel = instrumentPanel;
+    
+    let track = state.tracks.find(track => track.id === state.selectedTrackId);
+    if (!track) {
+      parentPanel.style.display = "none";
+      return;
+    }
+
+    if (!dom.instrumentTabBtn.classList.contains("on")) {
+      dom.instrumentTabBtn.classList.add("on");
+    }
+    
+    let deviceToInspect = audio.getTrackSynth(track);
+    parentPanel.innerHTML = "";
+    createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
+    parentPanel.style.display = "flex";
+  }
+  
+  function hideInstrument() {
+    dom.instrumentTabBtn.classList.remove("on");
+    instrumentPanel.style.display = "none";
+  }
+  
+  function showEffects() {
+    hideClipEditor();
+    hideInstrument();
+    hideModulationPanel();
+    hideMixer();
+    effectsPanel.style.display = "flex";
+    let track = state.tracks.find(track => track.id === state.selectedTrackId);
+    if (!track) {
+      console.log("no track fx")
+      effectsPanel.style.display = "none";
+      return;
+    }
+    else {
+      if (!dom.effectsTabBtn.classList.contains("on")) {
+        dom.effectsTabBtn.classList.add("on");
+      }
+    }
+    let trackEffects = audio.getTrackEffects(track);
+    
+    effectsPanel.innerHTML = "";
+    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+    createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+    effectsPanel.style.display = "flex";
+  }
+  
+  function hideEffects() {
+    dom.effectsTabBtn.classList.remove("on");
+    effectsPanel.style.display = "none";
+  }
+  
+  function showModulationPanel() {
+    hideClipEditor();
+    hideInstrument();
+    hideEffects();
+    hideMixer();
+    
+    modulationPanel.style.display = "flex";
+    let track = state.tracks.find(track => track.id === state.selectedTrackId);
+    if (!track) {
+      console.log("no track")
+      modulationPanel.style.display = "none";
+      return;
+    }
+    else {
+      if (!dom.modulationTabBtn.classList.contains("on")) {
+        dom.modulationTabBtn.classList.add("on");
+      }
+    }
+  
+    let trackModulators = audio.getTrackModulators(track);
+
+    modulationPanel.innerHTML = "";
+    trackModulators.forEach(mod => createDeviceHtml(modulationPanel, track, mod, trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+    createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+    modulationPanel.style.display = "flex";
+  }
+  
+  function hideModulationPanel() {
+    dom.modulationTabBtn.classList.remove("on");
+    modulationPanel.style.display = "none";
+  }
+  
+  function showMixer() {
+    hideClipEditor();
+    hideInstrument();
+    hideEffects();
+    hideModulationPanel();
+    mixerPanel.style.display = "flex";
+  }
+  function hideMixer() {
+    dom.mixerTabBtn.classList.remove("on");
+    mixerPanel.style.display = "none";
+  }
+  
+  function createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {''
     let devicePanel = document.createElement("div");
     devicePanel.className = "device";
     devicePanel.dataset.trackid = track.id;
     parentPanel.appendChild(devicePanel);
     
-    let deviceType = isInstrument ? "Instrument: &nbsp;" : "Effect: &nbsp;";
-    let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
-    devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
-        ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
-        <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
-      </div>
-      <div class="device-parameters"></div>`;
+    let isInstrument = panelType == "Instrument";
+    let isLFO = panelType == "LFO";
+    let hasPresets = !isLFO;
+    
+    let isMultiDevicePanel = panelType != "Instrument";
+    if (isLFO) {
+      let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+      devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
+          Target: <select class="targetDevice" title="Target device">${targetDeviceOptionsHtml}</select>
+          <select class="targetParameter" title="Target parameter"></select><button class="next">⏩️</button>
+        </div>
+        <div class="device-parameters"></div>`;
+    } else {
+      let deviceType = `${panelType}: &nbsp;`;
+      let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
+      devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
+          ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
+          <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
+        </div>
+        <div class="device-parameters"></div>`;
+    }
     
     let parametersPanel = devicePanel.querySelector(".device-parameters");
     let prevBtn = devicePanel.querySelector(".prev");
     let nextBtn = devicePanel.querySelector(".next");
 
-    if (!isInstrument) {
-      console.log("dev indez", deviceIndex)
+    if (isMultiDevicePanel) {
       prevBtn.style.display = "inline";
       nextBtn.style.display = "inline";
       prevBtn.disabled = deviceIndex == 0 ? "disabled" : "";
@@ -3535,19 +3710,21 @@
       prevBtn.style.display = "none";
       nextBtn.style.display = "none";
     }
-    let instrumentSelect = devicePanel.querySelector(".inst");
-    console.log("get instrument select", instrumentSelect);
-    let instrumentPresetSelect = devicePanel.querySelector(".instPreset");
-    console.log("inst preset select", instrumentPresetSelect);
     
-    instrumentSelect.value = trackDeviceNode.name;
-    fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
-    if (isInstrument) {
-      instrumentPresetSelect.value = track.devices[0].presetName;
-      console.log("Preset", track.devices[0].presetName)
-    }
-    
-    instrumentSelect.oninput = (e) => {
+    if (hasPresets) {
+      let instrumentSelect = devicePanel.querySelector(".inst");
+      console.log("get instrument select", instrumentSelect);
+      let instrumentPresetSelect = devicePanel.querySelector(".instPreset");
+      console.log("inst preset select", instrumentPresetSelect);
+      
+      instrumentSelect.value = trackDeviceNode.name;
+      fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
+      if (isInstrument) {
+        instrumentPresetSelect.value = track.devices[0].presetName;
+        console.log("Preset", track.devices[0].presetName)
+      }
+      
+      instrumentSelect.oninput = (e) => {
       if (isInstrument) {
         track.instrument = e.target.value;
         track.instrumentPreset = "default";
@@ -3573,11 +3750,10 @@
           
           nextBtn.disabled = deviceIndex == track.effects.length ? "disabled" : "";
           renderDeviceParameters();
-          createDeviceHtml(effectsPanel, track, { name: "", parameters: {}}, effects.length, effectNames, effectPresets, false);
+          createDeviceHtml(effectsPanel, track, { name: "", parameters: {}}, effects.length, effectNames, effectPresets, "Effect");
         }
         else {
           fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
-          
         }
       }
       
@@ -3597,6 +3773,17 @@
       document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value }}));
     };
     
+    }
+    else if (isLFO) {
+      let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
+      let targetParameterSelect = devicePanel.querySelector(".targetParameter");
+      fillTargetParameters(targetDeviceSelect, targetParameterSelect);
+      targetDeviceSelect.oninput = (e) => {
+        fillTargetParameters(targetDeviceSelect, targetParameterSelect);
+      }
+      
+    }
+    
     renderDeviceParameters();
     
     function renderDeviceParameters() {
@@ -3607,6 +3794,50 @@
         console.log("create device html", track, trackDeviceNode, trackDeviceState);
       
         Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata));
+      }
+    }
+    
+    function fillTargetParameters(targetDeviceSelect, targetParameterSelect) {
+      targetParameterSelect.innerHTML = "";
+      let trackDevice = track.devices[targetDeviceSelect.value];
+      let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
+    
+      let targetParameters = [];
+      let paramContext = trackDevice.parameters;
+      let paramPath = "";
+      
+      traverseParams(paramContext, paramPath, trackDeviceMetadata);
+      
+      targetParameters.sort().forEach(parameterName => {
+        targetParameterSelect.innerHTML += `<option value="${parameterName}">${parameterName}</option>`;
+      })
+      
+      function traverseParams(paramContext, paramPath, deviceMetadata) {
+        Object.keys(paramContext).forEach(parameterName => {
+          if (!parameterName) {
+            throw "empty param name"
+          }
+          let paramMetadata = deviceMetadata[parameterName];
+          if (!paramMetadata) {
+            throw `missing param metadata for "${paramPath}.${parameterName}"`;
+          } 
+          
+          if (paramMetadata.startsWith("unitTypes")) {
+            if (paramPath)
+              targetParameters.push(paramPath + "." +parameterName)
+            else 
+              targetParameters.push(parameterName)
+          }
+          else if (paramMetadata.startsWith("device") || paramMetadata.startsWith("module")) {
+            let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+            let parts = paramMetadata.split("/");
+            let deviceName = parts[1];
+            console.log("device nane", deviceName)
+            let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
+            console.log("device metadata", deviceMetadata)
+            traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
+          }
+        });
       }
     }
     
@@ -3707,9 +3938,7 @@
         }
       }
       
-      function isObject(value) {
-        return typeof value === 'object' && !Array.isArray(value) && value !== null;
-      }
+      
       
       function getParameterContext(parameterPath) {
         let paramValue, paramStateValue = null;
@@ -3768,76 +3997,6 @@
     }
     
     
-  }
-  
-  function showInstrument() {
-    hideClipEditor();
-    hideEffects();
-    hideMixer();
-    
-    let parentPanel = instrumentPanel;
-    
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      parentPanel.style.display = "none";
-      return;
-    }
-
-    if (!dom.instrumentTabBtn.classList.contains("on")) {
-      dom.instrumentTabBtn.classList.add("on");
-    }
-    
-    let deviceToInspect = audio.getTrackSynth(track);
-    parentPanel.innerHTML = "";
-    createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, true);
-    parentPanel.style.display = "flex";
-  }
-  
-  function hideInstrument() {
-    dom.instrumentTabBtn.classList.remove("on");
-    instrumentPanel.style.display = "none";
-  }
-  
-  function showEffects() {
-    console.log("show fx")
-    hideClipEditor();
-    hideInstrument();
-    hideMixer();
-    effectsPanel.style.display = "flex";
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      console.log("no track fx")
-      effectsPanel.style.display = "none";
-      return;
-    }
-    else {
-      if (!dom.effectsTabBtn.classList.contains("on")) {
-        dom.effectsTabBtn.classList.add("on");
-      }
-    }
-    console.log("get audio fx")
-    let trackEffects = audio.getTrackEffects(track);
-    
-    effectsPanel.innerHTML = "";
-    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, trackEffects.indexOf(fx), effectNames, effectPresets, false));
-    createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, false);
-    effectsPanel.style.display = "flex";
-  }
-  
-  function hideEffects() {
-    dom.effectsTabBtn.classList.remove("on");
-    effectsPanel.style.display = "none";
-  }
-  
-  function showMixer() {
-    hideClipEditor();
-    hideInstrument();
-    hideEffects();
-    mixerPanel.style.display = "flex";
-  }
-  function hideMixer() {
-    dom.mixerTabBtn.classList.remove("on");
-    mixerPanel.style.display = "none";
   }
   
   $("arrZoomInH").addEventListener("click", () => av.zoomH(ZOOM_BUTTON_FACTOR));
@@ -4056,10 +4215,6 @@
     }
   }
   
-  class DeviceEditor {
-    
-  }
-
   class Mixer {
     constructor() {
       this.mixer = document.querySelector(".mixer");
@@ -4227,7 +4382,7 @@
     const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));
     
     console.log("creating kick", EFFECTS[1]);
-    const kick = addTrack("Kick", DEVICES[0], [EFFECTS[1], EFFECTS[0]]);
+    const kick = addTrack("Kick", DEVICES[0], [EFFECTS[1], EFFECTS[0]], [MODULATORS[0]]);
     console.log("creating kick clip", EFFECTS[0])
     createClip(kick, 0, BEATS_PER_BAR / 4, mk([
       [36, 0, 0.25]
@@ -4238,7 +4393,7 @@
     console.log("created kick clip")
     
     console.log("creating bass")
-    const bass = addTrack("Bass", DEVICES[1], null);
+    const bass = addTrack("Bass", DEVICES[1], null, [MODULATORS[0]]);
     const bassNotes = mk([ 
       [29, 0.25, 0.2], 
       [32, 0.5, 0.25], 
