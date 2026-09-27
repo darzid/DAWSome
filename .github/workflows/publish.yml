@@ -64,6 +64,7 @@ jobs:
       - name: Copy icon
         run: |
           cp favicon.ico _site
+          cp manifest.json _site
           
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
