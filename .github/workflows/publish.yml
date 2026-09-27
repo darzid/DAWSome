@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout branch
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Merge CSS and scripts into HTML
@@ -32,31 +32,24 @@ jobs:
           const fs = require('fs');
 
           let html = fs.readFileSync('DAWSome.html', 'utf8');
-          let css = fs.readFileSync('DAWSome.css', 'utf8');
+          const css = fs.readFileSync('DAWSome.css', 'utf8');
 
-          const styleBlock = `<style>\n${css}\n</style>\n`;
-
-          // Merge CSS into head
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
-          html = html.replace(/<\/head>/i, `${styleBlock}</head>`);
 
-          // Merge DAWSome.js if it exists
+          html = html.replace(/<\/head>/i, `<style>\n${css}\n</style>\n</head>`);
+
           if (fs.existsSync('DAWSome.js')) {
             const mainScript = fs.readFileSync('DAWSome.js', 'utf8');
-            const mainScriptBlock = `<script>\n${mainScript}\n</script>\n`;
-            html = html.replace(/<\/body>/i, `${mainScriptBlock}</body>`);
+            html = html.replace(/<\/body>/i, `<script>\n${mainScript}\n</script>\n</body>`);
           }
 
-          // Merge DAWSome-data.js if it exists
           if (fs.existsSync('DAWSome-data.js')) {
             const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
-            const dataScriptBlock = `<script>\n${dataScript}\n</script>\n`;
-            html = html.replace(/<\/body>/i, `${dataScriptBlock}</body>`);
+            html = html.replace(/<\/body>/i, `<script>\n${dataScript}\n</script>\n</body>`);
           }
 
-          // Add manifest link if needed
           if (!/rel=["']manifest["']/i.test(html)) {
             html = html.replace(
               /<\/head>/i,
@@ -64,7 +57,6 @@ jobs:
             );
           }
 
-          // Add service worker registration if needed
           if (!/serviceWorker/i.test(html)) {
             html = html.replace(
               /<\/body>/i,
