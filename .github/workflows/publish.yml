@@ -21,11 +21,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout DAWSome2
+      - name: Checkout branch
         uses: actions/checkout@v4
-        with:
-          ref: DAWSome2
-
+        
       - name: Merge CSS and script into HTML
         run: |
           mkdir -p _site
