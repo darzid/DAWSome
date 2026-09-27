@@ -1362,27 +1362,6 @@ jobs:
             html = html.replace(/<\/body>/i, `<script>\n${dataScript}\n</script>\n</body>`);
           }
 
-          if (!/rel=["']manifest["']/i.test(html)) {
-            html = html.replace(
-              /<\/head>/i,
-              `<link rel="manifest" href="./manifest.json">\n<meta name="theme-color" content="#f2b544">\n</head>`
-            );
-          }
-
-          if (!/serviceWorker/i.test(html)) {
-            html = html.replace(
-              /<\/body>/i,
-              `<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js', { scope: './' })
-      .catch((err) => console.warn('SW registration failed:', err));
-  });
-}
-</script>\n</body>`
-            );
-          }
-          
           fs.writeFileSync('_site/index.html', merged);
           NODE
 
