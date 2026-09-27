@@ -58,6 +58,8 @@ jobs:
             .replace(/<script src="DAWSome.js"><\/script>/i, `${mainScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
+          
+          cp favicon.ico _site
           NODE
 
       - name: Upload Pages artifact
