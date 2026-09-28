@@ -128,13 +128,24 @@
     parameters: {
       "distortion": 10.4
     }
+  },
+  {
+    name: "Filter",
+    parameters: {
+      frequency: 300
+    }
   }
   ];
   
   const MODULATORS = [
     {
       name: "LFO",
-      parameters: {}
+      parameters: {
+        min: 300,
+        max: 1000,
+        frequency: 0.1,
+        amplitude: 1
+      }
     }
   ];
     
@@ -544,8 +555,17 @@
       if (!deviceInfos || deviceInfos.length == 0) return devices;
       
       deviceInfos.forEach(deviceInfo => {
-        console.log("Making tone node " + deviceInfo.name);
+        console.log("Making tone node " + deviceInfo.name, deviceInfo.parameters);
         let device = makeToneNode(deviceInfo.name, deviceInfo.parameters);
+        if (deviceInfo.name == "Filter") {
+          if (device.frequency.value !== deviceInfo.parameters.frequency) {
+            throw "value incorrect"
+          }
+          else {
+            console.log("freq = " + device.frequency.value);
+          }
+        }
+        console.log("Made tone node " + deviceInfo.name, device);
         devices.push(device);
       });
       return devices;
@@ -560,6 +580,32 @@
       });
       source.connect(ch.channel);
     };
+    const connectModulators = (ch, track) => {
+      console.log("connect modulators");
+      try {
+        let modulatorIndex = 0;
+        let devices = audio.getTrackDevices(track);
+        console.log("Connect modulators: track devices", devices)
+        ch.modulators.forEach(modulator => {
+          let trackModulator = track.modulators[modulatorIndex];
+          console.log("Connect modulators: Modulator " + modulatorIndex, trackModulator, modulator)
+          if (trackModulator.targetDeviceIndex >= devices.length)
+            console.warn("Target device index out of range", trackModulator.targetDeviceIndex, devices)
+          let device = devices[trackModulator.targetDeviceIndex];
+          if (!device)
+            console.warn("Target device not found", trackModulator.targetDeviceIndex, devices)
+          let target = device[trackModulator.targetParameter];
+          modulator.connect(target);
+          modulator.start();
+          console.log(`connected modulator to ${track.name}.${device.name}.${trackModulator.targetParameter}`, modulator, target)
+          modulatorIndex++;
+        });
+      }
+      catch (error) {
+        console.error("Failed to connect modulators", error);
+        throw error;
+      }
+    }
     
     const chain = (trackId) => chains.get(trackId);
 
@@ -588,6 +634,7 @@
         console.log("made chain")
         const ch = chain(track.id);
         connectDevices(ch);
+        connectModulators(ch, track);
         console.log("added track", chain(track.id));
       },
       updateTrack: (track) => {
@@ -610,6 +657,7 @@
         }
         if (track.modulators.length > ch.modulators.length) {
           ch.modulators = makeToneNodes(track.modulators);
+          connectModulators(ch, track);
         }
       },
       
@@ -623,7 +671,9 @@
       },
       getTrackDevices: (track) => {
         const ch = chain(track.id);
-        return [ch.synth, ch.effects];
+        let devices = [ch.synth];
+        ch.effects.forEach(fx => devices.push(fx));
+        return devices;
       },
       getTrackModulators: (track) => {
         const ch = chain(track.id);
@@ -2248,10 +2298,13 @@
     
     function renderDeviceParameters() {
       parametersPanel.innerHTML = "";
+      if (trackDeviceNode.name == "") {
+        return;
+      }
       if (deviceIndex < track.devices.length) {
         let trackDeviceState = track.devices[deviceIndex].parameters;
         let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
-        console.log("create device html", track, trackDeviceNode, trackDeviceState);
+        console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
       
         Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata));
       }
@@ -2304,19 +2357,10 @@
     function createParamHtml(parameterPath, deviceMetadata) {
       let parameterPathParts = parameterPath.split(".");
       let parameterName = parameterPathParts[parameterPathParts.length - 1];
-      if (parameterName === "attack") 
-        console.warn("attack")
-     /* let metadataContext = deviceMetadata.parameters;
-      if (parameterName === "attack") 
-        console.warn("attack metadata context", metadataContext, parameterPathParts.length)
-      for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
-        let pathPart = parameterPathParts[partIndex];
-        metadataContext = metadataContext[pathPart];
-      }*/
+      if (parameterName === "frequency") 
+        console.warn("frequency")
+
       let parameterMetadataPath = deviceMetadata.parameters[parameterName];
-      if (parameterName === "attack") 
-        console.warn("attack metadata path", parameterMetadataPath)
-      //let parameterMetadataPath = deviceMetadata.parameters[parameterName];
       let parts = parameterMetadataPath.split("/");
       let paramMetadata = deviceList[parts[0]][parts[1]];
       
@@ -2329,10 +2373,13 @@
       if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
         let paramContext = getParameterContext(parameterPath);
         
-        let paramIsObject = isObject(paramContext[parameterName]);
+        let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
         //console.log(`param ${parameterName} is object: ${paramIsObject}`);
         let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
-        console.log(`param ${parameterPath} = ${paramValue}`);
+        if (parameterName == "frequency")
+          console.warn(`param ${parameterPath} = ${paramValue}`, paramContext[parameterName]);
+        else 
+          console.log(`param ${parameterPath} = ${paramValue}`);
 
         let label = document.createElement("label");
         label.innerText = parameterPath;
@@ -2347,7 +2394,10 @@
           input.value = paramValue;
           input.fill = "#d29524";
           input.focusFill = "#f2b544";
-          console.log("input", input)
+          if (parameterName == "frequency")
+            console.warn(`frequency input`, input);
+          else
+            console.log("input", input)
           input.oninput = ()=> {
             if (paramIsObject)
               paramContext[parameterName].value = input.value;
@@ -2355,7 +2405,6 @@
               paramContext[parameterName] = input.value;
             
             updateParamState(parameterPath, input.value);
-            //paramStateContext[parameterName] = input.value;
           }
         }
         else if (parts[0] == "enumTypes") {
@@ -2377,63 +2426,34 @@
             else
               paramContext[parameterName] = select.value;
             updateParamState(parameterPath, input.value);
-           // paramStateContext[parameterName] = select.value;
           }
         }
       }
       else {
         if (parts[0] == "modules") {
           let moduleMetadata = deviceList.modules[parts[1]];
-          //let module = trackDeviceNodeParamContext[parameterName];
-          //let moduleState = deviceState[parameterName];
-          
           Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata));
         } 
         else if (parts[0] == "devices") {
           let moduleMetadata = deviceList.devices[parts[1]];
-          //let module = trackDeviceNodeParamContext[parameterName];
-          //let moduleState = deviceState[parameterName];
-          console.log("device module", module)
           Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata));
         }
       }
       
-      
-      
       function getParameterContext(parameterPath) {
         let paramValue, paramStateValue = null;
         try {
-          console.log("getting value for " + parameterPath);
+          //console.log("getting value for " + parameterPath);
           let trackDeviceNodeParamContext = trackDeviceNode;
           
           if (parameterPath == "oscillator.detune") {
             console.log("osc detune")
           }
-          //let paramStateContext = trackDeviceState;
           for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
             let pathPart = parameterPathParts[partIndex];
             trackDeviceNodeParamContext = trackDeviceNodeParamContext[pathPart];
-            //paramStateContext = paramStateContext[pathPart];
           }
           return trackDeviceNodeParamContext;
-          /*
-          let paramIsObject = isObject(trackDeviceNodeParamContext[parameterName]);
-          //console.log(`param ${parameterName} is object: ${paramIsObject}`);
-          paramValue = paramIsObject ? trackDeviceNodeParamContext[parameterName].value : trackDeviceNodeParamContext[parameterName];
-          console.log(`param ${parameterPath} = ${paramValue}`);
-          */
-          /*if (paramStateContext[parameterName]) {
-            paramStateValue = paramStateContext[parameterName];
-            console.log(`param ${parameterPath} state value = ${paramStateValue}`);
-            
-            if (paramValue !== paramStateValue) {
-              console.warn(`param "${parameterName}" value "${paramValue}" differs from "${paramStateValue}"`);
-            }
-          }
-          else {
-            console.warn(`param ${parameterPath} state not found`);
-          }
-          */
         }
         catch (error) {
           console.error("Traverse error", error);
@@ -2444,19 +2464,8 @@
         console.log("updateParamState",trackDeviceState, parameterPath, value)
         trackDeviceState[parameterName] = value;
         console.log("paramState updated",trackDeviceState, parameterPath, value)
-        /*
-        let stateContext = trackDeviceState;
-        for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
-            let pathPart = parameterPathParts[partIndex];
-            stateContext = stateContext[pathPart];
-            //paramStateContext = paramStateContext[pathPart];
-        }
-        console.log("updateParamState context", stateContext, parameterName, value)
-        trackDeviceState[parameterName] = value;*/
       }
     }
-    
-    
   }
   
   $("arrZoomInH").addEventListener("click", () => av.zoomH(ZOOM_BUTTON_FACTOR));
@@ -2575,7 +2584,7 @@
     console.log("created kick clip")
     
     console.log("creating bass")
-    const bass = addTrack("Bass", DEVICES[1], null, [{ modulator: MODULATORS[0], targetDeviceIndex: 0, targetParameter: "filter.frequency"}]);
+    const bass = addTrack("Bass", DEVICES[1], [EFFECTS[2]], [{ modulator: MODULATORS[0], targetDeviceIndex: 1, targetParameter: "frequency"}]);
     const bassNotes = mk([ 
       [29, 0.25, 0.2], 
       [32, 0.5, 0.25], 
