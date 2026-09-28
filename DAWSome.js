@@ -2118,7 +2118,7 @@
     let trackEffects = audio.getTrackEffects(track);
     
     effectsPanel.innerHTML = "";
-    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
     createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
     effectsPanel.style.display = "flex";
   }
@@ -2306,7 +2306,7 @@
         let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
         console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
       
-        Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata));
+        Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState));
       }
     }
     
@@ -2354,11 +2354,11 @@
       }
     }
     
-    function createParamHtml(parameterPath, deviceMetadata) {
+    function createParamHtml(parameterPath, deviceMetadata, trackDeviceState) {
       let parameterPathParts = parameterPath.split(".");
       let parameterName = parameterPathParts[parameterPathParts.length - 1];
       if (parameterName === "frequency") 
-        console.warn("frequency")
+        console.warn("frequency", trackDeviceState)
 
       let parameterMetadataPath = deviceMetadata.parameters[parameterName];
       let parts = parameterMetadataPath.split("/");
@@ -2371,13 +2371,19 @@
       parametersPanel.appendChild(paramElement);
       
       if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
-        let paramContext = getParameterContext(parameterPath);
+        let paramContext = getParameterContext(parameterPath, trackDeviceState);
+        let stateValue = trackDeviceState[parameterName];
         
         let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
         //console.log(`param ${parameterName} is object: ${paramIsObject}`);
         let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
+        if (stateValue && stateValue !== paramValue) {
+          
+          console.warn("usong state value " + parameterName, paramValue, stateValue)
+          paramValue = stateValue;
+        }
         if (parameterName == "frequency")
-          console.warn(`param ${parameterPath} = ${paramValue}`, paramContext[parameterName]);
+          console.warn(`param ${parameterPath} = ${paramValue}`, paramContext[parameterName], stateValue);
         else 
           console.log(`param ${parameterPath} = ${paramValue}`);
 
@@ -2432,15 +2438,15 @@
       else {
         if (parts[0] == "modules") {
           let moduleMetadata = deviceList.modules[parts[1]];
-          Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata));
+          Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
         } 
         else if (parts[0] == "devices") {
           let moduleMetadata = deviceList.devices[parts[1]];
-          Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata));
+          Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
         }
       }
       
-      function getParameterContext(parameterPath) {
+      function getParameterContext(parameterPath, trackDeviceState) {
         let paramValue, paramStateValue = null;
         try {
           //console.log("getting value for " + parameterPath);
