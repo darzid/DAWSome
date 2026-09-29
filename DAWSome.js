@@ -556,31 +556,27 @@
         Object.keys(deviceMetadataContext).forEach(paramName => {
           
           let paramPath = paramContextPath ? paramContextPath + "." + paramName : paramName;
-          if (deviceInfoContext[paramName]) {
-            if (logSteps) console.log(`Device param "${paramPath}" already filled: ${deviceInfoContext[paramName]}`);
+          
+          let paramMetadataPath = deviceMetadataContext[paramName];
+          if (logSteps) console.log(`Device param "${paramPath}" metadata path: ${paramMetadataPath}`);
+            
+          let parts = paramMetadataPath.split("/");
+          if (parts[0] != "unitTypes" && parts[0] != "enumTypes") {
+            if (!deviceInfoContext[paramName])
+              deviceInfoContext[paramName] = {};
+            getValueParams(
+              deviceContext[paramName], 
+              deviceInfoContext[paramName], 
+              deviceList[parts[0]][parts[1]].parameters, 
+              paramPath
+            );
           }
           else {
-            let paramMetadataPath = deviceMetadataContext[paramName];
-            if (logSteps) console.log(`Device param "${paramPath}" metadata path: ${paramMetadataPath}`);
-            
-            let parts = paramMetadataPath.split("/");
-            if (parts[0] != "unitTypes" && parts[0] != "enumTypes") {
-              if (!deviceInfoContext[paramName])
-                deviceInfoContext[paramName] = {};
-              getValueParams(
-                deviceContext[paramName], 
-                deviceInfoContext[paramName], 
-                deviceList[parts[0]][parts[1]].parameters, 
-                paramPath
-              );
-            }
-            else {
-              if (deviceContext[paramName].name && (deviceContext[paramName].name == "Signal" || deviceContext[paramName].name == "Param"))
-                deviceInfoContext[paramName] = deviceContext[paramName].value;
-              else 
-                deviceInfoContext[paramName] = deviceContext[paramName];
-              if (logSteps) console.log(`Device param "${paramPath}" set: ${deviceInfoContext}`);
-            }
+            if (deviceContext[paramName].name && (deviceContext[paramName].name == "Signal" || deviceContext[paramName].name == "Param"))
+              deviceInfoContext[paramName] = deviceContext[paramName].value;
+            else 
+              deviceInfoContext[paramName] = deviceContext[paramName];
+            if (logSteps) console.log(`Device param "${paramPath}" set: ${deviceInfoContext}`);
           }
         })
       }
@@ -2448,12 +2444,12 @@
         //console.log(`param ${parameterName} is object: ${paramIsObject}`);
         let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
           
-        if (stateValue && stateValue !== paramValue) {
+        if (stateValue != undefined && stateValue !== paramValue) {
           console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
           paramValue = stateValue;
         }
         else {
-          if (stateValue !== paramValue)
+          if (stateValue !== paramValue && stateValue == undefined)
             console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
         }
         
@@ -2542,17 +2538,25 @@
       
       function getParamState(parameterPath) {
         let parts = parameterPath.split(".");
+        let paramName = parts[parts.length - 1];
         let stateContext = trackDeviceState;
+        if (parts.length > 1) {
+          console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
+        }
         for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
           stateContext = stateContext[parts[partIndex]];
         }
-        return stateContext[parts[parts.length - 1]];
+        let paramValue = stateContext[paramName];
+        if (paramValue == undefined) {
+          console.warn(`getParamState("${parameterPath}"): value undefined`, stateContext);
+        }
+        return paramValue;
       }
       
       function updateParamState(parameterPath, value) {
-        console.log("updateParamState",trackDeviceState, parameterPath, value)
+       // console.log("updateParamState",trackDeviceState, parameterPath, value)
         trackDeviceState[parameterName] = value;
-        console.log("paramState updated",trackDeviceState, parameterPath, value)
+        //console.log("paramState updated",trackDeviceState, parameterPath, value)
       }
     }
   }
