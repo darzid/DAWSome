@@ -41,6 +41,7 @@ class Mixer {
       
       let soloedMuteButtons = [];
       muteButton.onclick = async () => {
+        let oldMute = track.mute;
         muteButton.classList.toggle("on");
         if (!muteButton.classList.contains("on")) {
           track.mute = false;
@@ -50,13 +51,15 @@ class Mixer {
           track.mute = true;
           console.log("track muted")
         }
-        this.audio.updateTrack(track);
-        document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
+        if (track.mute != oldMute) {
+          this.audio.updateTrack(track);
+          document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
+        }
       };
       
       document.addEventListener("MuteChanged", (e) => {
-        console.log("Mute changed", e.detail)
         if (e.detail.trackId !== track.id) return;
+        console.log("Mute changed", e.detail)
         muteButton.classList.toggle("on", e.detail.muted);
       })
       
@@ -106,11 +109,14 @@ class Mixer {
           })
           muteButtons.forEach(projectMuteButton => {
             //if (projectMuteButton != muteButton) {
-              let projectSoloButton = projectMuteButton.closest(".fader-container").querySelector(".solo-button");
-             // if (!projectSoloButton.classList.contains("on")) {
+            
+              let projectSoloButton = document.getElementById(projectMuteButton.id.replace("mute", "solo"));
+              if (!projectSoloButton.classList.contains("on")) {
                 projectMuteButton.disabled="";
                 projectMuteButton.classList.remove("on");
-            //  }
+                let muteTrack = this.state.tracks.find(track => track.id == projectMuteButton.id.replace("-mute", ""));
+                this.audio.updateTrack(muteTrack);
+              }
            // }
             console.log("soloed", soloedMuteButtons)
           })

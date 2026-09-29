@@ -690,7 +690,10 @@
       },
       updateTrack: (track) => {
         const ch = chain(track.id);
-        ch.channel.mute = track.mute;
+        if (ch.channel.mute != track.mute) {
+          ch.channel.mute = track.mute;
+          console.log(`audio.updateTrack: ${track.id}, mute changed to ${ch.channel.mute}`);
+        }
         if (ch.channel.volume != track.volume) {
           ch.channel.volume.value = track.volume;
         }
@@ -1259,7 +1262,7 @@
     }
     arrangementChanged();
     e.preventDefault();
-    e.cancelBubble();
+    //e.cancelBubble();
   });
   
   dom.trackHeaders.addEventListener("change", (e) => {
