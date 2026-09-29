@@ -621,7 +621,7 @@
     const connectDevices = (ch) => {
       console.log("connecting devices");
       let source = ch.synth;
-      console.log("connecting devices, srx", source);
+      console.log("connecting devices, src", source);
       ch.effects.forEach(fx => {
         source.connect(fx);
         source = fx;
@@ -707,11 +707,11 @@
           ch.instrumentPreset = track.instrumentPreset;
           connectDevices(ch);
         }
-        if (track.effects.length > ch.effects.length) {
+        if (track.effects.length != ch.effects.length) {
           ch.effects = makeToneNodes(track.effects);
           connectDevices(ch);
         }
-        if (track.modulators.length > ch.modulators.length) {
+        if (track.modulators.length != ch.modulators.length) {
           ch.modulators = makeToneNodes(track.modulators.map(m => m.modulator));
           connectModulators(ch, track);
         }
