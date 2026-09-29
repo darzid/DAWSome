@@ -544,27 +544,75 @@
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
-    /*const makeSynthOld = (instrument) => new Tone.PolySynth(Tone.Synth, {
-      maxPolyphony: 48,
-      oscillator: { type: instrument },
-      envelope: { attack: 0.005, decay: 0.12, sustain: 0.6, release: 0.3 },
-    });*/
-    const makeToneNode = (name, parameters) => new Tone[name](parameters);
+    const makeToneNode = (deviceInfo) => {
+      const logSteps = false;
+      
+      if (logSteps) console.log(`makeToneNode: creating device "${deviceInfo.name}"`);
+      const getValueParams = (deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath) => {
+        if (paramContextPath)
+          if (logSteps) console.log(`getValueParams: ${paramContextPath}`, deviceMetadataContext);
+        else
+          if (logSteps) console.log(`getValueParams: ${deviceInfo.name}`, deviceMetadataContext);
+        Object.keys(deviceMetadataContext).forEach(paramName => {
+          
+          let paramPath = paramContextPath ? paramContextPath + "." + paramName : paramName;
+          if (deviceInfoContext[paramName]) {
+            if (logSteps) console.log(`Device param "${paramPath}" already filled: ${deviceInfoContext[paramName]}`);
+          }
+          else {
+            let paramMetadataPath = deviceMetadataContext[paramName];
+            if (logSteps) console.log(`Device param "${paramPath}" metadata path: ${paramMetadataPath}`);
+            
+            let parts = paramMetadataPath.split("/");
+            if (parts[0] != "unitTypes" && parts[0] != "enumTypes") {
+              if (!deviceInfoContext[paramName])
+                deviceInfoContext[paramName] = {};
+              getValueParams(
+                deviceContext[paramName], 
+                deviceInfoContext[paramName], 
+                deviceList[parts[0]][parts[1]].parameters, 
+                paramPath
+              );
+            }
+            else {
+              if (deviceContext[paramName].name && (deviceContext[paramName].name == "Signal" || deviceContext[paramName].name == "Param"))
+                deviceInfoContext[paramName] = deviceContext[paramName].value;
+              else 
+                deviceInfoContext[paramName] = deviceContext[paramName];
+              if (logSteps) console.log(`Device param "${paramPath}" set: ${deviceInfoContext}`);
+            }
+          }
+        })
+      }
+    
+      let device = new Tone[deviceInfo.name](deviceInfo.parameters);
+      if (logSteps) console.log(`makeToneNode: created device "${deviceInfo.name}"`, device);
+      
+      let deviceContext = device;
+      let deviceMetadataContext = deviceList.devices[deviceInfo.name].parameters;
+      let deviceInfoContext = deviceInfo.parameters;
+      let paramContextPath = "";
+      
+      if (logSteps) console.log(`Device "${deviceInfo.name}": Filling device state (deviceContext, deviceMetadataContext)`, deviceContext, deviceMetadataContext);
+      try {
+        getValueParams(deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath);
+        if (logSteps) console.log(`Device "${deviceInfo.name}": Device state filled`, deviceInfo);
+  
+      }
+      catch (error) {
+        console.error("error while trying to create device state", error);
+        throw error;
+      }
+      
+      return device;
+    };
     const makeToneNodes = (deviceInfos) => {
       let devices = [];
       if (!deviceInfos || deviceInfos.length == 0) return devices;
       
       deviceInfos.forEach(deviceInfo => {
         console.log("Making tone node " + deviceInfo.name, deviceInfo.parameters);
-        let device = makeToneNode(deviceInfo.name, deviceInfo.parameters);
-        if (deviceInfo.name == "Filter") {
-          if (device.frequency.value !== deviceInfo.parameters.frequency) {
-            throw "value incorrect"
-          }
-          else {
-            console.log("freq = " + device.frequency.value);
-          }
-        }
+        let device = makeToneNode(deviceInfo);
         console.log("Made tone node " + deviceInfo.name, device);
         devices.push(device);
       });
@@ -622,17 +670,19 @@
         console.log("adding track")
         const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
-        
+        track.devices[0].parameters = track.instrumentPreset;
         chains.set(track.id, 
         { 
-          synth: makeToneNode(track.devices[0].name, track.instrumentPreset), 
+          synth: makeToneNode(track.devices[0]), 
           channel, 
           instrument: track.devices[0].name,
           effects: makeToneNodes(track.effects),
           modulators: makeToneNodes(track.modulators.map(m => m.modulator))
         });
-        console.log("made chain")
+        console.log("made chain");
+        
         const ch = chain(track.id);
+        if (ch.synth == null) throw "synth null"
         connectDevices(ch);
         connectModulators(ch, track);
         console.log("added track", chain(track.id));
@@ -645,7 +695,8 @@
         }
         if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
           ch.synth.dispose();
-          ch.synth = makeToneNode(track.instrument, track.instrumentPreset);
+          track.instrument.parameters = track.instrumentPreset;
+          ch.synth = makeToneNode(track.instrument);
           //console.log("updated synth", track.instrument, track.instrumentPreset);
           ch.instrument = track.instrument;
           ch.instrumentPreset = track.instrumentPreset;
@@ -656,7 +707,7 @@
           connectDevices(ch);
         }
         if (track.modulators.length > ch.modulators.length) {
-          ch.modulators = makeToneNodes(track.modulators);
+          ch.modulators = makeToneNodes(track.modulators.map(m => m.modulator));
           connectModulators(ch, track);
         }
       },
@@ -673,6 +724,7 @@
         const ch = chain(track.id);
         let devices = [ch.synth];
         ch.effects.forEach(fx => devices.push(fx));
+        ch.modulators.forEach(mod => devices.push(mod));
         return devices;
       },
       getTrackModulators: (track) => {
@@ -884,7 +936,7 @@
       devices.push(fx);
     });
     console.log("addingTrack " + name)
-    //modulators.forEach(modulator => devices.push(modulator));
+    modulators.forEach(modulator => devices.push(modulator.modulator));
     console.log("add track model", devices)
     const track = {
       id: state.nextId++, 
@@ -2148,9 +2200,16 @@
     }
   
     let trackModulators = audio.getTrackModulators(track);
-
+    let modulatorsStartIndex = 1 + track.effects.length;
+    
     modulationPanel.innerHTML = "";
-    trackModulators.forEach(mod => createDeviceHtml(modulationPanel, track, mod, trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+    console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
+    try {
+      trackModulators.forEach(mod => createDeviceHtml(modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+    }
+    catch (error) {
+      console.error("Error while creating modulatoe html", error)
+    }
     createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, trackModulators.length, modulatorNames, modulatorPresets, "LFO");
     modulationPanel.style.display = "flex";
   }
@@ -2281,7 +2340,9 @@
     
     }
     else if (isLFO) {
-      let modulation = track.modulators[deviceIndex];
+      let modulatorsStartIndex = 1 + track.effects.length;
+      let modulatorIndex = deviceIndex - modulatorsStartIndex;
+      let modulation = track.modulators[modulatorIndex];
       
       let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
       targetDeviceSelect.value = modulation.targetDeviceIndex;
@@ -2355,6 +2416,8 @@
     }
     
     function createParamHtml(parameterPath, deviceMetadata, trackDeviceState) {
+      const useDeviceStateOnly = true;
+      
       let parameterPathParts = parameterPath.split(".");
       let parameterName = parameterPathParts[parameterPathParts.length - 1];
       if (parameterName === "frequency") 
@@ -2371,22 +2434,26 @@
       parametersPanel.appendChild(paramElement);
       
       if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
+        let stateValue = getParamState(parameterPath);
         let paramContext = getParameterContext(parameterPath, trackDeviceState);
-        let stateValue = trackDeviceState[parameterName];
         
         let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
         //console.log(`param ${parameterName} is object: ${paramIsObject}`);
         let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
-        if (stateValue && stateValue !== paramValue) {
           
-          console.warn("usong state value " + parameterName, paramValue, stateValue)
+        if (stateValue && stateValue !== paramValue) {
+          console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
           paramValue = stateValue;
         }
-        if (parameterName == "frequency")
-          console.warn(`param ${parameterPath} = ${paramValue}`, paramContext[parameterName], stateValue);
-        else 
-          console.log(`param ${parameterPath} = ${paramValue}`);
-
+        else {
+          if (stateValue !== paramValue)
+            console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
+        }
+        
+        if (useDeviceStateOnly) {
+          paramValue = stateValue;
+        }
+        
         let label = document.createElement("label");
         label.innerText = parameterPath;
         paramElement.appendChild(label);
@@ -2464,6 +2531,15 @@
         catch (error) {
           console.error("Traverse error", error);
         }
+      }
+      
+      function getParamState(parameterPath) {
+        let parts = parameterPath.split(".");
+        let stateContext = trackDeviceState;
+        for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+          stateContext = stateContext[parts[partIndex]];
+        }
+        return stateContext[parts[parts.length - 1]];
       }
       
       function updateParamState(parameterPath, value) {
