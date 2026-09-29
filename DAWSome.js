@@ -126,7 +126,7 @@
   {
     name: "Distortion",
     parameters: {
-      "distortion": 10.4
+      "distortion": 0.2
     }
   },
   {
