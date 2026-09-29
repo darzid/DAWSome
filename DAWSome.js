@@ -2265,12 +2265,13 @@
     let parametersPanel = devicePanel.querySelector(".device-parameters");
     let prevBtn = devicePanel.querySelector(".prev");
     let nextBtn = devicePanel.querySelector(".next");
-
+    let lastEffectIndex = track.effects.length + 1;
     if (isMultiDevicePanel) {
       prevBtn.style.display = "inline";
       nextBtn.style.display = "inline";
-      prevBtn.disabled = deviceIndex == 0 ? "disabled" : "";
-      nextBtn.disabled = deviceIndex == track.effects.length ? "disabled" : "";
+      prevBtn.disabled = deviceIndex == 1 ? "disabled" : "";
+      
+      nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
       prevBtn.onclick = (e)=> devicePanel.previousElementSibling.scrollIntoView();
       nextBtn.onclick = (e)=> devicePanel.nextElementSibling.scrollIntoView();
     }
@@ -2316,9 +2317,9 @@
           console.log("added effect", trackDeviceNode)
           fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
           
-          nextBtn.disabled = deviceIndex == track.effects.length ? "disabled" : "";
+          nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
           renderDeviceParameters();
-          createDeviceHtml(effectsPanel, track, { name: "", parameters: {}}, effects.length, effectNames, effectPresets, "Effect");
+          createDeviceHtml(effectsPanel, track, { name: "", parameters: {}}, track.effects.length, effectNames, effectPresets, "Effect");
         }
         else {
           fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
@@ -2677,7 +2678,7 @@
     console.log("created kick clip")
     
     console.log("creating bass")
-    const bass = addTrack("Bass", DEVICES[1], [EFFECTS[2]], [{ modulator: MODULATORS[0], targetDeviceIndex: 1, targetParameter: "frequency"}]);
+    const bass = addTrack("Bass", DEVICES[1], null, null);
     const bassNotes = mk([ 
       [29, 0.25, 0.2], 
       [32, 0.5, 0.25], 
@@ -2718,6 +2719,28 @@
     ]), 30);
     
     console.log("created open hat")
+    
+    console.log("creating lead")
+    const lead = addTrack("Lead", DEVICES[1], [EFFECTS[2]], [{ modulator: MODULATORS[0], targetDeviceIndex: 1, targetParameter: "frequency"}]);
+    const leadNotes = mk([ 
+      [41, 0.25, 0.2], 
+      [44, 0.5, 0.25], 
+      [46, 0.75, 0.2],
+      
+      [41, 1.25, 0.2], 
+      [46, 1.5, 0.25], 
+      [44, 1.75, 0.2],
+      
+      [44, 2.25, 0.2], 
+      [46, 2.5, 0.25], 
+      [41, 2.75, 0.2],
+      
+      [46, 3.25, 0.2], 
+      [49, 3.5, 0.25], 
+      [44, 3.75, 0.2]
+    ]);
+    createClip(lead, 24, BEATS_PER_BAR, leadNotes, 30);
+    console.log("created lead")
     
     deselectClip();
     deselectTrack();
