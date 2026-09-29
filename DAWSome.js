@@ -2541,7 +2541,7 @@
         let paramName = parts[parts.length - 1];
         let stateContext = trackDeviceState;
         if (parts.length > 1) {
-          console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
+         // console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
         }
         for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
           stateContext = stateContext[parts[partIndex]];
