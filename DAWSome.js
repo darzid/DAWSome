@@ -1305,6 +1305,8 @@
   let aDrag = null;   // { type: "move" | "resize", pointerId, clip, start0, length0, beat0, row0, x0, vx0, vy0, moved }
 
   av.o.scroller.addEventListener("pointerdown", (e) => {
+    if (!state.drawClips) return;
+    
     if (e.button !== 0) return;
     audio.unlock().catch(() => {});
     if (av.trackDown(e)) { aDrag = null; return; }
