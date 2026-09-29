@@ -676,6 +676,7 @@
           synth: makeToneNode(track.devices[0]), 
           channel, 
           instrument: track.devices[0].name,
+          instrumentPreset: track.instrumentPreset,
           effects: makeToneNodes(track.effects),
           modulators: makeToneNodes(track.modulators.map(m => m.modulator))
         });
@@ -693,7 +694,8 @@
         if (ch.channel.volume != track.volume) {
           ch.channel.volume.value = track.volume;
         }
-        if (ch.instrument !== track.instrument || ch.instrumentPreset !== track.instrumentPreset) {
+        if (ch.instrument !== track.devices[0].name || ch.instrumentPreset !== track.instrumentPreset) {
+          console.log("updating synth", track.devices[0].name, ch.instrument, ch.instrumentPreset, track.instrumentPreset);
           ch.synth.dispose();
           track.instrument.parameters = track.instrumentPreset;
           ch.synth = makeToneNode(track.instrument);
@@ -2631,7 +2633,7 @@
   var deviceBrowser = new DeviceBrowser();
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
   console.log("presetbrowser loaded")
-  var mixer = new Mixer(audio);
+  var mixer = new Mixer(audio, state);
   
   async function init() {
     await deviceBrowser.loadDevices();
