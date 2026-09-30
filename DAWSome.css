@@ -111,12 +111,12 @@
     position: absolute; inset: 0; overflow: auto; touch-action: pan-x pan-y;
     scrollbar-width: thin; scrollbar-color: #555 #1c1c1c;
   }
-  .scroller::-webkit-scrollbar { width: 10px; height: 10px; }
+  .scroller::-webkit-scrollbar { width: 2vw; height: 2vw; }
   .scroller::-webkit-scrollbar-track { background: #1c1c1c; }
-  .scroller::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
+  .scroller::-webkit-scrollbar-thumb { background: #555; border-radius: 1.25vw; }
   .scroller::-webkit-scrollbar-corner { background: #1c1c1c; }
   
-  .instrument-panel, .effects-panel, .mixer { flex: 1; min-height: 5vh; display: none; flex-direction: row; border-top: 2px solid black; overflow-x: auto; }
+  .instrument-panel, .effects-panel, .mixer { flex: 1; min-height: 5vh; display: none; flex-direction: row; border-top: 0.5vw solid black; overflow-x: auto; }
   
   .editor3 { font-size: 1.5vw; }
   
