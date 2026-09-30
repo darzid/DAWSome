@@ -1022,7 +1022,7 @@
     av.drawVerticalLines(c, H, arrangementStep(), drawW);
     av.drawRegion(c, H, songEndBeats(), drawW);
 
-    c.font = "11px system-ui, sans-serif";
+    c.font = "1.5vh system-ui, sans-serif";
     c.textBaseline = "top";
     c.textAlign = "left";
     for (const clip of state.clips) {
@@ -1042,7 +1042,7 @@
       if (w > 24) {
         c.save();
         c.beginPath();
-        c.rect(Math.round(x0), y, w, 14);
+        c.rect(Math.round(x0), y, w, 24);
         c.clip();
         c.fillStyle = COLORS.clipText;
         c.fillText(clip.name, Math.round(x0) + 4, y + 2);
@@ -1062,7 +1062,7 @@
         let clipRepeats = (clip.end - clip.start) / clip.length;
         let clipWidth = (x1 - x0) / clipRepeats;
         let clipStartX = x0;
-        c.strokeStyle = "rgba(100,100,100,0.5)";
+        c.strokeStyle = "rgba(100,100,100,0.2)";
         c.lineWidth = "5px";
         for (let clipRepeatIndex = 0; clipRepeatIndex < clipRepeats; clipRepeatIndex++) {
           c.fillStyle = clipRepeatIndex == 0 ? COLORS.clipNote : COLORS.clipRepeatNote;
