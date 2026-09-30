@@ -66,11 +66,22 @@ jobs:
           cp favicon.ico _site
           cp manifest.json _site
           cp service-worker.js _site
-          
+      
+      - name: Version Increment
+        uses: reecetech/version-increment@2026.8.4
+  
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+          
+      - name: Create tag & GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: false
+          generate_release_notes: true
+          prerelease: false
+          tag_name: ${{ steps.version.outputs.version }}
 
   deploy:
     needs: build
