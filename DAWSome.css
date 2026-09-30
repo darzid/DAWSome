@@ -57,7 +57,7 @@
   #playBtn.on { background: var(--play); border-color: var(--play); }
   .readout { min-width: 44px; padding: 0 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .title { color: var(--text); font-weight: 600; margin-right: 6px; }
-
+  #importBtn { display: none; }
   /* Arrangement */
   .arrangement {
     min-height: 120px;

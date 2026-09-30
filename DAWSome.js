@@ -50,7 +50,7 @@
     bpm: 146,
     loop: true,
     follow: true,
-    drawClips: true,
+    drawClips: false,
     playing: false,
     playheadBeat: 0,
     tracks: [],          // { id, name, color, instrument, mute }
@@ -822,7 +822,7 @@
     state.selectedTrackId = null;
     
     console.log("track cleared")
-    showInstrument();
+    showInstrumentPanel();
   }
   
   function selectTrackById(trackId) {
@@ -840,7 +840,7 @@
  /*   let trackElement = document.getElementById(state.selectedTrackId);
     trackElement.classList.add("selected");
     console.log("track selected", trackElement)*/
-    //showInstrument();
+    //showInstrumentPanel();
   }
   
   function selectTrack(track) {
@@ -934,7 +934,7 @@
     state.selectedClipId = clip.id;
     console.log("clip selected");
     
-    showClipEditor();
+    showClipEditorPanel();
     
     ed.selected.clear();
     editorClipChanged();
@@ -1175,13 +1175,13 @@
       removeTrack(track.id);
       if (!currentClip()) editorClipChanged();
     } else if (e.target.classList.contains("inst")) {
-      showInstrument();
+      showInstrumentPanel();
       return false;
     } else if (e.target.classList.contains("instPreset")) {
-      showInstrument();
+      showInstrumentPanel();
       return false;
     } else if (e.target.classList.contains("name")) {
-      showInstrument();
+      showInstrumentPanel();
       return false;
     }
     arrangementChanged();
@@ -1221,7 +1221,7 @@
   let aDrag = null;   // { type: "move" | "resize", pointerId, clip, start0, length0, beat0, row0, x0, vx0, vy0, moved }
 
   av.o.scroller.addEventListener("pointerdown", (e) => {
-    if (!state.drawClips) return;
+
     
     if (e.button !== 0) return;
     audio.unlock().catch(() => {});
@@ -1234,6 +1234,7 @@
       return;
     }
     selectClip(clip);
+    if (!state.drawClips) return;
     aDrag = {
       type: onClipRightEdge(clip, p.x) ? "resize" : "move", pointerId: e.pointerId, clip,
       start0: clip.start, length0: clip.length, beat0: p.beat, row0: p.row, x0: p.x, vx0: p.vx, vy0: p.vy, moved: false,
@@ -1970,30 +1971,30 @@
   dom.clipEditorTabBtn.addEventListener("click", () => {
     dom.clipEditorTabBtn.classList.toggle("on");
     if (dom.clipEditorTabBtn.classList.contains("on")) {
-      showClipEditor();
+      showClipEditorPanel();
     }
     else {
-      hideClipEditor();
+      hideClipEditorPanel();
     }
   });
   
   dom.instrumentTabBtn.addEventListener("click", () => {
     dom.instrumentTabBtn.classList.toggle("on");
     if (dom.instrumentTabBtn.classList.contains("on")) {
-      showInstrument()
+      showInstrumentPanel()
     }
     else {
-      hideInstrument()
+      hideInstrumentPanel()
     }
   });
   
   dom.effectsTabBtn.addEventListener("click", () => {
     dom.effectsTabBtn.classList.toggle("on");
     if (dom.effectsTabBtn.classList.contains("on")) {
-      showEffects();
+      showEffectsPanel();
     }
     else {
-      hideEffects();
+      hideEffectsPanel();
     }
   });
   
@@ -2010,24 +2011,15 @@
   dom.mixerTabBtn.addEventListener("click", () => {
     dom.mixerTabBtn.classList.toggle("on");
     if (dom.mixerTabBtn.classList.contains("on")) {
-      showMixer()
+      showMixerPanel()
     }
     else {
-      hideMixer();
+      hideMixerPanel();
     }
   });
   
-  function showClipEditor() {
-    hideInstrument();
-    hideEffects();
-    hideModulationPanel();
-    hideMixer();
-    
-    console.log("th", dom.trackHeaders);
-    
-    
-    dom.clipEditorTabBtn.classList.add("on");
-    editor.style.display = "flex";
+  function showClipEditorPanel() {
+    showPanel(editor, dom.clipEditorTabBtn);
     dom.loopClip.classList.toggle("on", currentClip().loop);
     
     /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
@@ -2036,18 +2028,12 @@
     console.log("scroll into view", trackElement);*/
   }
   
-  function hideClipEditor() {
-    dom.clipEditorTabBtn.classList.remove("on");
-    editor.style.display = "none";
+  function showInstrumentPanel() {
+    showPanel(instrumentPanel, dom.instrumentTabBtn);
+    renderInstrumentPanel();
   }
   
-  
-  function showInstrument() {
-    hideClipEditor();
-    hideEffects();
-    hideModulationPanel();
-    hideMixer();
-    
+  function renderInstrumentPanel() {
     let parentPanel = instrumentPanel;
     
     let track = state.tracks.find(track => track.id === state.selectedTrackId);
@@ -2056,58 +2042,37 @@
       return;
     }
 
-    if (!dom.instrumentTabBtn.classList.contains("on")) {
-      dom.instrumentTabBtn.classList.add("on");
-    }
-    
     let deviceToInspect = audio.getTrackSynth(track);
     parentPanel.innerHTML = "";
     createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
-    parentPanel.style.display = "flex";
   }
   
-  function hideInstrument() {
-    dom.instrumentTabBtn.classList.remove("on");
-    instrumentPanel.style.display = "none";
+  function showEffectsPanel() {
+    showPanel(effectsPanel, dom.effectsTabBtn);
+    renderEffectsPanel();
   }
   
-  function showEffects() {
-    hideClipEditor();
-    hideInstrument();
-    hideModulationPanel();
-    hideMixer();
-    effectsPanel.style.display = "flex";
+  function renderEffectsPanel() {
     let track = state.tracks.find(track => track.id === state.selectedTrackId);
     if (!track) {
       console.log("no track fx")
       effectsPanel.style.display = "none";
       return;
     }
-    else {
-      if (!dom.effectsTabBtn.classList.contains("on")) {
-        dom.effectsTabBtn.classList.add("on");
-      }
-    }
+
     let trackEffects = audio.getTrackEffects(track);
     
     effectsPanel.innerHTML = "";
     trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
     createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
-    effectsPanel.style.display = "flex";
-  }
-  
-  function hideEffects() {
-    dom.effectsTabBtn.classList.remove("on");
-    effectsPanel.style.display = "none";
   }
   
   function showModulationPanel() {
-    hideClipEditor();
-    hideInstrument();
-    hideEffects();
-    hideMixer();
-    
-    modulationPanel.style.display = "flex";
+    showPanel(modulationPanel, dom.modulationTabBtn);
+    renderModulationPanel();
+  }
+  
+  function renderModulationPanel() {
     let track = state.tracks.find(track => track.id === state.selectedTrackId);
     if (!track) {
       console.log("no track")
@@ -2132,24 +2097,31 @@
       console.error("Error while creating modulatoe html", error)
     }
     createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, trackModulators.length, modulatorNames, modulatorPresets, "LFO");
-    modulationPanel.style.display = "flex";
   }
   
-  function hideModulationPanel() {
-    dom.modulationTabBtn.classList.remove("on");
-    modulationPanel.style.display = "none";
+  function showMixerPanel() {
+    showPanel(mixerPanel, dom.mixerTabBtn);
   }
   
-  function showMixer() {
-    hideClipEditor();
-    hideInstrument();
-    hideEffects();
-    hideModulationPanel();
-    mixerPanel.style.display = "flex";
-  }
-  function hideMixer() {
-    dom.mixerTabBtn.classList.remove("on");
-    mixerPanel.style.display = "none";
+  function showPanel(panelToShow, tabButtonToShow) {
+    const panels = document.querySelector(".bottom-panel").querySelectorAll(".panel");
+    panels.forEach(panel => {
+      if (panel != panelToShow) {
+        panel.style.display = "none";
+      }
+      else {
+        panel.style.display = "flex";
+      }
+    })
+    const tabButtons = document.querySelector(".bottom-panel").querySelectorAll(".tab-strip button");
+    tabButtons.forEach(button => {
+      if (button != tabButtonToShow) {
+        button.classList.remove("on");
+      }
+      else {
+        button.classList.add("on");
+      }
+    });
   }
   
   function createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {''
