@@ -419,7 +419,7 @@
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
     const makeToneNode = (deviceInfo) => {
-      const logSteps = false;
+      const logSteps = true;
       
       if (logSteps) console.log(`makeToneNode: creating device "${deviceInfo.name}"`);
       const getValueParams = (deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath) => {
@@ -594,12 +594,18 @@
         console.log("added track", chain(track.id));
       },
       updateTrack: (track) => {
+        console.log("updating track")
         const ch = chain(track.id);
-        if (ch.instrumentName !== track.devices[0].name || ch.instrumentParameters !== track.instrumentParameters) {
-          console.log("updating synth", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
+        if (ch.instrumentName !== track.instrumentName || ch.instrumentParameters !== track.instrumentParameters) {
+          console.log("updating synth", track.instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
           ch.synth.dispose();
+          track.devices[0] = {
+            name: track.instrumentName,
+            presetName: "",
+            parameters: {}
+          }
           track.devices[0].parameters = track.instrumentParameters;
-          ch.synth = makeToneNode(track.instrumentName);
+          ch.synth = makeToneNode(track.devices[0]);
           //console.log("updated synth", track.instrumentName, track.instrumentParameters);
           ch.instrumentName = track.instrumentName;
           ch.instrumentParameters = track.instrumentParameters;
@@ -2195,8 +2201,9 @@
       instrumentSelect.oninput = (e) => {
       if (isInstrument) {
         track.instrumentName = e.target.value;
-        track.devices[0].presetName = "default";
+        console.log("Selected instrument " + track.instrumentName)
         audio.updateTrack(track);
+        track.devices[0].presetName = "default";
         
         trackDeviceNode = audio.getTrackSynth(track);
         if (trackDeviceNode.name !== track.instrumentName)
