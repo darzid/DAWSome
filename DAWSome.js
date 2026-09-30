@@ -22,142 +22,6 @@
   const STEP_LABELS = new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]);
   const INSTRUMENTS = ["triangle", "sine", "square", "sawtooth"];
   const TRACK_COLORS = ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"];
-  /*
-  const DEVICES = [ 
-  { 
-    name: "MembraneSynth",
-    type: "Instrument",
-    parameters: {
-      "detune": -1000,
-      "pitchDecay": 0.05,
-      "octaves": 8,
-      "volume": 0,
-      "envelope": {
-        "attack": 0.001,
-        "attackCurve": "linear",
-        "decay": 0.1,
-        "sustain": 0.2,
-        "release": 0.1
-      }
-    }
-  }, 
-  {
-    name: "MonoSynth",
-    type: "Instrument",
-    parameters: {
-      "volume": 0,
-      "portamento": 0,
-      "oscillator": {
-        "type": "sawtooth"
-      },
-      "filter": {
-        "Q": 0.3,
-        "detune": -1000,
-        "frequency": 0,
-        "gain": 0,
-        "rolloff": -48,
-        "type": "bandpass"
-      },
-      "envelope": {
-        "attack": 0.01,
-        "decay": 0.4,
-        "sustain": 0.01,
-        "release": 0.01
-      },
-      "filterEnvelope": {
-        "attack": 0.1,
-        "decay": 1.3,
-        "sustain": 1,
-        "release": 0.7,
-        "releaseCurve": "linear",
-        "baseFrequency": 20,
-        "octaves": 5
-      }
-    }
-  },
-  {
-    name: "MetalSynth",
-    type: "Instrument",
-    parameters: {
-      volume: -10,
-      portamento: 100,
-      modulationIndex: 1,
-      octaves: 0,
-      envelope: {
-        attack: 0.01,
-        decay: 0.05,
-        sustain: 0.1,
-        release: 1.4
-      }
-    }
-  },
-  {
-    name: "MetalSynth",
-    type: "Instrument",
-    parameters: {
-      "volume": -7.5,
-      "portamento": 0,
-      "harmonicity": 0.65,
-      "modulationIndex": 1,
-      "octaves": 0,
-      "envelope": {
-        "attack": 0.01,
-        "attackCurve": "linear",
-        "decay": 0.715,
-        "decayCurve": "exponential",
-        "sustain": 0.05,
-        "release": 0.3,
-        "releaseCurve": "exponential"
-      }
-    }
-  },
-  ];
-  */
-  
-  /*const EFFECTS = [
-  {
-    name: "Compressor",
-    parameters: {
-      "threshold": -12,
-      "knee": 25,
-      "ratio": 20,
-      "attack": 0.6,
-      "release": 0.25
-    }
-  },
-  {
-    name: "Distortion",
-    parameters: {
-      "distortion": 0.2
-    }
-  },
-  {
-    name: "Filter",
-    parameters: {
-      frequency: 300
-    }
-  },
-  {
-    name: "PingPongDelay",
-    parameters: {
-      delayTime: "8n",
-      wet: 0.5
-    }
-  }
-  ];
-  */ 
-  /*
-  const MODULATORS = [
-    {
-      name: "LFO",
-      parameters: {
-        min: 300,
-        max: 1000,
-        frequency: 0.1,
-        amplitude: 1
-      }
-    }
-  ];*/
     
   const COLORS = {
     void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
@@ -648,7 +512,12 @@
           let device = devices[trackModulator.targetDeviceIndex];
           if (!device)
             console.warn("Target device not found", trackModulator.targetDeviceIndex, devices)
-          let target = device[trackModulator.targetParameter];
+          
+          let parts = trackModulator.targetParameter.split(".");
+          let target = device;
+          for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+            target = target[parts[partIndex]];
+          }
           modulator.connect(target);
           modulator.start();
           console.log(`connected modulator to ${track.name}.${device.name}.${trackModulator.targetParameter}`, modulator, target)
@@ -2847,7 +2716,7 @@
           "Q": 0.3,
           "detune": -1000,
           "frequency": 0,
-          "gain": 0,
+          "gain": 5,
           "rolloff": -48,
           "type": "highshelf"
         },
@@ -2868,40 +2737,45 @@
         }
       }
     };
-    const leadFilter = {
-      name: "Filter",
-      parameters: {
-        frequency: 300
-      }
-    };
     const leadDistortion = {
       name: "Distortion",
       parameters: {
         "distortion": 0.2
       }
     };
+    const leadPhaser = {
+      name: "Phaser",
+      parameters: {
+        frequency: 0.25,
+        Q: 10,
+        baseFrequency: 350,
+        octaves: 3,
+        wet: 0.7
+      }
+    };
     const leadDelay = {
       name: "PingPongDelay",
       parameters: {
-        delayTime: "8n",
-        wet: 0.5
+        delayTime: 0.125,
+        feedback: 0.5,
+        wet: 0.3
       }
     };
     const leadModulation = { 
       modulator: {
         name: "LFO",
         parameters: {
-          min: 300,
-          max: 1000,
-          frequency: 0.1,
+          min: 5,
+          max: 0,
+          frequency: "4m",
           amplitude: 1
         }
       }, 
-      targetDeviceIndex: 1, 
-      targetParameter: "frequency"
+      targetDeviceIndex: 0, 
+      targetParameter: "filter.gain"
     };
     
-    const lead = addTrack("Lead", leadSynth, [leadFilter, leadDistortion, leadDelay], [leadModulation]);
+    const lead = addTrack("Lead", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
     const leadNotes = mk([ 
       [41, 0.25, 0.2], 
       [44, 0.5, 0.25], 
@@ -2915,7 +2789,7 @@
       [46, 2.5, 0.25], 
       [41, 2.75, 0.2],
       
-      [46, 3.25, 0.2], 
+      [46, 3.25, 0.8], 
       [49, 3.5, 0.25], 
       [44, 3.75, 0.2]
     ]);

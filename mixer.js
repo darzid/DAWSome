@@ -15,8 +15,8 @@ class Mixer {
       
     
       faderContainer.innerHTML += `<label>${track.name}</label>
-        <input type="number" min="-100" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value" />
-        <input id="${track.id}-fader" type="range" min="-100" max="0.0" step="0.1" value="${track.volume}" />`;
+        <input type="number" min="-500" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value" />
+        <input id="${track.id}-fader" type="range" min="-500" max="0.0" step="0.1" value="${track.volume}" />`;
         
       let faderInput = faderContainer.querySelector("input[type=range]");
       let faderValue = faderContainer.querySelector("input[type=number]");

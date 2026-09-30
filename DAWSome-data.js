@@ -1125,7 +1125,7 @@
     "Phaser": {
       "type": "Effect",
       "parameters": {
-        "frequency": "unitTypes/Time",
+        "frequency": "unitTypes/Frequency",
         "Q": "unitTypes/Positive",
         "baseFrequency": "unitTypes/Frequency",
         "octaves": "unitTypes/NormalRange",
