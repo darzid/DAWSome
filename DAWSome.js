@@ -2127,7 +2127,7 @@
     catch (error) {
       console.error("Error while creating modulatoe html", error)
     }
-    createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+    createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
   }
   
   
@@ -2177,6 +2177,7 @@
       nextBtn.style.display = "none";
     }
     
+    let targetParamMetadata = null;
     if (hasPresets) {
       let instrumentSelect = devicePanel.querySelector(".inst");
       console.log("get instrument select", instrumentSelect);
@@ -2245,22 +2246,39 @@
     else if (isLFO) {
       let modulatorsStartIndex = 1 + track.effects.length;
       let modulatorIndex = deviceIndex - modulatorsStartIndex;
-      let modulation = track.modulators[modulatorIndex];
+      let modulation = track.modulators[0];
       
       let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
-      targetDeviceSelect.value = modulation.targetDeviceIndex;
+      if (modulation) {
+        targetDeviceSelect.value = modulation.targetDeviceIndex;
       
-      let targetParameterSelect = devicePanel.querySelector(".targetParameter");
-      
-      fillTargetParameters(targetDeviceSelect, targetParameterSelect);
-      targetParameterSelect.value = modulation.targetParameter;
-      
-      targetDeviceSelect.oninput = (e) => fillTargetParameters(targetDeviceSelect, targetParameterSelect);
+        let targetParameterSelect = devicePanel.querySelector(".targetParameter");
+        
+        fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
+        targetParameterSelect.value = modulation.targetParameter;
+        let targetDevice = track.devices[targetDeviceSelect.value];
+        targetParamMetadata = deviceList.devices[targetDevice.name].parameters[modulation.targetParameter];
+          
+        targetDeviceSelect.oninput = (e) => fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
+        targetParameterSelect.oninput = (e) => {
+          console.log("param selected")
+          modulation.targetParameter = targetParameterSelect.value;
+          let targetDevice = track.devices[targetDeviceSelect.value];
+          let targetDeviceMetadata = deviceList.devices[targetDevice.name];
+          targetParamMetadata = targetDeviceMetadata.parameters[modulation.targetParameter];
+          console.log("param render " + modulation.targetParameter, targetDeviceMetadata, targetParamMetadata)
+          renderDeviceParameters(targetParamMetadata);
+        }
+      }
+      else {
+        console.log("modulation not found", track.modulators, modulatorIndex)
+      }
     }
     
-    renderDeviceParameters();
+    renderDeviceParameters(targetParamMetadata);
     
-    function renderDeviceParameters() {
+    function renderDeviceParameters(targetParamMetadata = null) {
+      console.log("renderDeviceParameters", targetParamMetadata)
       parametersPanel.innerHTML = "";
       if (trackDeviceNode.name == "") {
         return;
@@ -2270,11 +2288,11 @@
         let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
         console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
       
-        Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState));
+        Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
       }
     }
     
-    function fillTargetParameters(targetDeviceSelect, targetParameterSelect) {
+    function fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect) {
       targetParameterSelect.innerHTML = "";
       let trackDevice = track.devices[targetDeviceSelect.value];
       let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
@@ -2318,7 +2336,7 @@
       }
     }
     
-    function createParamHtml(parameterPath, deviceMetadata, trackDeviceState) {
+    function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
       const useDeviceStateOnly = true;
       
       let parameterPathParts = parameterPath.split(".");
@@ -2328,7 +2346,7 @@
 
       let parameterMetadataPath = deviceMetadata.parameters[parameterName];
       let parts = parameterMetadataPath.split("/");
-      let paramMetadata = deviceList[parts[0]][parts[1]];
+      let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
       
       //console.log("param metadata", parameterMetadataPath, paramMetadata);
       
@@ -2358,9 +2376,10 @@
         }
         
         let label = document.createElement("label");
-        label.innerText = parameterPath;
+        label.innerText = parameterPath.replace(".", " ");
         paramElement.appendChild(label);
         if (parts[0] == "unitTypes") {
+
           let input = document.createElement("number-input");
           paramElement.appendChild(input);
           input.name = parameterPath;
@@ -2382,6 +2401,18 @@
             
             updateParamState(parameterPath, input.value);
           }
+          
+          let unitLabel = document.createElement("label");
+          unitLabel.className = "unit";
+          paramElement.appendChild(unitLabel);
+          if (targetParameterMetadata && (parameterName == "min" || parameterName == "max")) {
+            if (targetParameterMetadata.unit)
+              unitLabel.innerText = targetParameterMetadata.unit
+          }
+          else if (paramMetadata.unit) {
+            unitLabel.innerText = paramMetadata.unit
+          }
+            
         }
         else if (parts[0] == "enumTypes") {
          let select = document.createElement("select");
