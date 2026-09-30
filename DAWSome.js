@@ -22,6 +22,7 @@
   const STEP_LABELS = new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]);
   const INSTRUMENTS = ["triangle", "sine", "square", "sawtooth"];
   const TRACK_COLORS = ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"];
+  /*
   const DEVICES = [ 
   { 
     name: "MembraneSynth",
@@ -109,10 +110,11 @@
         "releaseCurve": "exponential"
       }
     }
-  }
+  },
   ];
+  */
   
-  const EFFECTS = [
+  /*const EFFECTS = [
   {
     name: "Compressor",
     parameters: {
@@ -134,9 +136,17 @@
     parameters: {
       frequency: 300
     }
+  },
+  {
+    name: "PingPongDelay",
+    parameters: {
+      delayTime: "8n",
+      wet: 0.5
+    }
   }
   ];
-  
+  */ 
+  /*
   const MODULATORS = [
     {
       name: "LFO",
@@ -147,7 +157,7 @@
         amplitude: 1
       }
     }
-  ];
+  ];*/
     
   const COLORS = {
     void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
@@ -2666,9 +2676,42 @@
     console.log("creating demo song")
     const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));
     
-    console.log("creating kick", EFFECTS[1]);
-    const kick = addTrack("Kick", DEVICES[0], [EFFECTS[1], EFFECTS[0]]);
-    console.log("creating kick clip", EFFECTS[0])
+    console.log("creating kick");
+    const kickSynth = {
+      name: "MembraneSynth",
+      type: "Instrument",
+      parameters: {
+        "detune": -1000,
+        "pitchDecay": 0.05,
+        "octaves": 8,
+        "volume": 0,
+        "envelope": {
+          "attack": 0.001,
+          "attackCurve": "linear",
+          "decay": 0.1,
+          "sustain": 0.2,
+          "release": 0.1
+        }
+      }
+    };
+    const kickDistortion = {
+      name: "Distortion",
+      parameters: {
+        "distortion": 0.2
+      }
+    };
+    const kickCompressor = {
+      name: "Compressor",
+      parameters: {
+        "threshold": -12,
+        "knee": 25,
+        "ratio": 20,
+        "attack": 0.6,
+        "release": 0.25
+      }
+    };
+    const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
+    console.log("creating kick clip")
     createClip(kick, 0, BEATS_PER_BAR / 4, mk([
       [36, 0, 0.25]
     ]), 15);
@@ -2678,7 +2721,41 @@
     console.log("created kick clip")
     
     console.log("creating bass")
-    const bass = addTrack("Bass", DEVICES[1], null, null);
+    const bassSynth = {
+      name: "MonoSynth",
+      type: "Instrument",
+      parameters: {
+        "volume": 0,
+        "portamento": 0,
+        "oscillator": {
+          "type": "sawtooth"
+        },
+        "filter": {
+          "Q": 0.3,
+          "detune": -1000,
+          "frequency": 0,
+          "gain": 0,
+          "rolloff": -48,
+          "type": "bandpass"
+        },
+        "envelope": {
+          "attack": 0.01,
+          "decay": 0.4,
+          "sustain": 0.01,
+          "release": 0.01
+        },
+        "filterEnvelope": {
+          "attack": 0.1,
+          "decay": 1.3,
+          "sustain": 1,
+          "release": 0.7,
+          "releaseCurve": "linear",
+          "baseFrequency": 20,
+          "octaves": 5
+        }
+      }
+    };
+    const bass = addTrack("Bass", bassSynth, null, null);
     const bassNotes = mk([ 
       [29, 0.25, 0.2], 
       [32, 0.5, 0.25], 
@@ -2701,7 +2778,23 @@
     console.log("created bass")
     
     console.log("creating closedhat")
-    const closedHat = addTrack("ClosedHat", DEVICES[2], null);
+    const closedHatSynth = {
+      name: "MetalSynth",
+      type: "Instrument",
+      parameters: {
+        volume: -10,
+        portamento: 100,
+        modulationIndex: 1,
+        octaves: 0,
+        envelope: {
+          attack: 0.01,
+          decay: 0.05,
+          sustain: 0.1,
+          release: 1.4
+        }
+      }
+    }
+    const closedHat = addTrack("ClosedHat", closedHatSynth, null);
     let chNotes = mk([ 
       [42, 0.0, 0.125], 
       [42, 0.25, 0.125], 
@@ -2713,7 +2806,27 @@
     console.log("created closed hat")
     
     console.log("creating opemhat")
-    const openHat = addTrack("OpenHat", DEVICES[3], null);
+    const openHatSynth = {
+      name: "MetalSynth",
+      type: "Instrument",
+      parameters: {
+        "volume": -7.5,
+        "portamento": 0,
+        "harmonicity": 0.65,
+        "modulationIndex": 1,
+        "octaves": 0,
+        "envelope": {
+          "attack": 0.01,
+          "attackCurve": "linear",
+          "decay": 0.715,
+          "decayCurve": "exponential",
+          "sustain": 0.05,
+          "release": 0.3,
+          "releaseCurve": "exponential"
+        }
+      }
+    };
+    const openHat = addTrack("OpenHat", openHatSynth, null);
     let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([ 
       [42, 0.5, 0.125]
     ]), 30);
@@ -2721,7 +2834,74 @@
     console.log("created open hat")
     
     console.log("creating lead")
-    const lead = addTrack("Lead", DEVICES[1], [EFFECTS[2]], [{ modulator: MODULATORS[0], targetDeviceIndex: 1, targetParameter: "frequency"}]);
+    const leadSynth = {
+      name: "MonoSynth",
+      type: "Instrument",
+      parameters: {
+        "volume": 0,
+        "portamento": 0,
+        "oscillator": {
+          "type": "sawtooth"
+        },
+        "filter": {
+          "Q": 0.3,
+          "detune": -1000,
+          "frequency": 0,
+          "gain": 0,
+          "rolloff": -48,
+          "type": "highshelf"
+        },
+        "envelope": {
+          "attack": 0.01,
+          "decay": 1.2,
+          "sustain": 0.01,
+          "release": 0.01
+        },
+        "filterEnvelope": {
+          "attack": 0.1,
+          "decay": 1.3,
+          "sustain": 1,
+          "release": 0.7,
+          "releaseCurve": "linear",
+          "baseFrequency": 20,
+          "octaves": 5
+        }
+      }
+    };
+    const leadFilter = {
+      name: "Filter",
+      parameters: {
+        frequency: 300
+      }
+    };
+    const leadDistortion = {
+      name: "Distortion",
+      parameters: {
+        "distortion": 0.2
+      }
+    };
+    const leadDelay = {
+      name: "PingPongDelay",
+      parameters: {
+        delayTime: "8n",
+        wet: 0.5
+      }
+    };
+    const leadModulation = { 
+      modulator: {
+        name: "LFO",
+        parameters: {
+          min: 300,
+          max: 1000,
+          frequency: 0.1,
+          amplitude: 1
+        }
+      }, 
+      targetDeviceIndex: 1, 
+      targetParameter: "frequency"
+    };
+    
+    const lead = addTrack("Lead", leadSynth, [leadFilter, leadDistortion, leadDelay], [leadModulation]);
     const leadNotes = mk([ 
       [41, 0.25, 0.2], 
       [44, 0.5, 0.25], 
@@ -2729,7 +2909,7 @@
       
       [41, 1.25, 0.2], 
       [46, 1.5, 0.25], 
-      [44, 1.75, 0.2],
+      [44, 1.75, 0.5],
       
       [44, 2.25, 0.2], 
       [46, 2.5, 0.25], 
@@ -2739,7 +2919,7 @@
       [49, 3.5, 0.25], 
       [44, 3.75, 0.2]
     ]);
-    createClip(lead, 24, BEATS_PER_BAR, leadNotes, 30);
+    createClip(lead, 0, BEATS_PER_BAR, leadNotes, 32);
     console.log("created lead")
     
     deselectClip();
