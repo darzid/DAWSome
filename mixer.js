@@ -23,12 +23,14 @@ class Mixer {
       faderInput.oninput = ()=> {
         track.volume = faderInput.value;
         faderValue.value = faderInput.value;
-        this.audio.updateTrack(track);
+        document.dispatchEvent(new CustomEvent("VolumeChanged", { detail: { trackId: track.id, volume: track.volume }}));
+        //this.audio.updateTrack(track);
       }
       faderValue.oninput = ()=> {
         track.volume = faderValue.value;
         faderInput.value = faderValue.value;
-        this.audio.updateTrack(track);
+        document.dispatchEvent(new CustomEvent("VolumeChanged", { detail: { trackId: track.id, volume: track.volume }}));
+        //this.audio.updateTrack(track);
       }
       console.log("track vol", track)
       
@@ -45,14 +47,16 @@ class Mixer {
         muteButton.classList.toggle("on");
         if (!muteButton.classList.contains("on")) {
           track.mute = false;
+          document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
           console.log("track unmuted")
         }
         else {
           track.mute = true;
+          document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
           console.log("track muted")
         }
         if (track.mute != oldMute) {
-          this.audio.updateTrack(track);
+         // this.audio.updateTrack(track);
           document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
         }
       };
@@ -74,13 +78,13 @@ class Mixer {
         soloButton.classList.toggle("on");
         if (soloButton.classList.contains("on")) {
           track.mute = false;
-        
+          document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: false }}));
           soloedMuteButtons.push(muteButton);
         //  soloedMuteButtons = soloedMuteButtons.splice(soloedMuteButtons.indexOf(muteButton),1);
           this.state.tracks.forEach(projectTrack => {
             if (track != projectTrack) {
               projectTrack.mute = true;
-              this.audio.updateTrack(projectTrack);
+            //  this.audio.updateTrack(projectTrack);
               document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: projectTrack.id, muted: true }}));
             }
           })
@@ -89,6 +93,8 @@ class Mixer {
               
               projectMuteButton.classList.add("on");
               projectMuteButton.disabled="true";
+              let muteTrackId = projectMuteButton.id.replace("-mute", "");
+              document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: muteTrackId, muted: true }}));
             }
           })
           
@@ -98,12 +104,14 @@ class Mixer {
           muteButtons.forEach(projectMuteButton => {
             projectMuteButton.disabled="";
             projectMuteButton.classList.remove("on");
+            let muteTrackId = projectMuteButton.id.replace("-mute", "");
+            document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: muteTrackId, muted: false }}));
           })
           
           this.state.tracks.forEach(projectTrack => {
             if (track != projectTrack) {
               projectTrack.mute = false;
-              this.audio.updateTrack(projectTrack);
+            //  this.audio.updateTrack(projectTrack);
               document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: projectTrack.id, muted: false }}));
             }
           })
@@ -114,8 +122,11 @@ class Mixer {
               if (!projectSoloButton.classList.contains("on")) {
                 projectMuteButton.disabled="";
                 projectMuteButton.classList.remove("on");
-                let muteTrack = this.state.tracks.find(track => track.id == projectMuteButton.id.replace("-mute", ""));
-                this.audio.updateTrack(muteTrack);
+               // let muteTrack = this.state.tracks.find(track => track.id == projectMuteButton.id.replace("-mute", ""));
+                //this.audio.updateTrack(muteTrack);
+                let muteTrackId = projectMuteButton.id.replace("-mute", "");
+                document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: muteTrackId, muted: false }}));
+
               }
            // }
             console.log("soloed", soloedMuteButtons)
@@ -124,7 +135,7 @@ class Mixer {
         
           console.log("track unsolod")
         }
-        this.audio.updateTrack(track);
+        //this.audio.updateTrack(track);
       };
       }
       catch (error) {

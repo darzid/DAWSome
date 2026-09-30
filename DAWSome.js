@@ -529,9 +529,39 @@
         throw error;
       }
     }
-    
+    const updateInstrument = (trackId, instrumentName) => {
+      const ch = chain(trackId);
+      const track = state.tracks.find(track => track.id == trackId);
+      track.devices[0].name = instrumentName;
+      track.devices[0].parameters = {};
+      
+      console.log("updating synth", instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
+      ch.synth.dispose();
+      //track.devices[0].parameters = track.instrumentParameters;
+      ch.synth = makeToneNode(track.devices[0].name);
+      track.instrumentName = track.devices[0].name;
+      
+      //console.log("updated synth", track.instrumentName, track.instrumentParameters);
+      ch.instrumentName = track.instrumentName;
+      ch.instrumentParameters = track.instrumentParameters;
+      connectDevices(ch);
+    };
     const chain = (trackId) => chains.get(trackId);
-
+    document.addEventListener("MuteChanged", (e) => {
+      const ch = chain(e.detail.trackId);
+      ch.channel.mute = e.detail.muted;
+      console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
+    });
+    document.addEventListener("VolumeChanged", (e) => {
+      const ch = chain(e.detail.trackId);
+      ch.channel.volume.value = e.detail.volume;
+      console.log(`audio.VolumeChanged: ${e.detail.trackId}, volume changed to ${ch.channel.volume}`);
+    });
+    document.addEventListener("InstrumentChanged", (e) => {
+      //updateInstrument(e.detail.trackId, e.detail.instrumentName);
+      console.log(`audio.InstrumentChanged: ${e.detail.trackId}, instrument changed to ${e.detail.instrumentName}`);
+    });
+    
     return {
       available: true,
       unlock: () => Tone.start(),
@@ -545,13 +575,13 @@
         console.log("adding track")
         const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
-        track.devices[0].parameters = track.instrumentPreset;
+        track.devices[0].parameters = track.instrumentParameters;
         chains.set(track.id, 
         { 
           synth: makeToneNode(track.devices[0]), 
           channel, 
-          instrument: track.devices[0].name,
-          instrumentPreset: track.instrumentPreset,
+          instrumentName: track.devices[0].name,
+          instrumentParameters: track.instrumentParameters,
           effects: makeToneNodes(track.effects),
           modulators: makeToneNodes(track.modulators.map(m => m.modulator))
         });
@@ -565,21 +595,24 @@
       },
       updateTrack: (track) => {
         const ch = chain(track.id);
-        if (ch.channel.mute != track.mute) {
-          ch.channel.mute = track.mute;
-          console.log(`audio.updateTrack: ${track.id}, mute changed to ${ch.channel.mute}`);
-        }
-        if (ch.channel.volume != track.volume) {
-          ch.channel.volume.value = track.volume;
-        }
-        if (ch.instrument !== track.devices[0].name || ch.instrumentPreset !== track.instrumentPreset) {
-          console.log("updating synth", track.devices[0].name, ch.instrument, ch.instrumentPreset, track.instrumentPreset);
+        if (ch.instrumentName !== track.devices[0].name || ch.instrumentParameters !== track.instrumentParameters) {
+          console.log("updating synth", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
           ch.synth.dispose();
-          track.instrument.parameters = track.instrumentPreset;
-          ch.synth = makeToneNode(track.instrument);
-          //console.log("updated synth", track.instrument, track.instrumentPreset);
-          ch.instrument = track.instrument;
-          ch.instrumentPreset = track.instrumentPreset;
+          track.devices[0].parameters = track.instrumentParameters;
+          ch.synth = makeToneNode(track.instrumentName);
+          //console.log("updated synth", track.instrumentName, track.instrumentParameters);
+          ch.instrumentName = track.instrumentName;
+          ch.instrumentParameters = track.instrumentParameters;
+          connectDevices(ch);
+        }
+        if (ch.instrumentParameters !== track.instrumentParameters) {
+          console.log("updating synth", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
+          ch.synth.dispose();
+          track.devices[0].parameters = track.instrumentParameters;
+          ch.synth = makeToneNode(track.devices[0]);
+          //console.log("updated synth", track.instrumentName, track.instrumentParameters);
+          ch.instrumentName = track.instrumentName;
+          ch.instrumentParameters = track.instrumentParameters;
           connectDevices(ch);
         }
         if (track.effects.length != ch.effects.length) {
@@ -822,8 +855,8 @@
       id: state.nextId++, 
       name, 
       color: TRACK_COLORS[state.tracks.length % TRACK_COLORS.length],
-      instrument: instrument.name, 
-      instrumentPreset: instrument.parameters, 
+      instrumentName: instrument.name, 
+      instrumentParameters: instrument.parameters, 
       //device: instrument, 
       devices: devices,
       effects: effects, 
@@ -1144,21 +1177,8 @@
     const el = e.target.closest(".track");
     if (!el) return;
     const track = trackById(Number(el.dataset.id));
-    if (e.target.classList.contains("inst")) {
-      track.instrument = e.target.value;
-      track.instrumentPreset = {};
-      track.instrument.presetName = "";
-      audio.updateTrack(track);
-      fillDevicePresets(el, instrumentPresets, track.instrument);
-      return false;
-    } else if (e.target.classList.contains("instPreset")) {
-      track.instrumentPreset = instrumentPresets[track.instrument][e.target.value];
-      track.instrument.presetName = e.target.value;
-      console.log("Preset selected", track.instrument.presetName)
-      audio.updateTrack(track);
-      return false;
-    } 
-    else if (e.target.classList.contains("name")) {
+
+    if (e.target.classList.contains("name")) {
       track.name = e.target.value.trim() || track.name;
       e.target.value = track.name;
       editorClipChanged();
@@ -2174,15 +2194,15 @@
       
       instrumentSelect.oninput = (e) => {
       if (isInstrument) {
-        track.instrument = e.target.value;
-        track.instrumentPreset = "default";
+        track.instrumentName = e.target.value;
+        track.devices[0].presetName = "default";
         audio.updateTrack(track);
         
         trackDeviceNode = audio.getTrackSynth(track);
-        if (trackDeviceNode.name !== track.instrument)
+        if (trackDeviceNode.name !== track.instrumentName)
           throw "mismatch"
-        fillDevicePresets(devicePanel, devicePresets, track.instrument);
-        console.log("device changed to " + track.instrument, trackDeviceNode)
+        fillDevicePresets(devicePanel, devicePresets, track.instrumentName);
+        console.log("device changed to " + track.instrumentName, trackDeviceNode)
       }
       else {
         if (trackDeviceNode.name === "") {
@@ -2207,15 +2227,16 @@
       
       renderDeviceParameters();
       document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value }}));
+      audio.updateTrack(track);
     };
     
     instrumentPresetSelect.oninput = (e) => {
       if (isInstrument) {
-        track.instrumentPreset = devicePresets[track.instrument][e.target.value];
+        track.instrumentParameters = devicePresets[track.instrumentName][e.target.value];
         track.devices[0].presetName = e.target.value;
       }
       
-      console.log("Preset selected " + e.target.value, track.instrumentPreset)
+      console.log("Preset selected " + e.target.value, track.instrumentParameters)
       audio.updateTrack(track);
       renderDeviceParameters();
       document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value }}));
@@ -2775,25 +2796,12 @@
       targetParameter: "filter.gain"
     };
     
-    const lead = addTrack("Lead", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
+    const lead = addTrack("Lead", leadSynth, [leadDistortion, leadPhaser, leadDelay], []);
     const leadNotes = mk([ 
-      [41, 0.25, 0.2], 
-      [44, 0.5, 0.25], 
-      [46, 0.75, 0.2],
-      
-      [41, 1.25, 0.2], 
-      [46, 1.5, 0.25], 
-      [44, 1.75, 0.5],
-      
-      [44, 2.25, 0.2], 
-      [46, 2.5, 0.25], 
-      [41, 2.75, 0.2],
-      
-      [46, 3.25, 0.8], 
-      [49, 3.5, 0.25], 
-      [44, 3.75, 0.2]
-    ]);
-    createClip(lead, 0, BEATS_PER_BAR, leadNotes, 32);
+      [41, 2.5, 0.8],
+      [41, 6.5, 0.4]
+   ]);   
+    createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
     console.log("created lead")
     
     deselectClip();
