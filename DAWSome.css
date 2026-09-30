@@ -37,6 +37,13 @@
     
   }
   input[type="number"] { width: 56px; }
+  .app-header {
+    display: flex;
+    align-items: center;
+    width: stretch;
+  }
+  .version { float: right; margin-left: auto; margin-right: 0pt; }
+  
   .btn {
     height: 24px; min-width: 26px; padding: 0 7px; background: #3a3a3a; color: var(--text);
     border: 1px solid #4a4a4a; border-radius: 3px; font: inherit; cursor: pointer; touch-action: manipulation;

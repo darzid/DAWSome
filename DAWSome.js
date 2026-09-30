@@ -77,6 +77,7 @@
   // ===== DOM =====
   const $ = (id) => document.getElementById(id);
   const dom = {
+    projectName: $("project-name"),
     play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
     importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
@@ -1867,7 +1868,10 @@
       onChange();
     });
   }
-
+  
+  
+  dom.projectName.addEventListener("change", () => state.name = dom.projectName.value);
+  
   dom.play.addEventListener("click", togglePlay);
   dom.bpm.addEventListener("input", () => {
     const v = Number(dom.bpm.value);
@@ -2578,6 +2582,8 @@
     av.pxPerBeat = clamp(aw / (8 * BEATS_PER_BAR), av.o.hZoom.min, av.o.hZoom.max);
     const ew = ev.o.scroller.clientWidth || 800;
     ev.pxPerBeat = clamp(ew / (ew < 600 ? BEATS_PER_BAR : 2 * BEATS_PER_BAR), 30, 160); 
+    
+    dom.projectName.value = state.name;
     
     console.log("creating demo song")
     const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));

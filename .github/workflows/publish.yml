@@ -24,6 +24,13 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
         
+      - name: Version Increment
+        uses: reecetech/version-increment@2026.8.4
+        id: version
+        with:
+          scheme: semver
+          increment: patch
+  
       - name: Merge CSS and script into HTML
         run: |
           mkdir -p _site
@@ -52,6 +59,7 @@ jobs:
           }
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
+            .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
             .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
             .replace(/<script src="presetbrowser.js"><\/script>/i, `${presetBrowserScriptBlock}`)
             .replace(/<script src="mixer.js"><\/script>/i, `${mixerScriptBlock}`)
@@ -67,13 +75,7 @@ jobs:
           cp manifest.json _site
           cp service-worker.js _site
       
-      - name: Version Increment
-        uses: reecetech/version-increment@2026.8.4
-        id: version
-        with:
-          scheme: semver
-          increment: patch
-  
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
