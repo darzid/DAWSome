@@ -2796,7 +2796,7 @@
       targetParameter: "filter.gain"
     };
     
-    const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], []);
+    const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
     const leadNotes = mk([ 
       [41, 2.5, 0.8],
       [41, 6.5, 0.4]
