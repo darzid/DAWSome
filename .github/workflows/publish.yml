@@ -69,12 +69,17 @@ jobs:
       
       - name: Version Increment
         uses: reecetech/version-increment@2026.8.4
+        id: version
+        with:
+          scheme: semver
+          increment: patch
   
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-          
+          tags: "DAWSome:${{ steps.version.outputs.version }}"
+
       - name: Create tag & GitHub release
         uses: softprops/action-gh-release@v3
         with:
