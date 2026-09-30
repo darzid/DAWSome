@@ -18,7 +18,10 @@
 <div id="app">
   <div class="toolbar">
     <div class="group app-header">
+      <button id="loadBtn" class="btn" title="Load project">Load</button>
+      <input id="projectFile" type="file" accept=".json">
       <input type="text" id="project-name" value="Project">
+      <button id="saveBtn" class="btn" title="Save project">Save</button>
       <label class="version">v0.0.0</label>
     </div>
     <div class="group">
@@ -38,9 +41,7 @@
       <button id="delClipBtn" class="btn" title="Delete selected clip">Delete clip</button>
     </div>
     <div class="group">
-      <button id="loadBtn" class="btn" title="Load project">Load</button>
-      <input id="projectFile" type="file" accept=".json">
-      <button id="saveBtn" class="btn" title="Save project">Save</button>
+
       <span class="readout" style="min-width: 0">Zoom</span>
       <button id="arrZoomOutH" class="btn">H−</button><button id="arrZoomInH" class="btn">H+</button>
       <button id="arrZoomOutV" class="btn">V−</button><button id="arrZoomInV" class="btn">V+</button>
