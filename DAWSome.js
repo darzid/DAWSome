@@ -1,6 +1,15 @@
 (async () => {
   "use strict";
 
+  let swRegistration = null;
+  
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then((reg) => {
+        swRegistration = reg;
+      });
+  }
   // ===== Constants =====
   const PITCH_COUNT = 128;
   const TOP_PITCH = PITCH_COUNT - 1;
