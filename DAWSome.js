@@ -822,7 +822,7 @@
     state.selectedTrackId = null;
     
     console.log("track cleared")
-    showInstrumentPanel();
+    refreshActivePanel();
   }
   
   function selectTrackById(trackId) {
@@ -1174,14 +1174,8 @@
     } else if (e.target.classList.contains("del")) {
       removeTrack(track.id);
       if (!currentClip()) editorClipChanged();
-    } else if (e.target.classList.contains("inst")) {
-      showInstrumentPanel();
-      return false;
-    } else if (e.target.classList.contains("instPreset")) {
-      showInstrumentPanel();
-      return false;
     } else if (e.target.classList.contains("name")) {
-      showInstrumentPanel();
+      refreshActivePanel();
       return false;
     }
     arrangementChanged();
@@ -1974,7 +1968,7 @@
       showClipEditorPanel();
     }
     else {
-      hideClipEditorPanel();
+      editor.style.display = "none";
     }
   });
   
@@ -1984,7 +1978,7 @@
       showInstrumentPanel()
     }
     else {
-      hideInstrumentPanel()
+      instrumentPanel.style.display = "none";
     }
   });
   
@@ -1994,7 +1988,7 @@
       showEffectsPanel();
     }
     else {
-      hideEffectsPanel();
+      effectsPanel.style.display = "none";
     }
   });
   
@@ -2004,7 +1998,7 @@
       showModulationPanel();
     }
     else {
-      hideModulationPanel();
+      modulationPanel.style.display = "none";
     }
   });
   
@@ -2014,7 +2008,7 @@
       showMixerPanel()
     }
     else {
-      hideMixerPanel();
+      mixer.style.display = "none";
     }
   });
   
@@ -2033,70 +2027,14 @@
     renderInstrumentPanel();
   }
   
-  function renderInstrumentPanel() {
-    let parentPanel = instrumentPanel;
-    
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      parentPanel.style.display = "none";
-      return;
-    }
-
-    let deviceToInspect = audio.getTrackSynth(track);
-    parentPanel.innerHTML = "";
-    createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
-  }
-  
   function showEffectsPanel() {
     showPanel(effectsPanel, dom.effectsTabBtn);
     renderEffectsPanel();
   }
   
-  function renderEffectsPanel() {
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      console.log("no track fx")
-      effectsPanel.style.display = "none";
-      return;
-    }
-
-    let trackEffects = audio.getTrackEffects(track);
-    
-    effectsPanel.innerHTML = "";
-    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
-    createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
-  }
-  
   function showModulationPanel() {
     showPanel(modulationPanel, dom.modulationTabBtn);
     renderModulationPanel();
-  }
-  
-  function renderModulationPanel() {
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      console.log("no track")
-      modulationPanel.style.display = "none";
-      return;
-    }
-    else {
-      if (!dom.modulationTabBtn.classList.contains("on")) {
-        dom.modulationTabBtn.classList.add("on");
-      }
-    }
-  
-    let trackModulators = audio.getTrackModulators(track);
-    let modulatorsStartIndex = 1 + track.effects.length;
-    
-    modulationPanel.innerHTML = "";
-    console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
-    try {
-      trackModulators.forEach(mod => createDeviceHtml(modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
-    }
-    catch (error) {
-      console.error("Error while creating modulatoe html", error)
-    }
-    createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, trackModulators.length, modulatorNames, modulatorPresets, "LFO");
   }
   
   function showMixerPanel() {
@@ -2123,6 +2061,75 @@
       }
     });
   }
+  
+  function refreshActivePanel() {
+    const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
+    if (activeButton.id == "instrument-panel-tab-button")
+      renderInstrumentPanel();
+    else if (activeButton.id == "effects-panel-tab-button")
+      renderEffectsPanel();
+    else if (activeButton.id == "modulation-panel-tab-button")
+      renderModulationPanel();
+  }
+  
+  function renderInstrumentPanel() {
+    let parentPanel = instrumentPanel;
+    instrumentPanel.style.display = "flex";
+    let track = state.tracks.find(track => track.id === state.selectedTrackId);
+    if (!track) {
+      parentPanel.style.display = "none";
+      return;
+    }
+
+    let deviceToInspect = audio.getTrackSynth(track);
+    parentPanel.innerHTML = "";
+    createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
+  }
+  
+  function renderEffectsPanel() {
+    effectsPanel.style.display = "flex";
+    let track = state.tracks.find(track => track.id === state.selectedTrackId);
+    if (!track) {
+      console.log("no track fx")
+      effectsPanel.style.display = "none";
+      return;
+    }
+
+    let trackEffects = audio.getTrackEffects(track);
+    
+    effectsPanel.innerHTML = "";
+    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+    createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+  }
+  
+  function renderModulationPanel() {
+    modulationPanel.style.display = "flex";
+    let track = state.tracks.find(track => track.id === state.selectedTrackId);
+    if (!track) {
+      console.log("no track")
+      modulationPanel.style.display = "none";
+      return;
+    }
+    else {
+      if (!dom.modulationTabBtn.classList.contains("on")) {
+        dom.modulationTabBtn.classList.add("on");
+      }
+    }
+  
+    let trackModulators = audio.getTrackModulators(track);
+    let modulatorsStartIndex = 1 + track.effects.length;
+    
+    modulationPanel.innerHTML = "";
+    console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
+    try {
+      trackModulators.forEach(mod => createDeviceHtml(modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+    }
+    catch (error) {
+      console.error("Error while creating modulatoe html", error)
+    }
+    createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+  }
+  
   
   function createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {''
     let devicePanel = document.createElement("div");
