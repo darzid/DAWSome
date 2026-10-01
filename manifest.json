@@ -1,6 +1,6 @@
 {
-  "name": "DAWSome",
-  "short_name": "DAWSome by Darzid",
+  "name": "DAWSome by Darzid",
+  "short_name": "DAWSome",
   "description": "DAWSome music workstation",
   "start_url": "./",
   "scope": "./",
