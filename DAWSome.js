@@ -1,9 +1,12 @@
 (async () => {
   "use strict";
 
+  let toneInitialized = false;
+  let toneLookAhead = 0.2;
+  
   let swRegistration = null;
 
-  try {
+  if (location.origin !== "file://") {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("./service-worker.js")
@@ -12,10 +15,7 @@
         });
     }
   }
-  catch (error) {
-    console.warn("Service worker registration failed:", error);
-  }
-  
+
   // ===== Constants =====
   const PITCH_COUNT = 128;
   const TOP_PITCH = PITCH_COUNT - 1;
@@ -428,7 +428,6 @@
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
-    Tone.setContext(new Tone.Context({ latencyHint: "playback" }))
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
     const chains = new Map();   // trackId → { synth, channel, device name }
@@ -581,7 +580,14 @@
 
     return {
       available: true,
-      unlock: () => Tone.start(),
+      unlock: () => {
+        if (!toneInitialized) {
+          Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
+          console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
+          toneInitialized = true;
+        }
+        Tone.start();
+      },
       setBpm: (bpm) => { transport.bpm.value = bpm; },
       setLoop: (on, endBeats) => {
         transport.loop = on;
@@ -690,8 +696,8 @@
           const events = clip.notes
             .filter((n) => n.start < clip.length - EPS)
             .map((n) => ({
-              //time: toTicks(clip.start + n.start), 
-              time: toTicks(n.start),
+              time: toTicks(clip.start + n.start),
+              //time: toTicks(n.start),
               hz: hz(n.pitch),
               dur: toTicks(Math.min(n.duration, clip.length - n.start)),
               vel: n.velocity / 127,
@@ -726,7 +732,16 @@
         part.dispose();
         parts.delete(clipId);
       },
-      play: async () => { await Tone.start(); transport.start(); },
+      play: async () => {
+        if (!toneInitialized) {
+          Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
+          Tone.getContext().lookAhead = 0.2;
+          console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
+          toneInitialized = true;
+        }
+        await Tone.start();
+        transport.start();
+      },
       stop: () => {
         transport.stop();
         for (const ch of chains.values()) ch.synth.triggerAttackRelease();
