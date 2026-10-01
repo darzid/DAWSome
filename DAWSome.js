@@ -1006,7 +1006,9 @@
   const av = new TimelineView({
     gridWrap: $("arrGridWrap"), gridCanvas: $("arrGridCanvas"), rulerWrap: $("arrRulerWrap"), rulerCanvas: $("arrRulerCanvas"),
     scroller: $("arrScroller"), spacer: $("arrSpacer"),
-    hZoom: { min: 3, max: 200 }, vZoom: { min: 40, max: 120 }, rowHeight: 52,
+    hZoom: { min: 3, max: 200 },
+    vZoom: { min: 40, max: 120 },
+    rowHeight: 52,
     rowCount: () => state.tracks.length,
     contentBeats: () => songEndBeats() + SONG_TAIL_BEATS,
     render: renderArrangement,
@@ -2539,7 +2541,7 @@
   $("edZoomOutH").addEventListener("click", () => ev.zoomH(1 / ZOOM_BUTTON_FACTOR));
   $("edZoomInV").addEventListener("click", () => ev.zoomV(ZOOM_BUTTON_FACTOR));
   $("edZoomOutV").addEventListener("click", () => ev.zoomV(1 / ZOOM_BUTTON_FACTOR));
-  
+
   for (const b of document.querySelectorAll(".toolbar .btn")) b.addEventListener("click", () => b.blur());
 
   window.addEventListener("keydown", (e) => {
@@ -2606,6 +2608,8 @@
     av.layout();
     ev.layout();
     keysCtx = sizeCanvas(dom.edKeysCanvas, dom.edKeysWrap.clientWidth, dom.edKeysWrap.clientHeight);
+    av.zoomV(1 / ZOOM_BUTTON_FACTOR);
+    av.zoomV(1 / ZOOM_BUTTON_FACTOR);
   }
 
   var deviceBrowser = new DeviceBrowser();

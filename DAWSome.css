@@ -87,6 +87,7 @@
     padding: 0.75vw 0vw 0.75vw 0;
     border-bottom: 1px solid var(--border); 
     background: #232323; overflow: hidden;
+    height: 40px;
   }
   .track.selected { background: #2e6e6e; }
   .track .swatch { width: 1vw; align-self: stretch; margin-right: 2px; }
