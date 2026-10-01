@@ -2705,15 +2705,10 @@
       };
       const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
       console.log("creating kick clip");
-      createClip(kick, 0, BEATS_PER_BAR / 4, mk([
-        [36, 0, 0.25]
-      ]), 15);
-      createClip(kick, 16, BEATS_PER_BAR / 4, mk([
-        [36, 0, 0.25]
-      ]), 28);
-      createClip(kick, 32, BEATS_PER_BAR / 4, mk([
-        [36, 0, 0.25]
-      ]), 48);
+      const kickNotes = mk([[36, 0, 0.25]]);
+      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 28);
+      createClip(kick, 32, BEATS_PER_BAR / 4, kickNotes, 46);
+      createClip(kick, 48, BEATS_PER_BAR / 4, kickNotes, 64);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -2736,7 +2731,7 @@
           },
           "envelope": {
             "attack": 0.01,
-            "decay": 0.4,
+            "decay": 1.2,
             "sustain": 0.01,
             "release": 0.01
           },
@@ -2753,7 +2748,7 @@
       };
       const bass = addTrack("Bass", bassSynth, [kickDistortion]);
       const bassNotes = mk([
-        [29, 0.25, 0.2],
+        [27, 0.25, 0.2],
         [32, 0.5, 0.25],
         [34, 0.75, 0.2],
 
@@ -2762,16 +2757,33 @@
         [32, 1.75, 0.2],
 
         [32, 2.25, 0.2],
-        [34, 2.5, 0.25],
-        [29, 2.75, 0.2],
+        [27, 2.5, 0.25],
+        [27, 2.75, 0.2],
 
         [34, 3.25, 0.2],
         [37, 3.5, 0.25],
-        [32, 3.75, 0.2]
+        [32, 3.75, 0.2],
+        
+        [29, 4.25, 0.2],
+        [32, 4.5, 0.25],
+        [34, 4.75, 0.2],
+
+        [29, 5.25, 0.2],
+        [34, 5.5, 0.25],
+        [32, 5.75, 0.2],
+
+        [32, 6.25, 0.2],
+        [29, 6.5, 0.25],
+        [27, 6.75, 0.2],
+
+        [32, 7.25, 0.2],
+        [29, 7.5, 0.25],
+        [34, 7.75, 0.2]
       ]);
-      createClip(bass, 4, BEATS_PER_BAR, bassNotes, 14);
-      createClip(bass, 16, BEATS_PER_BAR, bassNotes, 30);
-      createClip(bass, 32, BEATS_PER_BAR, bassNotes, 48);
+      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
+      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
+      createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 46);
+      createClip(bass, 48, BEATS_PER_BAR * 2, bassNotes, 64);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2798,9 +2810,8 @@
         [42, 0.5, 0.125],
         [42, 0.75, 0.125]
       ]);
-      createClip(closedHat, 8, BEATS_PER_BAR / 4, chNotes, 14);
-      createClip(closedHat, 16, BEATS_PER_BAR / 4, chNotes, 30);
-      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes, 48);
+      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes, 46);
+      createClip(closedHat, 48, BEATS_PER_BAR / 4, chNotes, 64);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -2825,12 +2836,8 @@
         }
       };
       const openHat = addTrack("OpenHat", openHatSynth, null);
-      /*let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([
-        [42, 0.5, 0.125]
-      ]), 30);*/
-      let ohClip2 = createClip(openHat, 32, BEATS_PER_BAR / 4, mk([
-        [42, 0.5, 0.125]
-      ]), 48);
+      let ohNotes = mk([[42, 0.5, 0.125]]);
+      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
       console.log("created open hat");
 
       console.log("creating lead");
@@ -2902,15 +2909,14 @@
         targetParameter: "filter.gain"
       };
 
-      const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
+      const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay]);
       const leadNotes = mk([
         [41, 6.0, 0.3],
         [41, 6.25, 0.6],
         [41, 6.5, 1.2],
         [41, 7.5, 0.4]
       ]);
-      createClip(lead, 16, BEATS_PER_BAR * 2, leadNotes, 32);
-      createClip(lead, 32, BEATS_PER_BAR * 2, leadNotes, 48);
+      createClip(lead, 32, BEATS_PER_BAR * 2, leadNotes, 64);
       console.log("created lead");
 
       console.log("created demo song");
