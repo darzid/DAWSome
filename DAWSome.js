@@ -580,11 +580,6 @@
     return {
       available: true,
       unlock: () => {
-        if (!toneInitialized) {
-          Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-          console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
-          toneInitialized = true;
-        }
         Tone.start();
       },
       setBpm: (bpm) => { transport.bpm.value = bpm; },
@@ -734,7 +729,7 @@
       play: async () => {
         if (!toneInitialized) {
           Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-          Tone.getContext().lookAhead = 0.2;
+          Tone.getContext().lookAhead = toneLookAhead;
           console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
           toneInitialized = true;
         }
@@ -1237,8 +1232,7 @@
 
   av.o.scroller.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    //audio.unlock().catch(() => { });
-    audio.unlock();
+    audio.unlock().catch(() => { });
     if (av.trackDown(e)) { aDrag = null; return; }
     const p = av.point(e);
     const clip = clipAt(p.beat, p.row);
@@ -1672,8 +1666,7 @@
 
   dom.edKeysCanvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    //audio.unlock().catch(() => { });
-    audio.unlock();
+    audio.unlock().catch(() => { });
     dom.edKeysCanvas.setPointerCapture(e.pointerId);
     const anchorY = e.clientY - dom.edKeysCanvas.getBoundingClientRect().top;
     keyDrag = {
@@ -2753,7 +2746,7 @@
           }
         }
       };
-      const bass = addTrack("Bass", bassSynth, null, null);
+      const bass = addTrack("Bass", bassSynth, [kickDistortion]);
       const bassNotes = mk([
         [29, 0.25, 0.2],
         [32, 0.5, 0.25],
@@ -2803,7 +2796,7 @@
       createClip(closedHat, 16, BEATS_PER_BAR / 4, chNotes, 30);
       console.log("created closed hat");
 
-      console.log("creating opemhat");
+      console.log("creating openhat");
       const openHatSynth = {
         name: "MetalSynth",
         type: "Instrument",
@@ -2828,7 +2821,6 @@
       let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([
         [42, 0.5, 0.125]
       ]), 30);
-
       console.log("created open hat");
 
       console.log("creating lead");
@@ -2904,15 +2896,14 @@
         targetParameter: "filter.gain"
       };
 
-      /* const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
-       const leadNotes = mk([
-         [41, 2.5, 0.8],
-         [41, 6.5, 0.4]
+      const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
+      const leadNotes = mk([
+        [41, 2.5, 0.8],
+        [41, 6.5, 0.4]
       ]);
-       createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
-       console.log("created lead")*/
-      deselectClip();
-      deselectTrack();
+      createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
+      console.log("created lead");
+
       console.log("created demo song");
     }
   }
