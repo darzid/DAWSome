@@ -2709,6 +2709,9 @@
       createClip(kick, 16, BEATS_PER_BAR / 4, mk([
         [36, 0, 0.25]
       ]), 28);
+      createClip(kick, 32, BEATS_PER_BAR / 4, mk([
+        [36, 0, 0.25]
+      ]), 48);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -2766,6 +2769,7 @@
       ]);
       createClip(bass, 4, BEATS_PER_BAR, bassNotes, 14);
       createClip(bass, 16, BEATS_PER_BAR, bassNotes, 30);
+      createClip(bass, 32, BEATS_PER_BAR, bassNotes, 48);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2794,6 +2798,7 @@
       ]);
       createClip(closedHat, 8, BEATS_PER_BAR / 4, chNotes, 14);
       createClip(closedHat, 16, BEATS_PER_BAR / 4, chNotes, 30);
+      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes, 48);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -2818,43 +2823,42 @@
         }
       };
       const openHat = addTrack("OpenHat", openHatSynth, null);
-      let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([
+      /*let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([
         [42, 0.5, 0.125]
-      ]), 30);
+      ]), 30);*/
+      let ohClip2 = createClip(openHat, 32, BEATS_PER_BAR / 4, mk([
+        [42, 0.5, 0.125]
+      ]), 48);
       console.log("created open hat");
 
       console.log("creating lead");
       const leadSynth = {
-        name: "MonoSynth",
+        name: "FMSynth",
         type: "Instrument",
-        parameters: {
-          "volume": 0,
-          "portamento": 0,
+        parameters: {    
+          "harmonicity": 0.5,
+          "modulationIndex": 1.2,
           "oscillator": {
-            "type": "sawtooth"
-          },
-          "filter": {
-            "Q": 0.3,
-            "detune": -1000,
-            "frequency": 0,
-            "gain": 5,
-            "rolloff": -48,
-            "type": "highshelf"
+            "type": "fmsawtooth",
+            "modulationType": "sine",
+            "modulationIndex": 20,
+            "harmonicity": 3
           },
           "envelope": {
-            "attack": 0.01,
-            "decay": 1.2,
-            "sustain": 0.01,
-            "release": 0.01
+            "attack": 0.05,
+            "decay": 0.3,
+            "sustain": 0.1,
+            "release": 1.2
           },
-          "filterEnvelope": {
-            "attack": 0.1,
-            "decay": 1.3,
+          "modulation": {
+            "volume": 0,
+            "type": "triangle"
+          },
+          "modulationEnvelope": {
+            "attack": 0.35,
+            "decay": 0.1,
             "sustain": 1,
-            "release": 0.7,
-            "releaseCurve": "linear",
-            "baseFrequency": 20,
-            "octaves": 5
+            "release": 0.01
           }
         }
       };
@@ -2898,10 +2902,13 @@
 
       const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
       const leadNotes = mk([
-        [41, 2.5, 0.8],
-        [41, 6.5, 0.4]
+        [41, 6.0, 0.3],
+        [41, 6.25, 0.6],
+        [41, 6.5, 1.2],
+        [41, 7.5, 0.4]
       ]);
-      createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
+      createClip(lead, 16, BEATS_PER_BAR * 2, leadNotes, 32);
+      createClip(lead, 32, BEATS_PER_BAR * 2, leadNotes, 48);
       console.log("created lead");
 
       console.log("created demo song");
