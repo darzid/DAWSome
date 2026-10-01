@@ -139,7 +139,7 @@
 
   .mixer { font-size: 2vw; }
   .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; margin: 1px; background: rgba(50,50,50,0.2)}
-  .mixer .track-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: smaller; background: var(--panel); padding-top: 2px; padding-bottom: 2px; }
+  .mixer .track-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); background: var(--panel); padding-top: 2px; padding-bottom: 2px; }
   .mixer .track-fader-container button { margin: 2px; }
   .mixer .track-fader { writing-mode: vertical-lr; direction: rtl; margin-bottom: 10px; }
   .mixer .track-fader-value { text-align: center; border: 0px; background: transparent; margin-left: auto; margin-right: auto; width: stretch; text-align: center; color: var(--text); font-size: smaller; }
