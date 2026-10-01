@@ -143,7 +143,6 @@
   .mixer .track-fader-container button { margin: 2px; }
   .mixer .track-fader { writing-mode: vertical-lr; direction: rtl; margin-bottom: 10px; }
   .mixer .track-fader-value { text-align: center; border: 0px; background: transparent; margin-left: auto; margin-right: auto; width: stretch; text-align: center; color: var(--text); font-size: smaller; }
-  .mixer button { font-size: smaller; }
   .mixer .mute-button { background-color: rgba(95,201,216,0.2); border-color: rgba(95,201,216,0.2); }
   .mixer .mute-button.on { background-color: rgba(95,201,216,0.7); border-color: rgba(95,201,216,0.3); color: white; }
   .mixer .solo-button { background-color: rgba(224,122,122,0.2); border-color: rgba(224,122,122,0.2); }
