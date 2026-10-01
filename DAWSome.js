@@ -2357,6 +2357,8 @@
       let paramElement = document.createElement("div");
       paramElement.className = "parameter";
       paramElement.dataset.group = parameterGroup;
+      if (parameterGroup)
+        paramElement.classList.add("hidden");
       parametersPanel.appendChild(paramElement);
       
       if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
