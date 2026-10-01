@@ -22,7 +22,7 @@
   const DRAG_THRESHOLD = 4;
   const TAP_SLOP = 8;
   const ZOOM_BUTTON_FACTOR = 1.25;
-  const MIN_SONG_BEATS = 16;
+  const MIN_SONG_BEATS = 8;
   const SONG_TAIL_BEATS = 16;              // empty space kept after the last clip
 
   const FIXED_GRIDS = { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 };
@@ -78,7 +78,7 @@
   const $ = (id) => document.getElementById(id);
   const dom = {
     projectName: $("project-name"),
-    play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
+    play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), songLoopLength: $("songLenInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
     importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
     loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
@@ -2846,13 +2846,13 @@
       targetParameter: "filter.gain"
     };
     
-    const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
+   /* const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
     const leadNotes = mk([ 
       [41, 2.5, 0.8],
       [41, 6.5, 0.4]
    ]);   
     createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
-    console.log("created lead")
+    console.log("created lead")*/
     
     deselectClip();
     deselectTrack();

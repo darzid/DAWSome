@@ -18,16 +18,17 @@
 <div id="app">
   <div class="toolbar">
     <div class="group app-header">
+      <button id="newBtn" class="btn" title="New project">New</button>
       <button id="loadBtn" class="btn" title="Load project">Load</button>
       <input id="projectFile" type="file" accept=".json">
-      <input type="text" id="project-name" value="Project">
       <button id="saveBtn" class="btn" title="Save project">Save</button>
-      <label class="version">v0.0.0</label>
+      <input type="text" id="project-name" value="Project">
     </div>
     <div class="group">
       <button id="playBtn" class="btn" title="Play / Stop (Space)">▶</button>
       <span id="posReadout" class="readout">1.1.1</span>
       <label>BPM <input id="bpmInput" type="number" min="20" max="300" step="1" value="140"></label>
+      <label>Length<input id="songLenInput" type="number" min="16" max="256" step="1" value="8"></label>
       <button id="loopBtn" class="btn on" title="Loop the arrangement">Loop</button>
       <button id="followBtn" class="btn on" title="Scroll with the playhead">Follow</button>
 
@@ -46,6 +47,7 @@
       <span class="readout" style="min-width: 0">Zoom</span>
       <button id="arrZoomOutH" class="btn">H−</button><button id="arrZoomInH" class="btn">H+</button>
       <button id="arrZoomOutV" class="btn">V−</button><button id="arrZoomInV" class="btn">V+</button>
+      <label class="version">v0.0.0</label>
     </div>
   </div>
 
