@@ -155,7 +155,7 @@
   }
   .bottom-panel { width: stretch; margin-bottom: 0px; background: var(--bg); border-top: 2pt solid black; }
   .bottom-panel .tab-strip { border-top: 1pt solid black; }
-  .bottom-panel .tab-strip button { height: auto; }
+  .bottom-panel .tab-strip button { height: auto; margin: 0pt; }
     
   #projectFile, #midiFile { display: none; }
   
