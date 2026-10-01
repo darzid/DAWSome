@@ -101,7 +101,7 @@
   .track .btn.mute.on { background: #e0a33c; border-color: #e0a33c; }
 
   /* Clip editor */
-  .editor { flex: 1; min-height: 45vh; display: flex; flex-direction: column; }
+  .editor { flex: 1; min-height: 45vh; display: none; flex-direction: column; }
   .roll { flex: 1; min-height: 0; display: grid; grid-template-columns: 11vw 1fr; grid-template-rows: 3vw 1fr; }
 
   canvas { position: absolute; top: 0; left: 0; display: block; }

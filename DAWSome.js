@@ -2064,6 +2064,7 @@
   
   function refreshActivePanel() {
     const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
+    if (!activeButton) return;
     if (activeButton.id == "instrument-panel-tab-button")
       renderInstrumentPanel();
     else if (activeButton.id == "effects-panel-tab-button")
