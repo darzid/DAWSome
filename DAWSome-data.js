@@ -807,7 +807,7 @@
     "Ratio": { "min": 1, "max": 20, "step": 0.01 },
     "AttackNoise": { "min": 0.1, "max": 20, "step": 0.01 },
     "MaxPolyphony": { "min": 1, "max": 20, "step": 1 },
-    "PitchDecay": { "min": 0, "max": "12000", "step": 0.01, unit: "sec" },
+    "PitchDecay": { "min": 0, "max": "2", "step": 0.001, unit: "sec" },
   },
   
   "enumTypes": {
