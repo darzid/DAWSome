@@ -64,11 +64,17 @@
     min-height: 120px;
     height: stretch;
     display: grid; 
-    grid-template-columns: 35vw 1fr; 
     grid-template-rows: auto 1fr;
     border-bottom: 2px solid #111;
   }
   
+@media (orientation: portrait) {
+  .arrangement { grid-template-columns: 35vw 1fr; }
+}
+@media (orientation: landscape) {
+  .arrangement { grid-template-columns: 20vw 1fr; }
+}
+
   .corner { background: #262626; 
             border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
             color: var(--muted); 
