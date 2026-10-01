@@ -290,7 +290,7 @@
       const canvas = this.o.rulerCanvas;
       canvas.addEventListener("pointerdown", (e) => {
         if (e.button !== 0) return;
-        audio.unlock().catch(() => { });
+        audio.unlock();//.catch(() => { });
         canvas.setPointerCapture(e.pointerId);
         const vx = e.clientX - canvas.getBoundingClientRect().left;
         this.rulerDrag = {
@@ -942,7 +942,9 @@
     ed.selected.clear();
     editorClipChanged();
   }
+  
   function selectClip(clip) {
+    console.log("select clip")
     if (state.selectedClipId === clip.id) return;
     if (clip.trackId !== state.selectedTrackId)
       selectTrackById(clip.trackId);
@@ -1232,7 +1234,7 @@
 
   av.o.scroller.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    audio.unlock().catch(() => { });
+    audio.unlock();//.catch(() => { });
     if (av.trackDown(e)) { aDrag = null; return; }
     const p = av.point(e);
     const clip = clipAt(p.beat, p.row);
@@ -1555,7 +1557,7 @@
 
   ev.o.scroller.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    audio.unlock().catch(() => { });
+    audio.unlock();//.catch(() => { });
     if (ev.trackDown(e)) { nDrag = null; return; }
     const clip = currentClip();
     if (!clip) return;
@@ -1666,7 +1668,7 @@
 
   dom.edKeysCanvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    audio.unlock().catch(() => { });
+    audio.unlock();//.catch(() => { });
     dom.edKeysCanvas.setPointerCapture(e.pointerId);
     const anchorY = e.clientY - dom.edKeysCanvas.getBoundingClientRect().top;
     keyDrag = {
