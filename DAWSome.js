@@ -3,7 +3,7 @@
 
   let toneInitialized = false;
   let toneLookAhead = 0.2;
-  
+
   let swRegistration = null;
 
   if (location.origin !== "file://") {
@@ -28,7 +28,7 @@
   const DRAG_THRESHOLD = 4;
   const TAP_SLOP = 8;
   const ZOOM_BUTTON_FACTOR = 1.25;
-  const MIN_SONG_BEATS = 8;
+  const MIN_SONG_BEATS = 16;
   const SONG_TAIL_BEATS = 16;              // empty space kept after the last clip
 
   const FIXED_GRIDS = { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 };
