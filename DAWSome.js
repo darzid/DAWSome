@@ -843,7 +843,7 @@
     state.selectedTrackId = null;
 
     console.log("track cleared")
-    refreshActivePanel();
+    bottomPanelManager.refreshActivePanel();
   }
 
   function selectTrackById(trackId) {
@@ -955,7 +955,7 @@
     state.selectedClipId = clip.id;
     console.log("clip selected");
 
-    showClipEditorPanel();
+    bottomPanelManager.showClipEditorPanel();
 
     ed.selected.clear();
     editorClipChanged();
@@ -1196,7 +1196,7 @@
       removeTrack(track.id);
       if (!currentClip()) editorClipChanged();
     } else if (e.target.classList.contains("name")) {
-      refreshActivePanel();
+      bottomPanelManager.refreshActivePanel();
       return false;
     }
     arrangementChanged();
@@ -1236,10 +1236,9 @@
   let aDrag = null;   // { type: "move" | "resize", pointerId, clip, start0, length0, beat0, row0, x0, vx0, vy0, moved }
 
   av.o.scroller.addEventListener("pointerdown", (e) => {
-
-
     if (e.button !== 0) return;
-    audio.unlock().catch(() => { });
+    //audio.unlock().catch(() => { });
+    audio.unlock();
     if (av.trackDown(e)) { aDrag = null; return; }
     const p = av.point(e);
     const clip = clipAt(p.beat, p.row);
@@ -1673,7 +1672,8 @@
 
   dom.edKeysCanvas.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    audio.unlock().catch(() => { });
+    //audio.unlock().catch(() => { });
+    audio.unlock();
     dom.edKeysCanvas.setPointerCapture(e.pointerId);
     const anchorY = e.clientY - dom.edKeysCanvas.getBoundingClientRect().top;
     keyDrag = {
@@ -1816,6 +1816,14 @@
     a.href = URL.createObjectURL(file);
     a.download = `${state.name}.json`;
     a.click();
+  }
+
+  function updateSongSettingsUI() {
+    dom.projectName.value = state.name;
+    dom.bpm.value = state.bpm;
+    dom.follow.classList.toggle("on", state.follow);
+    dom.loop.classList.toggle("on", state.loop);
+    dom.drawClips.classList.toggle("on", state.drawClips);
   }
 
   dom.importBtn.addEventListener("click", () => dom.midiFile.click());
@@ -1976,563 +1984,6 @@
     notesChanged();
   });
 
-  let arrangement = document.querySelector(".arrangement");
-  let editor = document.querySelector(".editor");
-  let instrumentPanel = document.querySelector(".instrument-panel");
-  let effectsPanel = document.querySelector(".effects-panel");
-  let modulationPanel = document.querySelector(".modulation-panel");
-  let mixerPanel = document.querySelector(".mixer");
-
-  dom.clipEditorTabBtn.addEventListener("click", () => {
-    dom.clipEditorTabBtn.classList.toggle("on");
-    if (dom.clipEditorTabBtn.classList.contains("on")) {
-      showClipEditorPanel();
-    }
-    else {
-      editor.style.display = "none";
-    }
-  });
-
-  dom.instrumentTabBtn.addEventListener("click", () => {
-    dom.instrumentTabBtn.classList.toggle("on");
-    if (dom.instrumentTabBtn.classList.contains("on")) {
-      showInstrumentPanel()
-    }
-    else {
-      instrumentPanel.style.display = "none";
-    }
-  });
-
-  dom.effectsTabBtn.addEventListener("click", () => {
-    dom.effectsTabBtn.classList.toggle("on");
-    if (dom.effectsTabBtn.classList.contains("on")) {
-      showEffectsPanel();
-    }
-    else {
-      effectsPanel.style.display = "none";
-    }
-  });
-
-  dom.modulationTabBtn.addEventListener("click", () => {
-    dom.modulationTabBtn.classList.toggle("on");
-    if (dom.modulationTabBtn.classList.contains("on")) {
-      showModulationPanel();
-    }
-    else {
-      modulationPanel.style.display = "none";
-    }
-  });
-
-  dom.mixerTabBtn.addEventListener("click", () => {
-    dom.mixerTabBtn.classList.toggle("on");
-    if (dom.mixerTabBtn.classList.contains("on")) {
-      showMixerPanel()
-    }
-    else {
-      mixer.style.display = "none";
-    }
-  });
-
-  function showClipEditorPanel() {
-    showPanel(editor, dom.clipEditorTabBtn);
-    dom.loopClip.classList.toggle("on", currentClip().loop);
-
-    /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
-    const trackElement = trackHeader.closest(".track");
-    trackElement.scrollIntoView();
-    console.log("scroll into view", trackElement);*/
-  }
-
-  function showInstrumentPanel() {
-    showPanel(instrumentPanel, dom.instrumentTabBtn);
-    renderInstrumentPanel();
-  }
-
-  function showEffectsPanel() {
-    showPanel(effectsPanel, dom.effectsTabBtn);
-    renderEffectsPanel();
-  }
-
-  function showModulationPanel() {
-    showPanel(modulationPanel, dom.modulationTabBtn);
-    renderModulationPanel();
-  }
-
-  function showMixerPanel() {
-    showPanel(mixerPanel, dom.mixerTabBtn);
-  }
-
-  function showPanel(panelToShow, tabButtonToShow) {
-    const panels = document.querySelector(".bottom-panel").querySelectorAll(".panel");
-    panels.forEach(panel => {
-      if (panel != panelToShow) {
-        panel.style.display = "none";
-      }
-      else {
-        panel.style.display = "flex";
-      }
-    })
-    const tabButtons = document.querySelector(".bottom-panel").querySelectorAll(".tab-strip button");
-    tabButtons.forEach(button => {
-      if (button != tabButtonToShow) {
-        button.classList.remove("on");
-      }
-      else {
-        button.classList.add("on");
-      }
-    });
-  }
-
-  function refreshActivePanel() {
-    const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
-    if (!activeButton) return;
-    if (activeButton.id == "instrument-panel-tab-button")
-      renderInstrumentPanel();
-    else if (activeButton.id == "effects-panel-tab-button")
-      renderEffectsPanel();
-    else if (activeButton.id == "modulation-panel-tab-button")
-      renderModulationPanel();
-  }
-
-  function renderInstrumentPanel() {
-    let parentPanel = instrumentPanel;
-    instrumentPanel.style.display = "flex";
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      parentPanel.style.display = "none";
-      return;
-    }
-
-    let deviceToInspect = audio.getTrackSynth(track);
-    parentPanel.innerHTML = "";
-    createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
-  }
-
-  function renderEffectsPanel() {
-    effectsPanel.style.display = "flex";
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      console.log("no track fx")
-      effectsPanel.style.display = "none";
-      return;
-    }
-
-    let trackEffects = audio.getTrackEffects(track);
-
-    effectsPanel.innerHTML = "";
-    trackEffects.forEach(fx => createDeviceHtml(effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
-    createDeviceHtml(effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
-  }
-
-  function renderModulationPanel() {
-    modulationPanel.style.display = "flex";
-    let track = state.tracks.find(track => track.id === state.selectedTrackId);
-    if (!track) {
-      console.log("no track")
-      modulationPanel.style.display = "none";
-      return;
-    }
-    else {
-      if (!dom.modulationTabBtn.classList.contains("on")) {
-        dom.modulationTabBtn.classList.add("on");
-      }
-    }
-
-    let trackModulators = audio.getTrackModulators(track);
-    let modulatorsStartIndex = 1 + track.effects.length;
-
-    modulationPanel.innerHTML = "";
-    console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
-    try {
-      trackModulators.forEach(mod => createDeviceHtml(modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
-    }
-    catch (error) {
-      console.error("Error while creating modulatoe html", error)
-    }
-    createDeviceHtml(modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
-  }
-
-
-  function createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
-    ''
-    let devicePanel = document.createElement("div");
-    devicePanel.className = "device";
-    devicePanel.dataset.trackid = track.id;
-    parentPanel.appendChild(devicePanel);
-
-    let isInstrument = panelType == "Instrument";
-    let isLFO = panelType == "LFO";
-    let hasPresets = !isLFO;
-
-    let isMultiDevicePanel = panelType != "Instrument";
-    if (isLFO) {
-      let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
-      devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
-          To: <select class="targetDevice" title="Target device">${targetDeviceOptionsHtml}</select>
-          <select class="targetParameter" title="Target parameter"></select><button class="next">⏩️</button>
-        </div>
-        <div class="device-parameters"></div>`;
-    } else {
-      let deviceType = `${panelType}: &nbsp;`;
-      let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
-      devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
-          ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
-          <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
-        </div>
-        <div class="device-parameters"></div>`;
-    }
-
-    let parametersPanel = devicePanel.querySelector(".device-parameters");
-    let prevBtn = devicePanel.querySelector(".prev");
-    let nextBtn = devicePanel.querySelector(".next");
-    let lastEffectIndex = track.effects.length + 1;
-    if (isMultiDevicePanel) {
-      prevBtn.style.display = "inline";
-      nextBtn.style.display = "inline";
-      prevBtn.disabled = deviceIndex == 1 ? "disabled" : "";
-
-      nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
-      prevBtn.onclick = (e) => devicePanel.previousElementSibling.scrollIntoView();
-      nextBtn.onclick = (e) => devicePanel.nextElementSibling.scrollIntoView();
-    }
-    else {
-      prevBtn.style.display = "none";
-      nextBtn.style.display = "none";
-    }
-
-    let targetParamMetadata = null;
-    if (hasPresets) {
-      let instrumentSelect = devicePanel.querySelector(".inst");
-      console.log("get instrument select", instrumentSelect);
-      let instrumentPresetSelect = devicePanel.querySelector(".instPreset");
-      console.log("inst preset select", instrumentPresetSelect);
-
-      instrumentSelect.value = trackDeviceNode.name;
-      fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
-      if (isInstrument) {
-        instrumentPresetSelect.value = track.devices[0].presetName;
-        console.log("Preset", track.devices[0].presetName)
-      }
-
-      instrumentSelect.oninput = (e) => {
-        if (isInstrument) {
-          track.instrumentName = e.target.value;
-          console.log("Selected instrument " + track.instrumentName)
-          audio.updateTrack(track);
-          track.devices[0].presetName = "default";
-
-          trackDeviceNode = audio.getTrackSynth(track);
-          if (trackDeviceNode.name !== track.instrumentName)
-            throw "mismatch"
-          fillDevicePresets(devicePanel, devicePresets, track.instrumentName);
-          console.log("device changed to " + track.instrumentName, trackDeviceNode)
-        }
-        else {
-          if (trackDeviceNode.name === "") {
-            let newFx = { name: e.target.value, parameters: {} };
-            track.effects.push(newFx);
-            track.devices.push(newFx);
-            audio.updateTrack(track);
-            console.log("updated track with new effect " + e.target.value);
-            let effects = audio.getTrackEffects(track);
-            trackDeviceNode = effects[effects.length - 1];
-            console.log("added effect", trackDeviceNode)
-            fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
-
-            nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
-            renderDeviceParameters();
-            createDeviceHtml(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, effectNames, effectPresets, "Effect");
-          }
-          else {
-            fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
-          }
-        }
-
-        renderDeviceParameters();
-        document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
-        audio.updateTrack(track);
-      };
-
-      instrumentPresetSelect.oninput = (e) => {
-        if (isInstrument) {
-          track.instrumentParameters = devicePresets[track.instrumentName][e.target.value];
-          track.devices[0].presetName = e.target.value;
-        }
-
-        console.log("Preset selected " + e.target.value, track.instrumentParameters)
-        audio.updateTrack(track);
-        renderDeviceParameters();
-        document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
-      };
-
-    }
-    else if (isLFO) {
-      let modulatorsStartIndex = 1 + track.effects.length;
-      let modulatorIndex = deviceIndex - modulatorsStartIndex;
-      let modulation = track.modulators[0];
-
-      let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
-      if (modulation) {
-        targetDeviceSelect.value = modulation.targetDeviceIndex;
-
-        let targetParameterSelect = devicePanel.querySelector(".targetParameter");
-
-        fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
-        targetParameterSelect.value = modulation.targetParameter;
-        let targetDevice = track.devices[targetDeviceSelect.value];
-        targetParamMetadata = deviceList.devices[targetDevice.name].parameters[modulation.targetParameter];
-
-        targetDeviceSelect.oninput = (e) => fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
-        targetParameterSelect.oninput = (e) => {
-          console.log("param selected")
-          modulation.targetParameter = targetParameterSelect.value;
-          let targetDevice = track.devices[targetDeviceSelect.value];
-          let targetDeviceMetadata = deviceList.devices[targetDevice.name];
-          targetParamMetadata = targetDeviceMetadata.parameters[modulation.targetParameter];
-          console.log("param render " + modulation.targetParameter, targetDeviceMetadata, targetParamMetadata)
-          renderDeviceParameters(targetParamMetadata);
-        }
-      }
-      else {
-        console.log("modulation not found", track.modulators, modulatorIndex)
-      }
-    }
-
-    renderDeviceParameters(targetParamMetadata);
-
-    function renderDeviceParameters(targetParamMetadata = null) {
-      console.log("renderDeviceParameters", targetParamMetadata)
-      parametersPanel.innerHTML = "";
-      if (trackDeviceNode.name == "") {
-        return;
-      }
-      if (deviceIndex < track.devices.length) {
-        let trackDeviceState = track.devices[deviceIndex].parameters;
-        let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
-        console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
-
-        Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
-      }
-    }
-
-    function fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect) {
-      targetParameterSelect.innerHTML = "";
-      let trackDevice = track.devices[targetDeviceSelect.value];
-      let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
-
-      let targetParameters = [];
-      let paramContext = trackDevice.parameters;
-      let paramPath = "";
-
-      traverseParams(paramContext, paramPath, trackDeviceMetadata);
-
-      targetParameters.sort().forEach(parameterName => {
-        targetParameterSelect.innerHTML += `<option value="${parameterName}">${parameterName}</option>`;
-      })
-
-      function traverseParams(paramContext, paramPath, deviceMetadata) {
-        Object.keys(paramContext).forEach(parameterName => {
-          if (!parameterName) {
-            throw "empty param name"
-          }
-          let paramMetadata = deviceMetadata[parameterName];
-          if (!paramMetadata) {
-            throw `missing param metadata for "${paramPath}.${parameterName}"`;
-          }
-
-          if (paramMetadata.startsWith("unitTypes")) {
-            if (paramPath)
-              targetParameters.push(paramPath + "." + parameterName)
-            else
-              targetParameters.push(parameterName)
-          }
-          else if (paramMetadata.startsWith("device") || paramMetadata.startsWith("module")) {
-            let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
-            let parts = paramMetadata.split("/");
-            let deviceName = parts[1];
-            console.log("device nane", deviceName)
-            let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
-            console.log("device metadata", deviceMetadata)
-            traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
-          }
-        });
-      }
-    }
-
-    function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
-      const useDeviceStateOnly = true;
-
-      let parameterPathParts = parameterPath.split(".");
-      let parameterName = parameterPathParts[parameterPathParts.length - 1];
-      let parameterGroup = parameterPathParts.length > 1 ? parameterPath.substring(0, parameterPath.length - (parameterName.length + 1)) : "";
-      if (parameterGroup) {
-        console.log("group: " + parameterGroup)
-      }
-      if (parameterName === "frequency")
-        console.warn("frequency", trackDeviceState)
-
-      let parameterMetadataPath = deviceMetadata.parameters[parameterName];
-      let parts = parameterMetadataPath.split("/");
-      let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
-
-      //console.log("param metadata", parameterMetadataPath, paramMetadata);
-
-      let paramElement = document.createElement("div");
-      paramElement.className = "parameter";
-      paramElement.dataset.group = parameterGroup;
-      if (parameterGroup)
-        paramElement.classList.add("hidden");
-      parametersPanel.appendChild(paramElement);
-
-      if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
-        let stateValue = getParamState(parameterPath);
-        let paramContext = getParameterContext(parameterPath, trackDeviceState);
-
-        let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
-        //console.log(`param ${parameterName} is object: ${paramIsObject}`);
-        let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
-
-        if (stateValue != undefined && stateValue !== paramValue) {
-          console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
-          paramValue = stateValue;
-        }
-        else {
-          if (stateValue !== paramValue && stateValue == undefined)
-            console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
-        }
-
-        if (useDeviceStateOnly) {
-          paramValue = stateValue;
-        }
-
-        let label = document.createElement("label");
-        let prefix = parameterGroup ? "> " : "";
-        label.innerText = prefix + parameterName; // parameterPath.replace(".", " ");
-        paramElement.appendChild(label);
-        if (parts[0] == "unitTypes") {
-
-          let input = document.createElement("number-input");
-          paramElement.appendChild(input);
-          input.name = parameterPath;
-          input.min = paramMetadata.min;
-          input.max = paramMetadata.max;
-          input.step = paramMetadata.step;
-          input.value = paramValue;
-          input.fill = "#d29524";
-          input.focusFill = "#f2b544";
-          if (parameterName == "frequency")
-            console.warn(`frequency input`, input);
-          else
-            console.log("input", input)
-          input.oninput = () => {
-            if (paramIsObject)
-              paramContext[parameterName].value = input.value;
-            else
-              paramContext[parameterName] = input.value;
-
-            updateParamState(parameterPath, input.value);
-          }
-
-          let unitLabel = document.createElement("label");
-          unitLabel.className = "unit";
-          paramElement.appendChild(unitLabel);
-          if (targetParameterMetadata && (parameterName == "min" || parameterName == "max")) {
-            if (targetParameterMetadata.unit)
-              unitLabel.innerText = targetParameterMetadata.unit
-          }
-          else if (paramMetadata.unit) {
-            unitLabel.innerText = paramMetadata.unit
-          }
-
-        }
-        else if (parts[0] == "enumTypes") {
-          let select = document.createElement("select");
-          let optionsHtml = "";
-          paramMetadata.values.forEach(value => {
-            let option = document.createElement("option");
-            option.value = value;
-            option.innerText = value;
-            if (paramValue == value) {
-              option.selected = "selected";
-            }
-            select.appendChild(option);
-          });
-          paramElement.appendChild(select);
-          select.oninput = () => {
-            if (paramIsObject)
-              paramContext[parameterName].value = select.value;
-            else
-              paramContext[parameterName] = select.value;
-            updateParamState(parameterPath, input.value);
-          }
-        }
-      }
-      else {
-        let label = document.createElement("label");
-        label.className = "paramgroup";
-        label.dataset.group = parameterPath;
-        label.innerText = parameterPath.replace(".", " ");
-        paramElement.appendChild(label);
-        label.addEventListener("click", () => {
-          const groupParams = parametersPanel.querySelectorAll(`div.parameter[data-group="${parameterPath}"]`);
-          groupParams.forEach(param => param.classList.toggle("hidden"));
-        })
-
-        if (parts[0] == "modules") {
-          let moduleMetadata = deviceList.modules[parts[1]];
-          Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
-        }
-        else if (parts[0] == "devices") {
-          let moduleMetadata = deviceList.devices[parts[1]];
-          Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
-        }
-      }
-
-      function getParameterContext(parameterPath, trackDeviceState) {
-        let paramValue, paramStateValue = null;
-        try {
-          //console.log("getting value for " + parameterPath);
-          let trackDeviceNodeParamContext = trackDeviceNode;
-
-          if (parameterPath == "oscillator.detune") {
-            console.log("osc detune")
-          }
-          for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
-            let pathPart = parameterPathParts[partIndex];
-            trackDeviceNodeParamContext = trackDeviceNodeParamContext[pathPart];
-          }
-          return trackDeviceNodeParamContext;
-        }
-        catch (error) {
-          console.error("Traverse error", error);
-        }
-      }
-
-      function getParamState(parameterPath) {
-        let parts = parameterPath.split(".");
-        let paramName = parts[parts.length - 1];
-        let stateContext = trackDeviceState;
-        if (parts.length > 1) {
-          // console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
-        }
-        for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-          stateContext = stateContext[parts[partIndex]];
-        }
-        let paramValue = stateContext[paramName];
-        if (paramValue == undefined) {
-          console.warn(`getParamState("${parameterPath}"): value undefined`, stateContext);
-        }
-        return paramValue;
-      }
-
-      function updateParamState(parameterPath, value) {
-        // console.log("updateParamState",trackDeviceState, parameterPath, value)
-        trackDeviceState[parameterName] = value;
-        //console.log("paramState updated",trackDeviceState, parameterPath, value)
-      }
-    }
-  }
-
   $("arrZoomInH").addEventListener("click", () => av.zoomH(ZOOM_BUTTON_FACTOR));
   $("arrZoomOutH").addEventListener("click", () => av.zoomH(1 / ZOOM_BUTTON_FACTOR));
   $("arrZoomInV").addEventListener("click", () => av.zoomV(ZOOM_BUTTON_FACTOR));
@@ -2598,8 +2049,572 @@
         }
       });
     }
+  }
 
+  class BottomPanelManager {
+    constructor() {
+      this.editor = document.querySelector(".editor");
+      this.instrumentPanel = document.querySelector(".instrument-panel");
+      this.effectsPanel = document.querySelector(".effects-panel");
+      this.modulationPanel = document.querySelector(".modulation-panel");
+      this.mixerPanel = document.querySelector(".mixer");
 
+      dom.clipEditorTabBtn.addEventListener("click", () => {
+        dom.clipEditorTabBtn.classList.toggle("on");
+        if (dom.clipEditorTabBtn.classList.contains("on")) {
+          this.showClipEditorPanel();
+        }
+        else {
+          editor.style.display = "none";
+        }
+      });
+
+      dom.instrumentTabBtn.addEventListener("click", () => {
+        dom.instrumentTabBtn.classList.toggle("on");
+        if (dom.instrumentTabBtn.classList.contains("on")) {
+          this.showInstrumentPanel()
+        }
+        else {
+          this.instrumentPanel.style.display = "none";
+        }
+      });
+
+      dom.effectsTabBtn.addEventListener("click", () => {
+        dom.effectsTabBtn.classList.toggle("on");
+        if (dom.effectsTabBtn.classList.contains("on")) {
+          this.showEffectsPanel();
+        }
+        else {
+          this.effectsPanel.style.display = "none";
+        }
+      });
+
+      dom.modulationTabBtn.addEventListener("click", () => {
+        dom.modulationTabBtn.classList.toggle("on");
+        if (dom.modulationTabBtn.classList.contains("on")) {
+          this.showModulationPanel();
+        }
+        else {
+          this.modulationPanel.style.display = "none";
+        }
+      });
+
+      dom.mixerTabBtn.addEventListener("click", () => {
+        dom.mixerTabBtn.classList.toggle("on");
+        if (dom.mixerTabBtn.classList.contains("on")) {
+          this.showMixerPanel()
+        }
+        else {
+          this.mixerPanel.style.display = "none";
+        }
+      });
+    }
+
+    showClipEditorPanel() {
+      this.showPanel(this.editor, dom.clipEditorTabBtn);
+      dom.loopClip.classList.toggle("on", currentClip().loop);
+
+      /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
+      const trackElement = trackHeader.closest(".track");
+      trackElement.scrollIntoView();
+      console.log("scroll into view", trackElement);*/
+    }
+
+    showInstrumentPanel() {
+      this.showPanel(this.instrumentPanel, dom.instrumentTabBtn);
+      this.renderInstrumentPanel();
+    }
+
+    showEffectsPanel() {
+      this.showPanel(this.effectsPanel, dom.effectsTabBtn);
+      this.renderEffectsPanel();
+    }
+
+    showModulationPanel() {
+      this.showPanel(this.modulationPanel, dom.modulationTabBtn);
+      this.renderModulationPanel();
+    }
+
+    showMixerPanel() {
+      this.showPanel(this.mixerPanel, dom.mixerTabBtn);
+    }
+
+    showPanel(panelToShow, tabButtonToShow) {
+      const panels = document.querySelector(".bottom-panel").querySelectorAll(".panel");
+      panels.forEach(panel => {
+        if (panel != panelToShow) {
+          panel.style.display = "none";
+        }
+        else {
+          panel.style.display = "flex";
+        }
+      })
+      const tabButtons = document.querySelector(".bottom-panel").querySelectorAll(".tab-strip button");
+      tabButtons.forEach(button => {
+        if (button != tabButtonToShow) {
+          button.classList.remove("on");
+        }
+        else {
+          button.classList.add("on");
+        }
+      });
+    }
+
+    refreshActivePanel() {
+      const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
+      if (!activeButton) return;
+      if (activeButton.id == "instrument-panel-tab-button")
+        this.renderInstrumentPanel();
+      else if (activeButton.id == "effects-panel-tab-button")
+        this.renderEffectsPanel();
+      else if (activeButton.id == "modulation-panel-tab-button")
+        this.renderModulationPanel();
+    }
+
+    renderInstrumentPanel() {
+      let parentPanel = this.instrumentPanel;
+      this.instrumentPanel.style.display = "flex";
+      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      if (!track) {
+        parentPanel.style.display = "none";
+        return;
+      }
+
+      let deviceToInspect = audio.getTrackSynth(track);
+      parentPanel.innerHTML = "";
+      this.createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
+    }
+
+    renderEffectsPanel() {
+      this.effectsPanel.style.display = "flex";
+      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      if (!track) {
+        console.log("no track fx")
+        this.effectsPanel.style.display = "none";
+        return;
+      }
+
+      let trackEffects = audio.getTrackEffects(track);
+
+      this.effectsPanel.innerHTML = "";
+      trackEffects.forEach(fx => this.createDeviceHtml(this.effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+      this.createDeviceHtml(this.effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+    }
+
+    renderModulationPanel() {
+      this.modulationPanel.style.display = "flex";
+      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      if (!track) {
+        console.log("no track")
+        this.modulationPanel.style.display = "none";
+        return;
+      }
+      else {
+        if (!dom.modulationTabBtn.classList.contains("on")) {
+          dom.modulationTabBtn.classList.add("on");
+        }
+      }
+
+      let trackModulators = audio.getTrackModulators(track);
+      let modulatorsStartIndex = 1 + track.effects.length;
+
+      this.modulationPanel.innerHTML = "";
+      console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
+      try {
+        trackModulators.forEach(mod => this.createDeviceHtml(this.modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+      }
+      catch (error) {
+        console.error("Error while creating modulatoe html", error)
+      }
+      this.createDeviceHtml(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+    }
+
+    createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
+      let devicePanel = document.createElement("div");
+      devicePanel.className = "device";
+      devicePanel.dataset.trackid = track.id;
+      parentPanel.appendChild(devicePanel);
+
+      let isInstrument = panelType == "Instrument";
+      let isLFO = panelType == "LFO";
+      let hasPresets = !isLFO;
+
+      let isMultiDevicePanel = panelType != "Instrument";
+      if (isLFO) {
+        let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+        devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
+          To: <select class="targetDevice" title="Target device">${targetDeviceOptionsHtml}</select>
+          <select class="targetParameter" title="Target parameter"></select><button class="next">⏩️</button>
+        </div>
+        <div class="device-parameters"></div>`;
+      } else {
+        let deviceType = `${panelType}: &nbsp;`;
+        let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
+        devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
+          ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
+          <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
+        </div>
+        <div class="device-parameters"></div>`;
+      }
+
+      let parametersPanel = devicePanel.querySelector(".device-parameters");
+      let prevBtn = devicePanel.querySelector(".prev");
+      let nextBtn = devicePanel.querySelector(".next");
+      let lastEffectIndex = track.effects.length + 1;
+      if (isMultiDevicePanel) {
+        prevBtn.style.display = "inline";
+        nextBtn.style.display = "inline";
+        prevBtn.disabled = deviceIndex == 1 ? "disabled" : "";
+
+        nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
+        prevBtn.onclick = (e) => devicePanel.previousElementSibling.scrollIntoView();
+        nextBtn.onclick = (e) => devicePanel.nextElementSibling.scrollIntoView();
+      }
+      else {
+        prevBtn.style.display = "none";
+        nextBtn.style.display = "none";
+      }
+
+      let targetParamMetadata = null;
+      if (hasPresets) {
+        let instrumentSelect = devicePanel.querySelector(".inst");
+        console.log("get instrument select", instrumentSelect);
+        let instrumentPresetSelect = devicePanel.querySelector(".instPreset");
+        console.log("inst preset select", instrumentPresetSelect);
+
+        instrumentSelect.value = trackDeviceNode.name;
+        fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
+        if (isInstrument) {
+          instrumentPresetSelect.value = track.devices[0].presetName;
+          console.log("Preset", track.devices[0].presetName)
+        }
+
+        instrumentSelect.oninput = (e) => {
+          if (isInstrument) {
+            track.instrumentName = e.target.value;
+            console.log("Selected instrument " + track.instrumentName)
+            audio.updateTrack(track);
+            track.devices[0].presetName = "default";
+
+            trackDeviceNode = audio.getTrackSynth(track);
+            if (trackDeviceNode.name !== track.instrumentName)
+              throw "mismatch"
+            fillDevicePresets(devicePanel, devicePresets, track.instrumentName);
+            console.log("device changed to " + track.instrumentName, trackDeviceNode)
+          }
+          else {
+            if (trackDeviceNode.name === "") {
+              let newFx = { name: e.target.value, parameters: {} };
+              track.effects.push(newFx);
+              track.devices.push(newFx);
+              audio.updateTrack(track);
+              console.log("updated track with new effect " + e.target.value);
+              let effects = audio.getTrackEffects(track);
+              trackDeviceNode = effects[effects.length - 1];
+              console.log("added effect", trackDeviceNode)
+              fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
+
+              nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
+              renderDeviceParameters();
+              createDeviceHtml(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, effectNames, effectPresets, "Effect");
+            }
+            else {
+              fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
+            }
+          }
+
+          renderDeviceParameters();
+          document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
+          audio.updateTrack(track);
+        };
+
+        instrumentPresetSelect.oninput = (e) => {
+          if (isInstrument) {
+            track.instrumentParameters = devicePresets[track.instrumentName][e.target.value];
+            track.devices[0].presetName = e.target.value;
+          }
+
+          console.log("Preset selected " + e.target.value, track.instrumentParameters)
+          audio.updateTrack(track);
+          renderDeviceParameters();
+          document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
+        };
+
+      }
+      else if (isLFO) {
+        let modulatorsStartIndex = 1 + track.effects.length;
+        let modulatorIndex = deviceIndex - modulatorsStartIndex;
+        let modulation = track.modulators[0];
+
+        let targetDeviceSelect = devicePanel.querySelector(".targetDevice");
+        if (modulation) {
+          targetDeviceSelect.value = modulation.targetDeviceIndex;
+
+          let targetParameterSelect = devicePanel.querySelector(".targetParameter");
+
+          fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
+          targetParameterSelect.value = modulation.targetParameter;
+          let targetDevice = track.devices[targetDeviceSelect.value];
+          targetParamMetadata = deviceList.devices[targetDevice.name].parameters[modulation.targetParameter];
+
+          targetDeviceSelect.oninput = (e) => fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
+          targetParameterSelect.oninput = (e) => {
+            console.log("param selected")
+            modulation.targetParameter = targetParameterSelect.value;
+            let targetDevice = track.devices[targetDeviceSelect.value];
+            let targetDeviceMetadata = deviceList.devices[targetDevice.name];
+            targetParamMetadata = targetDeviceMetadata.parameters[modulation.targetParameter];
+            console.log("param render " + modulation.targetParameter, targetDeviceMetadata, targetParamMetadata)
+            renderDeviceParameters(targetParamMetadata);
+          }
+        }
+        else {
+          console.log("modulation not found", track.modulators, modulatorIndex)
+        }
+      }
+
+      renderDeviceParameters(targetParamMetadata);
+
+      function renderDeviceParameters(targetParamMetadata = null) {
+        console.log("renderDeviceParameters", targetParamMetadata)
+        parametersPanel.innerHTML = "";
+        if (trackDeviceNode.name == "") {
+          return;
+        }
+        if (deviceIndex < track.devices.length) {
+          let trackDeviceState = track.devices[deviceIndex].parameters;
+          let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
+          console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
+
+          Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
+        }
+      }
+
+      function fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect) {
+        targetParameterSelect.innerHTML = "";
+        let trackDevice = track.devices[targetDeviceSelect.value];
+        let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
+
+        let targetParameters = [];
+        let paramContext = trackDevice.parameters;
+        let paramPath = "";
+
+        traverseParams(paramContext, paramPath, trackDeviceMetadata);
+
+        targetParameters.sort().forEach(parameterName => {
+          targetParameterSelect.innerHTML += `<option value="${parameterName}">${parameterName}</option>`;
+        })
+
+        function traverseParams(paramContext, paramPath, deviceMetadata) {
+          Object.keys(paramContext).forEach(parameterName => {
+            if (!parameterName) {
+              throw "empty param name"
+            }
+            let paramMetadata = deviceMetadata[parameterName];
+            if (!paramMetadata) {
+              throw `missing param metadata for "${paramPath}.${parameterName}"`;
+            }
+
+            if (paramMetadata.startsWith("unitTypes")) {
+              if (paramPath)
+                targetParameters.push(paramPath + "." + parameterName)
+              else
+                targetParameters.push(parameterName)
+            }
+            else if (paramMetadata.startsWith("device") || paramMetadata.startsWith("module")) {
+              let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+              let parts = paramMetadata.split("/");
+              let deviceName = parts[1];
+              console.log("device nane", deviceName)
+              let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
+              console.log("device metadata", deviceMetadata)
+              traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
+            }
+          });
+        }
+      }
+
+      function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
+        const useDeviceStateOnly = true;
+
+        let parameterPathParts = parameterPath.split(".");
+        let parameterName = parameterPathParts[parameterPathParts.length - 1];
+        let parameterGroup = parameterPathParts.length > 1 ? parameterPath.substring(0, parameterPath.length - (parameterName.length + 1)) : "";
+        if (parameterGroup) {
+          console.log("group: " + parameterGroup)
+        }
+        if (parameterName === "frequency")
+          console.warn("frequency", trackDeviceState)
+
+        let parameterMetadataPath = deviceMetadata.parameters[parameterName];
+        let parts = parameterMetadataPath.split("/");
+        let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
+
+        //console.log("param metadata", parameterMetadataPath, paramMetadata);
+
+        let paramElement = document.createElement("div");
+        paramElement.className = "parameter";
+        paramElement.dataset.group = parameterGroup;
+        if (parameterGroup)
+          paramElement.classList.add("hidden");
+        parametersPanel.appendChild(paramElement);
+
+        if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
+          let stateValue = getParamState(parameterPath);
+          let paramContext = getParameterContext(parameterPath, trackDeviceState);
+
+          let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
+          //console.log(`param ${parameterName} is object: ${paramIsObject}`);
+          let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
+
+          if (stateValue != undefined && stateValue !== paramValue) {
+            console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
+            paramValue = stateValue;
+          }
+          else {
+            if (stateValue !== paramValue && stateValue == undefined)
+              console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
+          }
+
+          if (useDeviceStateOnly) {
+            paramValue = stateValue;
+          }
+
+          let label = document.createElement("label");
+          let prefix = parameterGroup ? "> " : "";
+          label.innerText = prefix + parameterName; // parameterPath.replace(".", " ");
+          paramElement.appendChild(label);
+
+          let valueGroup = document.createElement("div");
+          valueGroup.className = "value-group";
+          paramElement.appendChild(valueGroup);
+
+          if (parts[0] == "unitTypes") {
+
+            let input = document.createElement("number-input");
+            valueGroup.appendChild(input);
+            input.name = parameterPath;
+            input.min = paramMetadata.min;
+            input.max = paramMetadata.max;
+            input.step = paramMetadata.step;
+            input.value = paramValue;
+            input.fill = "#d29524";
+            input.focusFill = "#f2b544";
+            if (parameterName == "frequency")
+              console.warn(`frequency input`, input);
+            else
+              console.log("input", input)
+            input.oninput = () => {
+              if (paramIsObject)
+                paramContext[parameterName].value = input.value;
+              else
+                paramContext[parameterName] = input.value;
+
+              updateParamState(parameterPath, input.value);
+            }
+
+            let unitLabel = document.createElement("label");
+            unitLabel.className = "unit";
+            valueGroup.appendChild(unitLabel);
+            if (targetParameterMetadata && (parameterName == "min" || parameterName == "max")) {
+              if (targetParameterMetadata.unit)
+                unitLabel.innerText = targetParameterMetadata.unit
+            }
+            else if (paramMetadata.unit) {
+              unitLabel.innerText = paramMetadata.unit
+            }
+
+          }
+          else if (parts[0] == "enumTypes") {
+            let select = document.createElement("select");
+            let optionsHtml = "";
+            paramMetadata.values.forEach(value => {
+              let option = document.createElement("option");
+              option.value = value;
+              option.innerText = value;
+              if (paramValue == value) {
+                option.selected = "selected";
+              }
+              select.appendChild(option);
+            });
+            valueGroup.appendChild(select);
+            select.oninput = () => {
+              if (paramIsObject)
+                paramContext[parameterName].value = select.value;
+              else
+                paramContext[parameterName] = select.value;
+              updateParamState(parameterPath, input.value);
+            }
+            let unitLabel = document.createElement("label");
+            unitLabel.className = "unit";
+            valueGroup.appendChild(unitLabel);
+          }
+        }
+        else {
+          let label = document.createElement("label");
+          label.className = "paramgroup";
+          label.dataset.group = parameterPath;
+          label.innerText = parameterPath.replace(".", " ");
+          paramElement.appendChild(label);
+          label.addEventListener("click", () => {
+            const groupParams = parametersPanel.querySelectorAll(`div.parameter[data-group="${parameterPath}"]`);
+            groupParams.forEach(param => param.classList.toggle("hidden"));
+          })
+
+          if (parts[0] == "modules") {
+            let moduleMetadata = deviceList.modules[parts[1]];
+            Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
+          }
+          else if (parts[0] == "devices") {
+            let moduleMetadata = deviceList.devices[parts[1]];
+            Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
+          }
+        }
+
+        function getParameterContext(parameterPath, trackDeviceState) {
+          let paramValue, paramStateValue = null;
+          try {
+            //console.log("getting value for " + parameterPath);
+            let trackDeviceNodeParamContext = trackDeviceNode;
+
+            if (parameterPath == "oscillator.detune") {
+              console.log("osc detune")
+            }
+            for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
+              let pathPart = parameterPathParts[partIndex];
+              trackDeviceNodeParamContext = trackDeviceNodeParamContext[pathPart];
+            }
+            return trackDeviceNodeParamContext;
+          }
+          catch (error) {
+            console.error("Traverse error", error);
+          }
+        }
+
+        function getParamState(parameterPath) {
+          let parts = parameterPath.split(".");
+          let paramName = parts[parts.length - 1];
+          let stateContext = trackDeviceState;
+          if (parts.length > 1) {
+            // console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
+          }
+          for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+            stateContext = stateContext[parts[partIndex]];
+          }
+          let paramValue = stateContext[paramName];
+          if (paramValue == undefined) {
+            console.warn(`getParamState("${parameterPath}"): value undefined`, stateContext);
+          }
+          return paramValue;
+        }
+
+        function updateParamState(parameterPath, value) {
+          // console.log("updateParamState",trackDeviceState, parameterPath, value)
+          trackDeviceState[parameterName] = value;
+          //console.log("paramState updated",trackDeviceState, parameterPath, value)
+        }
+      }
+    }
   }
 
 
@@ -2614,7 +2629,7 @@
 
   var deviceBrowser = new DeviceBrowser();
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
-  console.log("presetbrowser loaded")
+  var bottomPanelManager = new BottomPanelManager();
   var mixer = new Mixer(audio, state);
 
   async function init() {
@@ -2637,253 +2652,12 @@
     const ew = ev.o.scroller.clientWidth || 800;
     ev.pxPerBeat = clamp(ew / (ew < 600 ? BEATS_PER_BAR : 2 * BEATS_PER_BAR), 30, 160);
 
+    createDemoSong();
 
-    console.log("creating demo song")
-    const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));
-
-    console.log("creating kick");
-    const kickSynth = {
-      name: "MembraneSynth",
-      type: "Instrument",
-      parameters: {
-        "detune": -1000,
-        "pitchDecay": 0.05,
-        "octaves": 8,
-        "volume": 0,
-        "envelope": {
-          "attack": 0.001,
-          "attackCurve": "linear",
-          "decay": 0.1,
-          "sustain": 0.2,
-          "release": 0.1
-        }
-      }
-    };
-    const kickDistortion = {
-      name: "Distortion",
-      parameters: {
-        "distortion": 0.2
-      }
-    };
-    const kickCompressor = {
-      name: "Compressor",
-      parameters: {
-        "threshold": -12,
-        "knee": 25,
-        "ratio": 20,
-        "attack": 0.6,
-        "release": 0.25
-      }
-    };
-    const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
-    console.log("creating kick clip")
-    createClip(kick, 0, BEATS_PER_BAR / 4, mk([
-      [36, 0, 0.25]
-    ]), 15);
-    createClip(kick, 16, BEATS_PER_BAR / 4, mk([
-      [36, 0, 0.25]
-    ]), 28);
-    console.log("created kick clip")
-
-    console.log("creating bass")
-    const bassSynth = {
-      name: "MonoSynth",
-      type: "Instrument",
-      parameters: {
-        "volume": 0,
-        "portamento": 0,
-        "oscillator": {
-          "type": "sawtooth"
-        },
-        "filter": {
-          "Q": 0.3,
-          "detune": -1000,
-          "frequency": 0,
-          "gain": 0,
-          "rolloff": -48,
-          "type": "bandpass"
-        },
-        "envelope": {
-          "attack": 0.01,
-          "decay": 0.4,
-          "sustain": 0.01,
-          "release": 0.01
-        },
-        "filterEnvelope": {
-          "attack": 0.1,
-          "decay": 1.3,
-          "sustain": 1,
-          "release": 0.7,
-          "releaseCurve": "linear",
-          "baseFrequency": 20,
-          "octaves": 5
-        }
-      }
-    };
-    const bass = addTrack("Bass", bassSynth, null, null);
-    const bassNotes = mk([
-      [29, 0.25, 0.2],
-      [32, 0.5, 0.25],
-      [34, 0.75, 0.2],
-
-      [29, 1.25, 0.2],
-      [34, 1.5, 0.25],
-      [32, 1.75, 0.2],
-
-      [32, 2.25, 0.2],
-      [34, 2.5, 0.25],
-      [29, 2.75, 0.2],
-
-      [34, 3.25, 0.2],
-      [37, 3.5, 0.25],
-      [32, 3.75, 0.2]
-    ]);
-    createClip(bass, 4, BEATS_PER_BAR, bassNotes, 14);
-    createClip(bass, 16, BEATS_PER_BAR, bassNotes, 30);
-    console.log("created bass")
-
-    console.log("creating closedhat")
-    const closedHatSynth = {
-      name: "MetalSynth",
-      type: "Instrument",
-      parameters: {
-        volume: -10,
-        portamento: 100,
-        modulationIndex: 1,
-        octaves: 0,
-        envelope: {
-          attack: 0.01,
-          decay: 0.05,
-          sustain: 0.1,
-          release: 1.4
-        }
-      }
-    }
-    const closedHat = addTrack("ClosedHat", closedHatSynth, null);
-    let chNotes = mk([
-      [42, 0.0, 0.125],
-      [42, 0.25, 0.125],
-      [42, 0.5, 0.125],
-      [42, 0.75, 0.125]
-    ]);
-    createClip(closedHat, 8, BEATS_PER_BAR / 4, chNotes, 14);
-    createClip(closedHat, 16, BEATS_PER_BAR / 4, chNotes, 30);
-    console.log("created closed hat")
-
-    console.log("creating opemhat")
-    const openHatSynth = {
-      name: "MetalSynth",
-      type: "Instrument",
-      parameters: {
-        "volume": -7.5,
-        "portamento": 0,
-        "harmonicity": 0.65,
-        "modulationIndex": 1,
-        "octaves": 0,
-        "envelope": {
-          "attack": 0.01,
-          "attackCurve": "linear",
-          "decay": 0.715,
-          "decayCurve": "exponential",
-          "sustain": 0.05,
-          "release": 0.3,
-          "releaseCurve": "exponential"
-        }
-      }
-    };
-    const openHat = addTrack("OpenHat", openHatSynth, null);
-    let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([
-      [42, 0.5, 0.125]
-    ]), 30);
-
-    console.log("created open hat")
-
-    console.log("creating lead")
-    const leadSynth = {
-      name: "MonoSynth",
-      type: "Instrument",
-      parameters: {
-        "volume": 0,
-        "portamento": 0,
-        "oscillator": {
-          "type": "sawtooth"
-        },
-        "filter": {
-          "Q": 0.3,
-          "detune": -1000,
-          "frequency": 0,
-          "gain": 5,
-          "rolloff": -48,
-          "type": "highshelf"
-        },
-        "envelope": {
-          "attack": 0.01,
-          "decay": 1.2,
-          "sustain": 0.01,
-          "release": 0.01
-        },
-        "filterEnvelope": {
-          "attack": 0.1,
-          "decay": 1.3,
-          "sustain": 1,
-          "release": 0.7,
-          "releaseCurve": "linear",
-          "baseFrequency": 20,
-          "octaves": 5
-        }
-      }
-    };
-    const leadDistortion = {
-      name: "Distortion",
-      parameters: {
-        "distortion": 0.2
-      }
-    };
-    const leadPhaser = {
-      name: "Phaser",
-      parameters: {
-        frequency: 0.25,
-        Q: 10,
-        baseFrequency: 350,
-        octaves: 3,
-        wet: 0.7
-      }
-    };
-    const leadDelay = {
-      name: "PingPongDelay",
-      parameters: {
-        delayTime: 0.125,
-        feedback: 0.5,
-        wet: 0.3
-      }
-    };
-    const leadModulation = {
-      modulator: {
-        name: "LFO",
-        parameters: {
-          min: 5,
-          max: 0,
-          frequency: "4m",
-          amplitude: 1
-        }
-      },
-      targetDeviceIndex: 0,
-      targetParameter: "filter.gain"
-    };
-
-    /* const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
-     const leadNotes = mk([ 
-       [41, 2.5, 0.8],
-       [41, 6.5, 0.4]
-    ]);   
-     createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
-     console.log("created lead")*/
-
-    deselectClip();
-    deselectTrack();
-    console.log("created demo song")
     audio.setBpm(state.bpm);
-    dom.projectName.value = state.name;
+
+    updateSongSettingsUI(dom, state);
+
     dom.gridReadout.textContent = editorGrid().label;
     updatePosReadout();
     arrangementChanged();
@@ -2892,6 +2666,252 @@
 
     const observer = new ResizeObserver(layoutAll);
     for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
+
+    function createDemoSong() {
+      console.log("creating demo song");
+      const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));
+
+      console.log("creating kick");
+      const kickSynth = {
+        name: "MembraneSynth",
+        type: "Instrument",
+        parameters: {
+          "detune": -1000,
+          "pitchDecay": 0.05,
+          "octaves": 8,
+          "volume": 0,
+          "envelope": {
+            "attack": 0.001,
+            "attackCurve": "linear",
+            "decay": 0.1,
+            "sustain": 0.2,
+            "release": 0.1
+          }
+        }
+      };
+      const kickDistortion = {
+        name: "Distortion",
+        parameters: {
+          "distortion": 0.2
+        }
+      };
+      const kickCompressor = {
+        name: "Compressor",
+        parameters: {
+          "threshold": -12,
+          "knee": 25,
+          "ratio": 20,
+          "attack": 0.6,
+          "release": 0.25
+        }
+      };
+      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
+      console.log("creating kick clip");
+      createClip(kick, 0, BEATS_PER_BAR / 4, mk([
+        [36, 0, 0.25]
+      ]), 15);
+      createClip(kick, 16, BEATS_PER_BAR / 4, mk([
+        [36, 0, 0.25]
+      ]), 28);
+      console.log("created kick clip");
+
+      console.log("creating bass");
+      const bassSynth = {
+        name: "MonoSynth",
+        type: "Instrument",
+        parameters: {
+          "volume": 0,
+          "portamento": 0,
+          "oscillator": {
+            "type": "sawtooth"
+          },
+          "filter": {
+            "Q": 0.3,
+            "detune": -1000,
+            "frequency": 0,
+            "gain": 0,
+            "rolloff": -48,
+            "type": "bandpass"
+          },
+          "envelope": {
+            "attack": 0.01,
+            "decay": 0.4,
+            "sustain": 0.01,
+            "release": 0.01
+          },
+          "filterEnvelope": {
+            "attack": 0.1,
+            "decay": 1.3,
+            "sustain": 1,
+            "release": 0.7,
+            "releaseCurve": "linear",
+            "baseFrequency": 20,
+            "octaves": 5
+          }
+        }
+      };
+      const bass = addTrack("Bass", bassSynth, null, null);
+      const bassNotes = mk([
+        [29, 0.25, 0.2],
+        [32, 0.5, 0.25],
+        [34, 0.75, 0.2],
+
+        [29, 1.25, 0.2],
+        [34, 1.5, 0.25],
+        [32, 1.75, 0.2],
+
+        [32, 2.25, 0.2],
+        [34, 2.5, 0.25],
+        [29, 2.75, 0.2],
+
+        [34, 3.25, 0.2],
+        [37, 3.5, 0.25],
+        [32, 3.75, 0.2]
+      ]);
+      createClip(bass, 4, BEATS_PER_BAR, bassNotes, 14);
+      createClip(bass, 16, BEATS_PER_BAR, bassNotes, 30);
+      console.log("created bass");
+
+      console.log("creating closedhat");
+      const closedHatSynth = {
+        name: "MetalSynth",
+        type: "Instrument",
+        parameters: {
+          volume: -10,
+          portamento: 100,
+          modulationIndex: 1,
+          octaves: 0,
+          envelope: {
+            attack: 0.01,
+            decay: 0.05,
+            sustain: 0.1,
+            release: 1.4
+          }
+        }
+      };
+      const closedHat = addTrack("ClosedHat", closedHatSynth, null);
+      let chNotes = mk([
+        [42, 0.0, 0.125],
+        [42, 0.25, 0.125],
+        [42, 0.5, 0.125],
+        [42, 0.75, 0.125]
+      ]);
+      createClip(closedHat, 8, BEATS_PER_BAR / 4, chNotes, 14);
+      createClip(closedHat, 16, BEATS_PER_BAR / 4, chNotes, 30);
+      console.log("created closed hat");
+
+      console.log("creating opemhat");
+      const openHatSynth = {
+        name: "MetalSynth",
+        type: "Instrument",
+        parameters: {
+          "volume": -7.5,
+          "portamento": 0,
+          "harmonicity": 0.65,
+          "modulationIndex": 1,
+          "octaves": 0,
+          "envelope": {
+            "attack": 0.01,
+            "attackCurve": "linear",
+            "decay": 0.715,
+            "decayCurve": "exponential",
+            "sustain": 0.05,
+            "release": 0.3,
+            "releaseCurve": "exponential"
+          }
+        }
+      };
+      const openHat = addTrack("OpenHat", openHatSynth, null);
+      let ohClip = createClip(openHat, 16, BEATS_PER_BAR / 4, mk([
+        [42, 0.5, 0.125]
+      ]), 30);
+
+      console.log("created open hat");
+
+      console.log("creating lead");
+      const leadSynth = {
+        name: "MonoSynth",
+        type: "Instrument",
+        parameters: {
+          "volume": 0,
+          "portamento": 0,
+          "oscillator": {
+            "type": "sawtooth"
+          },
+          "filter": {
+            "Q": 0.3,
+            "detune": -1000,
+            "frequency": 0,
+            "gain": 5,
+            "rolloff": -48,
+            "type": "highshelf"
+          },
+          "envelope": {
+            "attack": 0.01,
+            "decay": 1.2,
+            "sustain": 0.01,
+            "release": 0.01
+          },
+          "filterEnvelope": {
+            "attack": 0.1,
+            "decay": 1.3,
+            "sustain": 1,
+            "release": 0.7,
+            "releaseCurve": "linear",
+            "baseFrequency": 20,
+            "octaves": 5
+          }
+        }
+      };
+      const leadDistortion = {
+        name: "Distortion",
+        parameters: {
+          "distortion": 0.2
+        }
+      };
+      const leadPhaser = {
+        name: "Phaser",
+        parameters: {
+          frequency: 0.25,
+          Q: 10,
+          baseFrequency: 350,
+          octaves: 3,
+          wet: 0.7
+        }
+      };
+      const leadDelay = {
+        name: "PingPongDelay",
+        parameters: {
+          delayTime: 0.125,
+          feedback: 0.5,
+          wet: 0.3
+        }
+      };
+      const leadModulation = {
+        modulator: {
+          name: "LFO",
+          parameters: {
+            min: 5,
+            max: 0,
+            frequency: "4m",
+            amplitude: 1
+          }
+        },
+        targetDeviceIndex: 0,
+        targetParameter: "filter.gain"
+      };
+
+      /* const lead = addTrack("LeadSaw", leadSynth, [leadDistortion, leadPhaser, leadDelay], [leadModulation]);
+       const leadNotes = mk([
+         [41, 2.5, 0.8],
+         [41, 6.5, 0.4]
+      ]);
+       createClip(lead, 0, BEATS_PER_BAR * 2, leadNotes, 32);
+       console.log("created lead")*/
+      deselectClip();
+      deselectTrack();
+      console.log("created demo song");
+    }
   }
 
   try {
@@ -2902,3 +2922,4 @@
   }
 
 })();
+
