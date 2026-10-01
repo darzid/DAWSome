@@ -122,7 +122,12 @@
   .scroller::-webkit-scrollbar-thumb { background: #555; border-radius: 1.25vw; }
   .scroller::-webkit-scrollbar-corner { background: #1c1c1c; }
   
-  .instrument-panel, .effects-panel, .modulation-panel, .mixer { flex: 1; min-height: 5vh; display: none; flex-direction: row; border-top: 0.5vw solid black; }
+  .instrument-panel, .effects-panel, .modulation-panel, .mixer { flex: 1; 
+    min-height: 5vh; 
+    display: none; 
+    flex-direction: row; 
+    border-top: 0.5vw solid black; 
+    background: var(--panel); }
   .instrument-panel, .effects-panel, .modulation-panel { overflow-x: hidden; }
   @media (orientation: portrait) {
     .instrument-panel, .effects-panel, .modulation-panel { min-height: 25vh; max-height: 25vh; }
@@ -134,7 +139,7 @@
 
   .effects-panel { overflow-x: hidden; }
   
-  .device { background: var(--panel); height: max-content; padding-bottom: 5pt; } 
+  .device { height: max-content; padding-bottom: 5pt; } 
   
   .device .device-header { display: flex; flex-direction: row; background: rgba(70,70,70,0.5); height: auto; font-weight: bold; padding-left: 0.2em; border-bottom: 0.25vw solid rgba(180,180,180,0.5); }
   .device .device-header .prev { margin-right: 4pt; }
