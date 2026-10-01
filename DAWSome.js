@@ -2,7 +2,7 @@
   "use strict";
 
   let toneInitialized = false;
-  let toneLookAhead = 0.2;
+  let toneLookAhead = 0.05;
 
   let swRegistration = null;
 
@@ -690,8 +690,8 @@
           const events = clip.notes
             .filter((n) => n.start < clip.length - EPS)
             .map((n) => ({
-              time: toTicks(clip.start + n.start),
-              //time: toTicks(n.start),
+              //time: toTicks(clip.start + n.start),
+              time: toTicks(n.start),
               hz: hz(n.pitch),
               dur: toTicks(Math.min(n.duration, clip.length - n.start)),
               vel: n.velocity / 127,
@@ -728,7 +728,7 @@
       },
       play: async () => {
         if (!toneInitialized) {
-          Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
+          //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
           Tone.getContext().lookAhead = toneLookAhead;
           console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
           toneInitialized = true;
