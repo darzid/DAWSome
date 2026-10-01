@@ -96,7 +96,7 @@
   .track { text-overflow: ellipsis; }
   .track .device-name { max-width2: 40px;  }
 
-  .track label.inst { color: var(--muted); width: stretch; text-align: center; font-size: 1.2vw; }
+  .track label.inst { color: var(--muted); width: stretch; text-align: center; font-size: smaller; }
   .track .btn.mini { height: auto; padding: 0 1.25vw; }
   .track .btn.mute.on { background: #e0a33c; border-color: #e0a33c; }
 
