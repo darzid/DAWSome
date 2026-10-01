@@ -135,6 +135,8 @@
   .device .device-parameters .parameter input { margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-size: 2.5vw; height: auto; }
   .device .device-parameters .parameter select { margin-left: 0.2em; margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-size: 2.5vw; font-weight: bold; height: auto; text-align: center; }
   .device .device-parameters .parameter label.unit { font-size: smaller; margin-left: 0.5vw; min-width: 4vw; max-width: 6vw}
+  .device .device-parameters .parameter label.paramgroup { font-weight: bold; }
+  .device .device-parameters .parameter.hidden { display: none; }
   .mixer::-webkit-scrollbar { width: 10px; height: 10px; }
   .mixer::-webkit-scrollbar-track { background: #1c1c1c; }
   .mixer::-webkit-scrollbar-thumb { background: #555; border-radius: 1.25vw; }

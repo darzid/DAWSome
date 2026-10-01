@@ -2341,6 +2341,10 @@
       
       let parameterPathParts = parameterPath.split(".");
       let parameterName = parameterPathParts[parameterPathParts.length - 1];
+      let parameterGroup = parameterPathParts.length > 1 ? parameterPath.substring(0, parameterPath.length - (parameterName.length + 1)) : "";
+      if (parameterGroup) {
+        console.log("group: " + parameterGroup)
+      }
       if (parameterName === "frequency") 
         console.warn("frequency", trackDeviceState)
 
@@ -2352,6 +2356,7 @@
       
       let paramElement = document.createElement("div");
       paramElement.className = "parameter";
+      paramElement.dataset.group = parameterGroup;
       parametersPanel.appendChild(paramElement);
       
       if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
@@ -2376,7 +2381,8 @@
         }
         
         let label = document.createElement("label");
-        label.innerText = parameterPath.replace(".", " ");
+        let prefix = parameterGroup ? "> " : "";
+        label.innerText = prefix + parameterName; // parameterPath.replace(".", " ");
         paramElement.appendChild(label);
         if (parts[0] == "unitTypes") {
 
@@ -2437,6 +2443,16 @@
         }
       }
       else {
+        let label = document.createElement("label");
+        label.className = "paramgroup";
+        label.dataset.group = parameterPath;
+        label.innerText = parameterPath.replace(".", " ");
+        paramElement.appendChild(label);
+        label.addEventListener("click", () => {
+          const groupParams = parametersPanel.querySelectorAll(`div.parameter[data-group="${parameterPath}"]`);
+          groupParams.forEach(param => param.classList.toggle("hidden"));
+        })
+        
         if (parts[0] == "modules") {
           let moduleMetadata = deviceList.modules[parts[1]];
           Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
