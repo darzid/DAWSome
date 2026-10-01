@@ -46,7 +46,7 @@
   .version { margin-left: auto; margin-right: 0pt; }
   
   .btn {
-    height2: 24px; min-width2: 26px; padding: 0 7px; background: #3a3a3a; color: var(--text);
+    padding: 0 7px; background: #3a3a3a; color: var(--text);
     border: 1px solid #4a4a4a; border-radius: 3px; font: inherit; cursor: pointer; touch-action: manipulation;
   }
   .btn:hover { background: #474747; }
@@ -64,14 +64,15 @@
     min-height: 120px;
     height: stretch;
     display: grid; 
-    grid-template-columns: 40vw 1fr; 
+    grid-template-columns: 35vw 1fr; 
     grid-template-rows: auto 1fr;
     border-bottom: 2px solid #111;
   }
   
-  .corner { background: #262626; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  .corner { background: #262626; 
+            border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
             color: var(--muted); 
-            padding: 0.75vw 1.5vw; 
+            padding: 0.5vw 0.5vh; 
             overflow: hidden; }
   #arrRulerWrap, #edRulerWrap { border-bottom: 1px solid var(--border); }
   #trackHeadersWrap, #edKeysWrap { border-right: 1px solid var(--border); }
@@ -82,8 +83,8 @@
   .track {
     display: flex; flex-wrap: wrap; 
     align-content: center; 
-    gap: 0.75vw 1vw; 
-    padding: 0.75vw 1vw 0.75vw 0;
+    gap: 0.25vw 0.1vh; 
+    padding: 0.75vw 0vw 0.75vw 0;
     border-bottom: 1px solid var(--border); 
     background: #232323; overflow: hidden;
   }

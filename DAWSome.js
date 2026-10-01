@@ -1146,9 +1146,7 @@
         el.innerHTML = `<span class="swatch"></span>    
           <button class="btn mini mute" title="Mute">M</button>
           <input class="name" type="text" title="Track name" readonly="readonly">
-          <button class="btn mini del" title="Delete track">×</button>
-          <br>
-          <label class="inst" title="Instrument">${track.devices[0].name}</label>`;
+          <button class="btn mini del" title="Delete track">×</button>`;
       }
       el.style.height = `${rh}px`;
       el.classList.toggle("selected", track.id === state.selectedTrackId);
@@ -2541,6 +2539,7 @@
   $("edZoomOutH").addEventListener("click", () => ev.zoomH(1 / ZOOM_BUTTON_FACTOR));
   $("edZoomInV").addEventListener("click", () => ev.zoomV(ZOOM_BUTTON_FACTOR));
   $("edZoomOutV").addEventListener("click", () => ev.zoomV(1 / ZOOM_BUTTON_FACTOR));
+  
   for (const b of document.querySelectorAll(".toolbar .btn")) b.addEventListener("click", () => b.blur());
 
   window.addEventListener("keydown", (e) => {
