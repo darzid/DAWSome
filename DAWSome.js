@@ -2112,7 +2112,10 @@
 
     showClipEditorPanel() {
       this.showPanel(this.editor, dom.clipEditorTabBtn);
-      dom.loopClip.classList.toggle("on", currentClip().loop);
+      if (currentClip())
+        dom.loopClip.classList.toggle("on", currentClip().loop);
+      else
+        dom.loopClip.classList.remove("on");
 
       /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
       const trackElement = trackHeader.closest(".track");
