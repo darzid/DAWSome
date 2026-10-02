@@ -2070,7 +2070,7 @@
           this.showClipEditorPanel();
         }
         else {
-          editor.style.display = "none";
+          this.editor.style.display = "none";
         }
       });
 
@@ -2116,11 +2116,10 @@
     }
 
     showClipEditorPanel() {
-      this.showPanel(this.editor, dom.clipEditorTabBtn);
-      if (currentClip())
-        dom.loopClip.classList.toggle("on", currentClip().loop);
-      else
+    /*  if (!currentClip())
         dom.loopClip.classList.remove("on");
+      else*/
+        this.showPanel(this.editor, dom.clipEditorTabBtn);
 
       /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
       const trackElement = trackHeader.closest(".track");
@@ -2716,22 +2715,16 @@
               // create a ToneAudioBuffer from the ArrayBuffer with file contents. event.target.result is the ArrayBuffer with the file content
               const buffer = await sampler.context.decodeAudioData(event.target.result); 
   
-              
-              let noteFreq = Tone.Frequency("C3");
-              console.log("note", noteFreq.toMidi());
+              let noteFreq = Tone.Frequency("C2");
               if (list.length > 0) {
                 noteFreq = noteFreq.transpose(list.length);
               }
               const listItem = {note: noteFreq.toNote(), name: fileName, url: buffer };
               list.push(listItem);
-              console.log("adding item", fileInput.value);
               addListItem(listMetadata, list, listItem, listElement);
-              console.log("item added");
               srcElement.parentElement.removeChild(fileInput);
               sampler.add(listItem.note, buffer);
-              console.log("sample added");
               sampler.triggerAttackRelease(listItem.note, 1, 0, 127);
-              console.log("sample played " + listItem.note);
               fileInput.value = "";
             }
             // read the selected file into an ArrayBuffer
