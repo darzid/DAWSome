@@ -37,6 +37,18 @@
   const STEP_LABELS = new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]);
   const TRACK_COLORS = ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"];
 
+  const DEFAULT_INSTRUMENT = {
+    name: "MonoSynth",
+    type: "Instrument",
+    parameters: {
+      "volume": 0,
+      "portamento": 0,
+      "oscillator": {
+        "type": "sawtooth"
+      }
+    }
+  };
+  
   const COLORS = {
     void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
     laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
@@ -1160,10 +1172,6 @@
 
       dom.trackHeaders.appendChild(el);
 
-      document.addEventListener("InstrumentChanged", (e) => {
-        if (e.detail.trackId !== track.id) return;
-        el.querySelector(".inst").innerText = e.detail.instrumentName;
-      });
       document.addEventListener("MuteChanged", (e) => {
         if (e.detail.trackId !== track.id) return;
         el.querySelector(".mute").classList.toggle("on", track.mute);
@@ -1760,7 +1768,9 @@
     const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
     let first = null;
     for (const t of parsed.tracks) {
-      const track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEVICES[1]);
+      
+        
+      const track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
       const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
       const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), notes);
@@ -1777,7 +1787,7 @@
     const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
     let first = null;
     for (const t of projectData.tracks) {
-      let track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEVICES[1]);
+      let track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
       console.log("added track");
 
       let clips = projectData.clips.filter(c => c.trackId == t.id);
@@ -1901,7 +1911,7 @@
   bindToggle(dom.follow, state, "follow", () => { });
   bindToggle(dom.drawClips, state, "drawClips", () => { });
   dom.addTrack.addEventListener("click", () => {
-    addTrack(`Track ${state.tracks.length + 1}`, DEVICES[1]);
+    addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
     arrangementChanged();
   });
   dom.addClip.addEventListener("click", () => {
@@ -2322,6 +2332,7 @@
           }
 
           renderDeviceParameters();
+          renderDeviceLists();
           document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
           audio.updateTrack(track);
         };
@@ -2372,21 +2383,7 @@
       }
 
       renderDeviceParameters(targetParamMetadata);
-
-      function renderDeviceParameters(targetParamMetadata = null) {
-        console.log("renderDeviceParameters", targetParamMetadata)
-        parametersPanel.innerHTML = "";
-        if (trackDeviceNode.name == "") {
-          return;
-        }
-        if (deviceIndex < track.devices.length) {
-          let trackDeviceState = track.devices[deviceIndex].parameters;
-          let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
-          console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
-
-          Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
-        }
-      }
+      renderDeviceLists();
 
       function fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect) {
         targetParameterSelect.innerHTML = "";
@@ -2431,190 +2428,343 @@
           });
         }
       }
-
-      function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
-        const useDeviceStateOnly = true;
-
-        let parameterPathParts = parameterPath.split(".");
-        let parameterName = parameterPathParts[parameterPathParts.length - 1];
-        let parameterGroup = parameterPathParts.length > 1 ? parameterPath.substring(0, parameterPath.length - (parameterName.length + 1)) : "";
-        if (parameterGroup) {
-          console.log("group: " + parameterGroup)
+      
+      function renderDeviceParameters(targetParamMetadata = null) {
+        console.log("renderDeviceParameters", targetParamMetadata)
+        parametersPanel.innerHTML = "";
+        if (trackDeviceNode.name == "") {
+          return;
         }
-        if (parameterName === "frequency")
-          console.warn("frequency", trackDeviceState)
+        if (deviceIndex < track.devices.length) {
+          let trackDeviceState = track.devices[deviceIndex].parameters;
+          let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
+          console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
 
-        let parameterMetadataPath = deviceMetadata.parameters[parameterName];
-        let parts = parameterMetadataPath.split("/");
-        let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
-
-        //console.log("param metadata", parameterMetadataPath, paramMetadata);
-
-        let paramElement = document.createElement("div");
-        paramElement.className = "parameter";
-        paramElement.dataset.group = parameterGroup;
-        if (parameterGroup)
-          paramElement.classList.add("hidden");
-        parametersPanel.appendChild(paramElement);
-
-        if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
-          let stateValue = getParamState(parameterPath);
-          let paramContext = getParameterContext(parameterPath, trackDeviceState);
-
-          let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
-          //console.log(`param ${parameterName} is object: ${paramIsObject}`);
-          let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
-
-          if (stateValue != undefined && stateValue !== paramValue) {
-            console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
-            paramValue = stateValue;
+          Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
+        }
+        
+        function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
+          const useDeviceStateOnly = true;
+  
+          let parameterPathParts = parameterPath.split(".");
+          let parameterName = parameterPathParts[parameterPathParts.length - 1];
+          let parameterGroup = parameterPathParts.length > 1 ? parameterPath.substring(0, parameterPath.length - (parameterName.length + 1)) : "";
+          if (parameterGroup) {
+            console.log("group: " + parameterGroup)
+          }
+          if (parameterName === "frequency")
+            console.warn("frequency", trackDeviceState)
+  
+          let parameterMetadataPath = deviceMetadata.parameters[parameterName];
+          let parts = parameterMetadataPath.split("/");
+          let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
+  
+          //console.log("param metadata", parameterMetadataPath, paramMetadata);
+  
+          let paramElement = document.createElement("div");
+          paramElement.className = "parameter";
+          paramElement.dataset.group = parameterGroup;
+          if (parameterGroup)
+            paramElement.classList.add("hidden");
+          parametersPanel.appendChild(paramElement);
+  
+          if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
+            let stateValue = getParamState(parameterPath);
+            let paramContext = getParameterContext(parameterPath, trackDeviceState);
+  
+            let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
+            //console.log(`param ${parameterName} is object: ${paramIsObject}`);
+            let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
+  
+            if (stateValue != undefined && stateValue !== paramValue) {
+              console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
+              paramValue = stateValue;
+            }
+            else {
+              if (stateValue !== paramValue && stateValue == undefined)
+                console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
+            }
+  
+            if (useDeviceStateOnly) {
+              paramValue = stateValue;
+            }
+  
+            let label = document.createElement("label");
+            let prefix = parameterGroup ? "> " : "";
+            label.innerText = prefix + parameterName; // parameterPath.replace(".", " ");
+            paramElement.appendChild(label);
+  
+            let valueGroup = document.createElement("div");
+            valueGroup.className = "value-group";
+            paramElement.appendChild(valueGroup);
+  
+            if (parts[0] == "unitTypes") {
+  
+              let input = document.createElement("number-input");
+              valueGroup.appendChild(input);
+              input.name = parameterPath;
+              input.min = paramMetadata.min;
+              input.max = paramMetadata.max;
+              input.step = paramMetadata.step;
+              input.value = paramValue;
+              input.fill = "#d29524";
+              input.focusFill = "#f2b544";
+              if (parameterName == "frequency")
+                console.warn(`frequency input`, input);
+              else
+                console.log("input", input)
+              input.oninput = () => {
+                if (paramIsObject)
+                  paramContext[parameterName].value = input.value;
+                else
+                  paramContext[parameterName] = input.value;
+  
+                updateParamState(parameterPath, input.value);
+              }
+  
+              let unitLabel = document.createElement("label");
+              unitLabel.className = "unit";
+              valueGroup.appendChild(unitLabel);
+              if (targetParameterMetadata && (parameterName == "min" || parameterName == "max")) {
+                if (targetParameterMetadata.unit)
+                  unitLabel.innerText = targetParameterMetadata.unit
+              }
+              else if (paramMetadata.unit) {
+                unitLabel.innerText = paramMetadata.unit
+              }
+  
+            }
+            else if (parts[0] == "enumTypes") {
+              let select = document.createElement("select");
+              let optionsHtml = "";
+              paramMetadata.values.forEach(value => {
+                let option = document.createElement("option");
+                option.value = value;
+                option.innerText = value;
+                if (paramValue == value) {
+                  option.selected = "selected";
+                }
+                select.appendChild(option);
+              });
+              valueGroup.appendChild(select);
+              select.oninput = () => {
+                if (paramIsObject)
+                  paramContext[parameterName].value = select.value;
+                else
+                  paramContext[parameterName] = select.value;
+                updateParamState(parameterPath, input.value);
+              }
+              let unitLabel = document.createElement("label");
+              unitLabel.className = "unit";
+              valueGroup.appendChild(unitLabel);
+            }
           }
           else {
-            if (stateValue !== paramValue && stateValue == undefined)
-              console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
+            let label = document.createElement("label");
+            label.className = "paramgroup";
+            label.dataset.group = parameterPath;
+            label.innerText = parameterPath.replace(".", " ");
+            paramElement.appendChild(label);
+            label.addEventListener("click", () => {
+              const groupParams = parametersPanel.querySelectorAll(`div.parameter[data-group="${parameterPath}"]`);
+              groupParams.forEach(param => param.classList.toggle("hidden"));
+            })
+  
+            if (parts[0] == "modules") {
+              let moduleMetadata = deviceList.modules[parts[1]];
+              Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
+            }
+            else if (parts[0] == "devices") {
+              let moduleMetadata = deviceList.devices[parts[1]];
+              Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
+            }
           }
 
-          if (useDeviceStateOnly) {
-            paramValue = stateValue;
-          }
-
-          let label = document.createElement("label");
-          let prefix = parameterGroup ? "> " : "";
-          label.innerText = prefix + parameterName; // parameterPath.replace(".", " ");
-          paramElement.appendChild(label);
-
-          let valueGroup = document.createElement("div");
-          valueGroup.className = "value-group";
-          paramElement.appendChild(valueGroup);
-
-          if (parts[0] == "unitTypes") {
-
-            let input = document.createElement("number-input");
-            valueGroup.appendChild(input);
-            input.name = parameterPath;
-            input.min = paramMetadata.min;
-            input.max = paramMetadata.max;
-            input.step = paramMetadata.step;
-            input.value = paramValue;
-            input.fill = "#d29524";
-            input.focusFill = "#f2b544";
-            if (parameterName == "frequency")
-              console.warn(`frequency input`, input);
-            else
-              console.log("input", input)
-            input.oninput = () => {
-              if (paramIsObject)
-                paramContext[parameterName].value = input.value;
-              else
-                paramContext[parameterName] = input.value;
-
-              updateParamState(parameterPath, input.value);
-            }
-
-            let unitLabel = document.createElement("label");
-            unitLabel.className = "unit";
-            valueGroup.appendChild(unitLabel);
-            if (targetParameterMetadata && (parameterName == "min" || parameterName == "max")) {
-              if (targetParameterMetadata.unit)
-                unitLabel.innerText = targetParameterMetadata.unit
-            }
-            else if (paramMetadata.unit) {
-              unitLabel.innerText = paramMetadata.unit
-            }
-
-          }
-          else if (parts[0] == "enumTypes") {
-            let select = document.createElement("select");
-            let optionsHtml = "";
-            paramMetadata.values.forEach(value => {
-              let option = document.createElement("option");
-              option.value = value;
-              option.innerText = value;
-              if (paramValue == value) {
-                option.selected = "selected";
+          function getParameterContext(parameterPath, trackDeviceState) {
+            let paramValue, paramStateValue = null;
+            try {
+              //console.log("getting value for " + parameterPath);
+              let trackDeviceNodeParamContext = trackDeviceNode;
+  
+              if (parameterPath == "oscillator.detune") {
+                console.log("osc detune")
               }
-              select.appendChild(option);
+              for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
+                let pathPart = parameterPathParts[partIndex];
+                trackDeviceNodeParamContext = trackDeviceNodeParamContext[pathPart];
+              }
+              return trackDeviceNodeParamContext;
+            }
+            catch (error) {
+              console.error("Traverse error", error);
+            }
+          }
+  
+          function getParamState(parameterPath) {
+            let parts = parameterPath.split(".");
+            let paramName = parts[parts.length - 1];
+            let stateContext = trackDeviceState;
+            if (parts.length > 1) {
+              // console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
+            }
+            for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+              stateContext = stateContext[parts[partIndex]];
+            }
+            let paramValue = stateContext[paramName];
+            if (paramValue == undefined) {
+              console.warn(`getParamState("${parameterPath}"): value undefined`, stateContext);
+            }
+            return paramValue;
+          }
+  
+          function updateParamState(parameterPath, value) {
+            // console.log("updateParamState",trackDeviceState, parameterPath, value)
+            trackDeviceState[parameterName] = value;
+            //console.log("paramState updated",trackDeviceState, parameterPath, value)
+          }
+        }
+      }
+
+      function renderDeviceLists() {
+        console.log("renderDeviceLists")
+        if (deviceIndex < track.devices.length) {
+          let trackDeviceListsState = track.devices[deviceIndex].lists;
+          let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
+          if (trackDeviceMetadata.lists) {
+            console.log("create device lists html", track, trackDeviceNode, trackDeviceListsState, trackDeviceMetadata);
+          
+            Object.keys(trackDeviceMetadata.lists).forEach(listName => {
+              let listMetadata = trackDeviceMetadata.lists[listName];
+              let listContainer = document.createElement("div");
+              listContainer.className = "list-container";
+              parametersPanel.appendChild(listContainer);
+              
+              let label = document.createElement("label");
+              label.innerText = listName;
+              listContainer.appendChild(label);
+              
+              let listElement = document.createElement("div");
+              listElement.className = "list";
+              listElement.name = listName;
+              let templateColumns = "";
+              listMetadata.columns.forEach(name => {
+                if (listMetadata.columns.indexOf(name) == listMetadata.columns.length - 1) {
+                  templateColumns += "auto ";
+                  console.log("add column for " + name)
+                }
+                else {
+                  templateColumns += "min-content ";
+                }
+              });
+            //  templateColumns += "min-content";
+             /* if (listMetadata.itemMethods) {
+                templateColumns += "min-content";
+                console.log("add column for methods")
+              }*/
+              
+              listContainer.appendChild(listElement);
+              listElement.style.gridTemplateColumns = templateColumns;
+              
+              listMetadata.columns.forEach(name => {
+                let listColumn = document.createElement("div");
+                listColumn.className = "listcolumn";
+                listColumn.innerText = name;
+                listElement.appendChild(listColumn);
+              });
+              if (!trackDeviceListsState) {
+                track.devices[deviceIndex].lists = { samples: [] };
+                trackDeviceListsState = track.devices[deviceIndex].lists;
+              }
+              if (trackDeviceListsState && trackDeviceListsState[listName]) {
+                trackDeviceListsState[listName].forEach(listItem => {
+                  addListItem(listMetadata, trackDeviceListsState[listName], listItem, listElement);
+                });
+              }
+              
+              Object.keys(listMetadata.listMethods).forEach(methodName => {
+                let method = listMetadata.listMethods[methodName];
+                let methodButton = document.createElement("button");
+                methodButton.className = "btn listmethod";
+                methodButton.innerHTML = method.displayName;
+                listContainer.appendChild(methodButton);
+                methodButton.onclick = () => eval(`${method.functionName}(methodButton, listMetadata, trackDeviceListsState[listName], listElement, trackDeviceNode)`);
+              });
             });
-            valueGroup.appendChild(select);
-            select.oninput = () => {
-              if (paramIsObject)
-                paramContext[parameterName].value = select.value;
-              else
-                paramContext[parameterName] = select.value;
-              updateParamState(parameterPath, input.value);
-            }
-            let unitLabel = document.createElement("label");
-            unitLabel.className = "unit";
-            valueGroup.appendChild(unitLabel);
           }
         }
-        else {
-          let label = document.createElement("label");
-          label.className = "paramgroup";
-          label.dataset.group = parameterPath;
-          label.innerText = parameterPath.replace(".", " ");
-          paramElement.appendChild(label);
-          label.addEventListener("click", () => {
-            const groupParams = parametersPanel.querySelectorAll(`div.parameter[data-group="${parameterPath}"]`);
-            groupParams.forEach(param => param.classList.toggle("hidden"));
-          })
+      }
+      
+      function addSample(srcElement, listMetadata, list, listElement, sampler) {
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = ".wav,.mp3";
+        srcElement.parentElement.appendChild(fileInput);
+        
+        fileInput.addEventListener("change", async (e) => {
+          console.log("chanhe")
+          const file = fileInput.files[0];
+          const filePath = fileInput.value;
+          const fileName = filePath.substr(filePath.lastIndexOf('\\') + 1);
 
-          if (parts[0] == "modules") {
-            let moduleMetadata = deviceList.modules[parts[1]];
-            Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
-          }
-          else if (parts[0] == "devices") {
-            let moduleMetadata = deviceList.devices[parts[1]];
-            Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
-          }
-        }
 
-        function getParameterContext(parameterPath, trackDeviceState) {
-          let paramValue, paramStateValue = null;
+          if (!file) return;
           try {
-            //console.log("getting value for " + parameterPath);
-            let trackDeviceNodeParamContext = trackDeviceNode;
-
-            if (parameterPath == "oscillator.detune") {
-              console.log("osc detune")
+            
+            const fileReader = new FileReader();
+            // when it's read into an ArrayBuffer, we can access that in the result property of the event target
+            fileReader.onload = async (event) => {
+              // create a ToneAudioBuffer from the ArrayBuffer with file contents. event.target.result is the ArrayBuffer with the file content
+              const buffer = await sampler.context.decodeAudioData(event.target.result); 
+  
+              
+              let noteFreq = Tone.Frequency("C3");
+              console.log("note", noteFreq.toMidi());
+              if (list.length > 0) {
+                noteFreq = noteFreq.transpose(list.length);
+              }
+              const listItem = {note: noteFreq.toNote(), name: fileName, url: buffer };
+              list.push(listItem);
+              console.log("adding item", fileInput.value);
+              addListItem(listMetadata, list, listItem, listElement);
+              console.log("item added");
+              srcElement.parentElement.removeChild(fileInput);
+              sampler.add(listItem.note, buffer);
+              console.log("sample added");
+              sampler.triggerAttackRelease(listItem.note, 1, 0, 127);
+              console.log("sample played " + listItem.note);
+              fileInput.value = "";
             }
-            for (let partIndex = 0; partIndex < parameterPathParts.length - 1; partIndex++) {
-              let pathPart = parameterPathParts[partIndex];
-              trackDeviceNodeParamContext = trackDeviceNodeParamContext[pathPart];
-            }
-            return trackDeviceNodeParamContext;
+            // read the selected file into an ArrayBuffer
+            fileReader.readAsArrayBuffer(file);
+            
+          } catch (err) {
+            console.error(`Could not import ${file.name}: ${err.message}`, err);
+            dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
           }
-          catch (error) {
-            console.error("Traverse error", error);
-          }
-        }
-
-        function getParamState(parameterPath) {
-          let parts = parameterPath.split(".");
-          let paramName = parts[parts.length - 1];
-          let stateContext = trackDeviceState;
-          if (parts.length > 1) {
-            // console.log(`getParamState("${parameterPath}"): nested value`, trackDeviceState);
-          }
-          for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-            stateContext = stateContext[parts[partIndex]];
-          }
-          let paramValue = stateContext[paramName];
-          if (paramValue == undefined) {
-            console.warn(`getParamState("${parameterPath}"): value undefined`, stateContext);
-          }
-          return paramValue;
-        }
-
-        function updateParamState(parameterPath, value) {
-          // console.log("updateParamState",trackDeviceState, parameterPath, value)
-          trackDeviceState[parameterName] = value;
-          //console.log("paramState updated",trackDeviceState, parameterPath, value)
-        }
+        });
+        fileInput.click();
+      }
+      
+      function addListItem(listMetadata, list, listItem, listElement) {
+        console.log("addListItem", listMetadata, list, listItem, listElement);
+        
+        listMetadata.columns.forEach(name => {
+          let listItemValue = document.createElement("div");
+          listItemValue.innerText = listItem[name];
+          listElement.appendChild(listItemValue);
+        });
+        /*
+        Object.keys(listMetadata.itemMethods).forEach(methodName => {
+          let method = listMetadata.itemMethods[methodName];
+          let methodButton = document.createElement("button");
+          methodButton.className = "btn itemmethod";
+          methodButton.innerHTML = methodName;
+          listElement.appendChild(methodButton);
+          methodButton.onclick = () => eval(`${method.functionName}(listItem, listMetadata, trackDeviceListsState[listName], listElement, trackDeviceNode)`);
+        });*/
       }
     }
   }
-
 
   // ===== Init =====
   function layoutAll() {

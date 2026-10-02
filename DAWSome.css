@@ -159,8 +159,21 @@
 
   .device .device-parameters .parameter .value-group input { margin-right: 0pt; min-width: 35vw; max-width: 35vw; height: auto; }
   .device .device-parameters .parameter .value-group select { margin-left: 0.2em; margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-weight: bold; height: auto; text-align: center; }
-  .device .device-parameters .parameter .value-group label.unit { font-size: smaller; margin-left: 0.5vw; margin-right: 0; min-width: 4vw; max-width: 4vw; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
+  .device .device-parameters .parameter .value-group label.unit { font-size: smaller; margin-left: 0.5vw; margin-right: 0; min-width: 5vw; max-width: 5vw; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
 
+  .list {
+    display: grid;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: 5px;
+    .listcolumn { font-weight: bold; background: rgba(150,150,150,0.2); }
+    div {
+      padding-right: 5px;
+    }
+    button { margin: 1px; padding: 1px; padding-left: 4px; padding-right: 4px; font-size: x-small; height: min-content; width: min-content; }
+  }
+  
+  
   .device .device-parameters .parameter.hidden { display: none; }
   .mixer::-webkit-scrollbar { width: 10px; height: 10px; }
   .mixer::-webkit-scrollbar-track { background: #1c1c1c; }

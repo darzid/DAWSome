@@ -657,6 +657,7 @@
   },
   "instrument\\PluckSynth\\Default": {},
   "instrument\\PolySynth\\Default": {},
+  "instrument\\Sampler\\Default": {},
   "instrument\\Synth\\Default": {},
   "instrument\\Synth\\AlienChorus": {
     "oscillator": {
@@ -833,6 +834,11 @@
         "lowpass","highpass","bandpass",
         "lowshelf","highshelf","peaking",
         "notch","allpass"
+      ]
+    },
+    "OneShotCurve": {
+      "values": [
+        "linear","exponential"
       ]
     },
     "OversampleType": {
@@ -1016,6 +1022,30 @@
       }
     },
 
+    "Sampler": {
+      "type": "Instrument",
+      "parameters": {
+        "attack": "unitTypes/AdrRange",
+        "release": "unitTypes/AdrRange",
+        "curve": "enumTypes/OneShotCurve",
+        "volume": "unitTypes/Decibels"
+      },
+      "lists": {
+        "samples": {
+          "columns": ["note","name"],
+          "itemMethods": {
+            "▶️": "playSample"
+          },
+          "listMethods": {
+            "add": {
+              "displayName": "Add",
+              "functionName": "addSample"
+            },
+          }
+        }
+      }
+    },
+    
     "Synth": {
       "type": "Instrument",
       "parameters": {
