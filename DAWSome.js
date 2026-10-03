@@ -1200,6 +1200,7 @@
     } else if (e.target.classList.contains("del")) {
       removeTrack(track.id);
       if (!currentClip()) editorClipChanged();
+      document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
     } else if (e.target.classList.contains("name")) {
       bottomPanelManager.refreshActivePanel();
       return false;
@@ -1218,6 +1219,7 @@
       track.name = e.target.value.trim() || track.name;
       e.target.value = track.name;
       editorClipChanged();
+      document.dispatchEvent(new CustomEvent("TrackNameChanged", { detail: { trackId: track.id, trackName: track.name } }));
     }
     arrangementChanged();
   });

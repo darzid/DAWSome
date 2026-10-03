@@ -6,18 +6,26 @@ class Mixer {
     }
     
     addTrackFader(track) {
-      try {
-        
-      
       let faderContainer = document.createElement("div");
       faderContainer.className = "track-fader-container faders";
       this.mixer.appendChild(faderContainer);
       
-    
       faderContainer.innerHTML += `<label>${track.name}</label>
         <input type="number" min="-500" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value" />
         <input id="${track.id}-fader" type="range" min="-500" max="0.0" step="0.1" value="${track.volume}" />`;
-        
+      
+      document.addEventListener("TrackRemoved", (e) => {
+        if (e.detail.trackId !== track.id) return;
+        console.log("Track removed", e.detail)
+        this.mixer.removeChild(faderContainer);
+      })
+      document.addEventListener("TrackNameChanged", (e) => {
+        if (e.detail.trackId !== track.id) return;
+        console.log("Trackname changed", e.detail)
+        faderContainer.querySelector("label").innerText = e.detail.trackName;
+      })
+      
+      
       let faderInput = faderContainer.querySelector("input[type=range]");
       let faderValue = faderContainer.querySelector("input[type=number]");
       faderInput.oninput = ()=> {
@@ -66,6 +74,7 @@ class Mixer {
         console.log("Mute changed", e.detail)
         muteButton.classList.toggle("on", e.detail.muted);
       })
+      
       
       let soloButton = document.createElement("button");
       soloButton.innerText = "Solo";
@@ -137,10 +146,6 @@ class Mixer {
         }
         //this.audio.updateTrack(track);
       };
-      }
-      catch (error) {
-        console.log("AddTrackFader: " + error);
-      }
     }
     
     removeTrackFader(track) {
