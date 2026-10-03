@@ -2520,7 +2520,7 @@
   
                 updateParamState(parameterPath, input.value);
               }
-  
+              
               let unitLabel = document.createElement("label");
               unitLabel.className = "unit";
               valueGroup.appendChild(unitLabel);
@@ -2693,6 +2693,25 @@
         }
       }
       
+      function addListItem(listMetadata, list, listItem, listElement) {
+        console.log("addListItem", listMetadata, list, listItem, listElement);
+        
+        listMetadata.columns.forEach(name => {
+          let listItemValue = document.createElement("div");
+          listItemValue.innerText = listItem[name];
+          listElement.appendChild(listItemValue);
+        });
+        /*
+        Object.keys(listMetadata.itemMethods).forEach(methodName => {
+          let method = listMetadata.itemMethods[methodName];
+          let methodButton = document.createElement("button");
+          methodButton.className = "btn itemmethod";
+          methodButton.innerHTML = methodName;
+          listElement.appendChild(methodButton);
+          methodButton.onclick = () => eval(`${method.functionName}(listItem, listMetadata, trackDeviceListsState[listName], listElement, trackDeviceNode)`);
+        });*/
+      }
+      
       function addSample(srcElement, listMetadata, list, listElement, sampler) {
         const fileInput = document.createElement("input");
         fileInput.type = "file";
@@ -2738,24 +2757,6 @@
         fileInput.click();
       }
       
-      function addListItem(listMetadata, list, listItem, listElement) {
-        console.log("addListItem", listMetadata, list, listItem, listElement);
-        
-        listMetadata.columns.forEach(name => {
-          let listItemValue = document.createElement("div");
-          listItemValue.innerText = listItem[name];
-          listElement.appendChild(listItemValue);
-        });
-        /*
-        Object.keys(listMetadata.itemMethods).forEach(methodName => {
-          let method = listMetadata.itemMethods[methodName];
-          let methodButton = document.createElement("button");
-          methodButton.className = "btn itemmethod";
-          methodButton.innerHTML = methodName;
-          listElement.appendChild(methodButton);
-          methodButton.onclick = () => eval(`${method.functionName}(listItem, listMetadata, trackDeviceListsState[listName], listElement, trackDeviceNode)`);
-        });*/
-      }
     }
   }
 
