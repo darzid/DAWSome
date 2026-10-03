@@ -2189,7 +2189,7 @@
 
       let deviceToInspect = audio.getTrackInstrument(track);
       parentPanel.innerHTML = "";
-      this.createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
+      this.renderDevice(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
     }
 
     renderEffectsPanel() {
@@ -2204,8 +2204,8 @@
       let trackEffects = audio.getTrackEffects(track);
 
       this.effectsPanel.innerHTML = "";
-      trackEffects.forEach(fx => this.createDeviceHtml(this.effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
-      this.createDeviceHtml(this.effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+      trackEffects.forEach(fx => this.renderDevice(this.effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+      this.renderDevice(this.effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
     }
 
     renderModulationPanel() {
@@ -2228,15 +2228,15 @@
       this.modulationPanel.innerHTML = "";
       console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
       try {
-        trackModulators.forEach(mod => this.createDeviceHtml(this.modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+        trackModulators.forEach(mod => this.renderDevice(this.modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
       }
       catch (error) {
         console.error("Error while creating modulatoe html", error)
       }
-      this.createDeviceHtml(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+      this.renderDevice(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
     }
 
-    createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
+    renderDevice(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
       let devicePanel = document.createElement("div");
       devicePanel.className = "device";
       devicePanel.dataset.trackid = track.id;
