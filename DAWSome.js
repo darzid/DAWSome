@@ -2986,6 +2986,79 @@
       createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
       console.log("created open hat");
 
+      console.log("creating 303");
+      const tb303Synth = {
+        name: "MonoSynth",
+        parameters: {
+          portamento: 0.08,
+          volume: -6,
+          oscillator: {
+            type: "sawtooth" // Gebruik "sawtooth" of "square" voor de typische 303-golfvorm
+          },
+          envelope: {
+            attack: 0.005,
+            decay: 0.2,
+            sustain: 0,
+            release: 0.1
+          },
+          filter: {
+            Q: 6, // Hoge resonantie voor de typische "acid squelch"
+            type: "lowpass",
+            rolloff: -24 // 24dB/octaaf lowpass filter
+          },
+          filterEnvelope: {
+            attack: 0.005,
+            decay: 0.25,      // Bepaalt de lengte van de filter sweep (Cutoff Env Mod)
+            sustain: 0.0,
+            release: 0.2,
+            baseFrequency: 100, // Minimale cutoff frequentie in Hz
+            octaves: 4.5,       // Hoeveel octaven de envelope het filter opent
+            exponent: 2
+          }
+        }
+      };
+      const tb303Distortion = {
+        name: "Distortion",
+        parameters: {
+          distortion: 0.3,
+          wet: 0.5
+        }
+      };
+      const tb303Delay = {
+        name: "PingPongDelay",
+        parameters: {
+          delayTime: "8n.",
+          feedback: 0.3,
+          wet: 0.25
+        }
+      }
+      const tb303 = addTrack("303", tb303Synth, [tb303Distortion, tb303Delay]);
+      
+      
+
+/*
+        { note: 'C', octave: 3, gate: true, accent: true, slide: true },
+        { note: 'C', octave: 2, gate: true, accent: false, slide: false },
+        { note: 'D#', octave: 3, gate: true, accent: true, slide: false },
+        { note: 'C', octave: 2, gate: false, accent: false, slide: false },
+        { note: 'F', octave: 2, gate: true, accent: false, slide: true },
+        { note: 'G', octave: 2, gate: true, accent: true, slide: false },
+        { note: 'A#', octave: 2, gate: true, accent: false, slide: false },
+        { note: 'G#', octave: 2, gate: true, accent: true, slide: false }
+      ],*/
+      const tb303Notes = mk([
+        [36, 0.00, 0.25],
+        [48, 0.25, 0.25],
+        [36, 0.50, 0.25],
+        [39, 0.75, 0.25],
+        [36, 1.00, 0.125],
+        [41, 1.25, 0.25],
+        [43, 1.50, 0.25],
+        [46, 1.75, 0.25],
+      ]);
+      createClip(tb303, 0, BEATS_PER_BAR / 2, tb303Notes, 64);
+      console.log("created 303");
+      
       console.log("creating lead");
       const leadSynth = {
         name: "FMSynth",
