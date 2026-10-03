@@ -441,7 +441,7 @@
     if (typeof Tone === "undefined") return null;
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
-    const chains = new Map();   // trackId → { synth, channel, device name }
+    const chains = new Map();   // trackId → { instrument, channel, device name }
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
@@ -517,7 +517,7 @@
     }
     const connectDevices = (ch) => {
       console.log("connecting devices");
-      let source = ch.synth;
+      let source = ch.instrument;
       console.log("connecting devices, src", source);
       ch.effects.forEach(fx => {
         source.connect(fx);
@@ -562,13 +562,13 @@
       track.devices[0].name = instrumentName;
       track.devices[0].parameters = {};
 
-      console.log("updating synth", instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
-      ch.synth.dispose();
+      console.log("updating instrument", instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
+      ch.instrument.dispose();
       //track.devices[0].parameters = track.instrumentParameters;
-      ch.synth = makeToneNode(track.devices[0].name);
+      ch.instrument = makeToneNode(track.devices[0].name);
       track.instrumentName = track.devices[0].name;
 
-      //console.log("updated synth", track.instrumentName, track.instrumentParameters);
+      //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
       ch.instrumentName = track.instrumentName;
       ch.instrumentParameters = track.instrumentParameters;
       connectDevices(ch);
@@ -607,7 +607,7 @@
         track.devices[0].parameters = track.instrumentParameters;
         chains.set(track.id,
           {
-            synth: makeToneNode(track.devices[0]),
+            instrument: makeToneNode(track.devices[0]),
             channel,
             instrumentName: track.devices[0].name,
             instrumentParameters: track.instrumentParameters,
@@ -617,7 +617,7 @@
         console.log("made chain");
 
         const ch = chain(track.id);
-        if (ch.synth == null) throw "synth null"
+        if (ch.instrument == null) throw "instrument null"
         connectDevices(ch);
         connectModulators(ch, track);
         console.log("added track", chain(track.id));
@@ -626,26 +626,26 @@
         console.log("updating track")
         const ch = chain(track.id);
         if (ch.instrumentName !== track.instrumentName || ch.instrumentParameters !== track.instrumentParameters) {
-          console.log("updating synth", track.instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
-          ch.synth.dispose();
+          console.log("updating instrument", track.instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
+          ch.instrument.dispose();
           track.devices[0] = {
             name: track.instrumentName,
             presetName: "",
             parameters: {}
           }
           track.devices[0].parameters = track.instrumentParameters;
-          ch.synth = makeToneNode(track.devices[0]);
-          //console.log("updated synth", track.instrumentName, track.instrumentParameters);
+          ch.instrument = makeToneNode(track.devices[0]);
+          //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
           ch.instrumentName = track.instrumentName;
           ch.instrumentParameters = track.instrumentParameters;
           connectDevices(ch);
         }
         if (ch.instrumentParameters !== track.instrumentParameters) {
-          console.log("updating synth", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
-          ch.synth.dispose();
+          console.log("updating instrument", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
+          ch.instrument.dispose();
           track.devices[0].parameters = track.instrumentParameters;
-          ch.synth = makeToneNode(track.devices[0]);
-          //console.log("updated synth", track.instrumentName, track.instrumentParameters);
+          ch.instrument = makeToneNode(track.devices[0]);
+          //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
           ch.instrumentName = track.instrumentName;
           ch.instrumentParameters = track.instrumentParameters;
           connectDevices(ch);
@@ -660,9 +660,9 @@
         }
       },
 
-      getTrackSynth: (track) => {
+      getTrackInstrument: (track) => {
         const ch = chain(track.id);
-        return ch.synth;
+        return ch.instrument;
       },
       getTrackEffects: (track) => {
         const ch = chain(track.id);
@@ -670,7 +670,7 @@
       },
       getTrackDevices: (track) => {
         const ch = chain(track.id);
-        let devices = [ch.synth];
+        let devices = [ch.instrument];
         ch.effects.forEach(fx => devices.push(fx));
         ch.modulators.forEach(mod => devices.push(mod));
         return devices;
@@ -686,7 +686,7 @@
       removeTrack: (trackId) => {
         const ch = chain(trackId);
         if (!ch) return;
-        ch.synth.dispose();
+        ch.instrument.dispose();
         ch.channel.dispose();
         chains.delete(trackId);
       },
@@ -709,7 +709,7 @@
               vel: n.velocity / 127,
             }));
 
-          const part = new Tone.Part((time, ev) => ch.synth.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel), events);
+          const part = new Tone.Part((time, ev) => ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel), events);
           part.start(beatsToTime(clip.start));
           //console.log("part started", audio.beatsToTime(clip.start));
 
@@ -750,13 +750,13 @@
       },
       stop: () => {
         transport.stop();
-        for (const ch of chains.values()) ch.synth.triggerAttackRelease();
+        for (const ch of chains.values()) ch.instrument.triggerRelease();
       },
       seek: (beat) => { transport.ticks = Math.round(beat * PPQ); },
       positionBeat: () => transport.getTicksAtTime(Tone.immediate()) / PPQ,
-      keyOn: (trackId, pitch) => chain(trackId)?.synth.triggerAttackRelease(hz(pitch), 0.15, Tone.now(), 0.8),
-      keyOff: (trackId, pitch) => chain(trackId)?.synth.triggerRelease(hz(pitch), Tone.now()),
-      preview: (trackId, pitch) => chain(trackId)?.synth.triggerAttackRelease(hz(pitch), 0.15, Tone.now(), 0.8),
+      keyOn: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), 0.15, Tone.now(), 0.8),
+      keyOff: (trackId, pitch) => chain(trackId)?.instrument.triggerRelease(hz(pitch), Tone.now()),
+      preview: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), 0.15, Tone.now(), 0.8),
     };
   }
 
@@ -2189,9 +2189,9 @@
         return;
       }
 
-      let deviceToInspect = audio.getTrackSynth(track);
+      let deviceToInspect = audio.getTrackInstrument(track);
       parentPanel.innerHTML = "";
-      this.createDeviceHtml(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
+      this.renderDevice(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
     }
 
     renderEffectsPanel() {
@@ -2206,8 +2206,8 @@
       let trackEffects = audio.getTrackEffects(track);
 
       this.effectsPanel.innerHTML = "";
-      trackEffects.forEach(fx => this.createDeviceHtml(this.effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
-      this.createDeviceHtml(this.effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+      trackEffects.forEach(fx => this.renderDevice(this.effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+      this.renderDevice(this.effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
     }
 
     renderModulationPanel() {
@@ -2230,15 +2230,15 @@
       this.modulationPanel.innerHTML = "";
       console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
       try {
-        trackModulators.forEach(mod => this.createDeviceHtml(this.modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+        trackModulators.forEach(mod => this.renderDevice(this.modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
       }
       catch (error) {
         console.error("Error while creating modulatoe html", error)
       }
-      this.createDeviceHtml(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+      this.renderDevice(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
     }
 
-    createDeviceHtml(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
+    renderDevice(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
       let devicePanel = document.createElement("div");
       devicePanel.className = "device";
       devicePanel.dataset.trackid = track.id;
@@ -2257,10 +2257,9 @@
         </div>
         <div class="device-parameters"></div>`;
       } else {
-        let deviceType = `${panelType}: &nbsp;`;
         let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
         devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
-          ${deviceType}<select class="inst" title="Instrument">${deviceOptionsHtml}</select>
+          <select class="inst" title="Instrument">${deviceOptionsHtml}</select>
           <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
         </div>
         <div class="device-parameters"></div>`;
@@ -2305,7 +2304,7 @@
             audio.updateTrack(track);
             track.devices[0].presetName = "default";
 
-            trackDeviceNode = audio.getTrackSynth(track);
+            trackDeviceNode = audio.getTrackInstrument(track);
             if (trackDeviceNode.name !== track.instrumentName)
               throw "mismatch"
             fillDevicePresets(devicePanel, devicePresets, track.instrumentName);
@@ -2716,6 +2715,7 @@
       
       function addSample(srcElement, listMetadata, list, listElement, sampler) {
         const fileInput = document.createElement("input");
+        fileInput.style.display = "none";
         fileInput.type = "file";
         fileInput.accept = ".wav,.mp3";
         srcElement.parentElement.appendChild(fileInput);
@@ -3066,6 +3066,9 @@
       console.log("created lead");
 
       console.log("created demo song");
+
+      deselectClip();
+      deselectTrack();
     }
   }
 
