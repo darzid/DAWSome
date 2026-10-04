@@ -2883,8 +2883,8 @@
         parameters: {
           cutoff: 300,
           resonance: 4,
-          envelopeModulation: 0.1,
-          decay: 0.22,
+          envelopeModulation: 0.14,
+          decay: 0.2,
           accent: 1,
           drive: 1,
           waveform: "sawtooth",
@@ -2899,9 +2899,9 @@
         [34, 0.75, 0.2, ACCENT_VELOCITY],
 
         [27, 1.00, 0.1, 0.4],
-        [29, 1.25, 0.2, DEFAULT_VELOCITY],
+        [29, 1.25, 0.25, DEFAULT_VELOCITY],
         [34, 1.5, 0.25, DEFAULT_VELOCITY],
-        [32, 1.75, 0.2, DEFAULT_VELOCITY],
+        [32, 1.75, 0.25, DEFAULT_VELOCITY],
 
         [30, 2.00, 0.2, 0.4],
         [32, 2.25, 0.2, DEFAULT_VELOCITY],
@@ -2909,19 +2909,19 @@
         [27, 2.75, 0.2, ACCENT_VELOCITY],
 
         [32, 3.00, 0.2, 0.4],
-        [34, 3.25, 0.2, DEFAULT_VELOCITY],
-        [37, 3.5, 0.25, DEFAULT_VELOCITY, true],
-        [32, 3.75, 0.2, DEFAULT_VELOCITY],
+        [34, 3.25, 0.25, DEFAULT_VELOCITY],
+        [37, 3.50, 0.25, DEFAULT_VELOCITY, true],
+        [32, 3.75, 0.25, DEFAULT_VELOCITY],
 
         [27, 4.00, 0.2, 0.4],
         [29, 4.25, 0.2, DEFAULT_VELOCITY],
-        [32, 4.5, 0.25, DEFAULT_VELOCITY],
+        [32, 4.50, 0.25, DEFAULT_VELOCITY],
         [34, 4.75, 0.2, DEFAULT_VELOCITY, true],
 
         [27, 5.00, 0.2, 0.4],
-        [29, 5.25, 0.2, DEFAULT_VELOCITY],
-        [34, 5.5, 0.25, DEFAULT_VELOCITY],
-        [32, 5.75, 0.2, DEFAULT_VELOCITY],
+        [29, 5.25, 0.25, DEFAULT_VELOCITY],
+        [34, 5.50, 0.25, DEFAULT_VELOCITY],
+        [32, 5.75, 0.25, DEFAULT_VELOCITY],
 
         [30, 6.00, 0.2, 0.4],
         [32, 6.25, 0.2, DEFAULT_VELOCITY, true],
@@ -2929,12 +2929,13 @@
         [27, 6.75, 0.2, ACCENT_VELOCITY],
         
         [30, 7.00, 0.2, 0.4],
-        [32, 7.25, 0.2, DEFAULT_VELOCITY],
-        [29, 7.5, 0.25, DEFAULT_VELOCITY],
-        [34, 7.75, 0.2, DEFAULT_VELOCITY]
+        [32, 7.25, 0.25, DEFAULT_VELOCITY],
+        [29, 7.50, 0.25, DEFAULT_VELOCITY],
+        [34, 7.75, 0.25, DEFAULT_VELOCITY]
       ]);
       createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
-      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 64);
+      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
+      createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2972,7 +2973,7 @@
         [42, 0.75, 0.125]
       ]);
       createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
-      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 64);
+      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
       console.log("created closed hat");
 
       console.log("creating openhat");
