@@ -809,6 +809,9 @@
     "AttackNoise": { "min": 0.1, "max": 20, "step": 0.01 },
     "MaxPolyphony": { "min": 1, "max": 20, "step": 1 },
     "PitchDecay": { "min": 0, "max": "2", "step": 0.001, unit: "sec" },
+    "Tb303Cutoff": { "min": 100, "max": 8000, "step": 1 },
+    "Tb303Resonance": { "min": 1, "max": 20, "step": 0.01 },
+    "Tb303Decay": { "min": 0.1, "max": 1.2, "step": 0.01 }
   },
   
   "enumTypes": {
@@ -846,7 +849,12 @@
     },
     "NoiseType": {
       "values": ["pink","white","brown"]
-    }
+    },
+    "Tb303Waveform": {
+      "values": [
+        "sawtooth", "square"
+      ]
+    },
   },
 
   "modules": {
@@ -1057,6 +1065,19 @@
       }
     },
 
+    "DAWSome.TbThreeOThree": {
+      "type": "Instrument",
+      "parameters": {
+        "cutoff": "unitTypes/Tb303Cutoff",
+        "resonance": "unitTypes/Tb303Resonance",
+        "envelopeModulation": "unitTypes/NormalRange",
+        "decay": "unitTypes/Tb303Decay",
+        "accent": "unitTypes/NormalRange",
+        "drive": "unitTypes/NormalRange",
+        "waveform": "enumTypes/Tb303Waveform",
+        "volume": "unitTypes/Decibels",
+      }
+    },
     "AutoFilter": {
       "type": "Effect",
       "parameters": {

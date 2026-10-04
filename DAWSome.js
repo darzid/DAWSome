@@ -1,6 +1,4 @@
 (async () => {
-  "use strict";
-
   let toneInitialized = false;
   let toneLookAhead = 0.05;
 
@@ -481,8 +479,14 @@
           }
         })
       }
-
-      let device = new Tone[deviceInfo.name](deviceInfo.parameters);
+      let deviceNameParts = deviceInfo.name.split(".");
+      let deviceNamespace = deviceNameParts.length > 1 ? deviceNameParts[0] : "Tone";
+      let deviceName = deviceNameParts[deviceNameParts.length - 1];
+      
+      if (deviceNameParts.length > 1) {
+        console.log("Creating DAWSome device " + deviceName)
+      }
+      let device = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceInfo.parameters) : DAWSome[deviceName]();
       if (logSteps) console.log(`makeToneNode: created device "${deviceInfo.name}"`, device);
 
       let deviceContext = device;
@@ -508,10 +512,16 @@
       if (!deviceInfos || deviceInfos.length == 0) return devices;
 
       deviceInfos.forEach(deviceInfo => {
-        console.log("Making tone node " + deviceInfo.name, deviceInfo.parameters);
-        let device = makeToneNode(deviceInfo);
-        console.log("Made tone node " + deviceInfo.name, device);
-        devices.push(device);
+        try {
+          console.log("Making tone node " + deviceInfo.name, deviceInfo.parameters);
+          let device = makeToneNode(deviceInfo);
+          console.log("Made tone node " + deviceInfo.name, device);
+          devices.push(device);
+        }
+        catch (error) {
+          console.error("error", error);
+          throw error;
+        }
       });
       return devices;
     }
@@ -605,6 +615,7 @@
         const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
         track.devices[0].parameters = track.instrumentParameters;
+        console.log("making chain");
         chains.set(track.id,
           {
             instrument: makeToneNode(track.devices[0]),
@@ -634,11 +645,13 @@
             parameters: {}
           }
           track.devices[0].parameters = track.instrumentParameters;
+          console.log("making device node")
           ch.instrument = makeToneNode(track.devices[0]);
           //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
           ch.instrumentName = track.instrumentName;
           ch.instrumentParameters = track.instrumentParameters;
           connectDevices(ch);
+          console.log("made device node")
         }
         if (ch.instrumentParameters !== track.instrumentParameters) {
           console.log("updating instrument", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
@@ -2302,8 +2315,9 @@
             track.instrumentName = e.target.value;
             console.log("Selected instrument " + track.instrumentName)
             audio.updateTrack(track);
+            console.log("Yrack updated for Selected instrument " + track.instrumentName)
             track.devices[0].presetName = "default";
-
+            console.log("Preset set for Selected instrument " + track.instrumentName)
             trackDeviceNode = audio.getTrackInstrument(track);
             if (trackDeviceNode.name !== track.instrumentName)
               throw "mismatch"
@@ -3145,12 +3159,148 @@
     }
   }
 
-  try {
-    await init();
+  class TbThreeOThree  {
+    constructor() {
+      this._monoSynth = new Tone.MonoSynth({
+        portamento: 0.08,
+        volume: -6,
+        oscillator: {
+          type: "sawtooth"
+        },
+        envelope: {
+          attack: 0.005,
+          decay: 0.2,
+          sustain: 0,
+          release: 0.1
+        },
+        filter: {
+          Q: 6, 
+          type: "lowpass",
+          rolloff: -24 
+        },
+        filterEnvelope: {
+          attack: 0.005,
+          decay: 0.25,
+          sustain: 0.0,
+          release: 0.2,
+          baseFrequency: 400,
+          octaves: 4.5,
+          exponent: 2
+        }
+      });
+      this._distortion = new Tone.Distortion({
+        distortion: 0.35,
+        wet: 0.6
+      });
+      this._monoSynth.connect(this._distortion);
+      
+      this.cutoff = 400;
+      this.resonance = 7;
+      this._envelopeModulation = 0.6;
+      this._decay = 0.3;
+      this._accent = 0.8;
+      this.drive = 0.35;
+      this.waveform = "sawtooth";
+      this._volume = 0;
+    }
+       
+    get name() { return "DAWSome.TbThreeOThree"; }
+    
+    get cutoff() { return this._monoSynth.filterEnvelope.baseFrequency; }
+    set cutoff(value) { this._monoSynth.filterEnvelope.baseFrequency = value; }
+        
+    get resonance() { return this._monoSynth.filter.Q.value; }
+    set resonance(value) { 
+      this._monoSynth.filter.Q.value = value; }
+        
+    get envelopeModulation() { return this._envelopeModulation; }
+    set envelopeModulation(value) { 
+      if (value < 0 || value > 1) throw "Envelope modulation must be between 0 and 1";
+      this._envelopeModulation = value;
+    }
+           
+    get decay() { return this._decay; }
+    set decay(value) { 
+      if (value < 0 || value > 1) throw "Decay must be between 0 and 1";
+      this._decay = value; 
+    }
+        
+    get accent() { return this._accent; }
+    set accent(value) { 
+      if (value < 0 || value > 1) throw "Accent must be between 0 and 1";
+      this._accent = value;
+    }
+        
+    get drive() { return this._distortion.distortion; }
+    set drive(value) {
+      if (value < 0 || value > 1) throw "Drive must be between 0 and 1";
+      this._distortion.distortion = value;
+    }
+        
+    get waveform() { return this._monoSynth.oscillator.type; }
+    set waveform(value) {
+      if (value !== "sawtooth" && value != "square") throw "Waveform must be 'sawtooth' or 'square'";
+      this._monoSynth.oscillator.type = value;
+    }
+        
+    get volume() { return this._volume; }
+    set volume(value) {
+      if (value < 0 || value > 1) throw "Volume must be between 0 and 1";
+      this._volume = value;
+    }
+        
+    connect(destination) {
+      this._distortion.connect(destination);
+    }
+    
+    triggerAttack(note, time = 0, accent = false, slide = false) {
+      if (accent) {
+        this._monoSynth.volume.setValueAtTime(this.volume + 4, time);
+        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
+        this._monoSynth.envelope.decay = this.decay * 0.7; 
+      } else {
+        this._monoSynth.volume.setValueAtTime(this.volume, time);
+        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
+        this._monoSynth.envelope.decay = this.decay;
+      }
+           
+      if (slide) {
+        this._monoSynth.portamento = 0.08;
+      } else {
+        this._monoSynth.portamento = 0;
+      }
+           
+      this._monoSynth.triggerAttack(note, time);
+    }
+    
+    triggerRelease(note, duration = "16n", time = 0, accent = false, slide = false) {
+      this._monoSynth.triggerRelease(note, time);
+    }
+    
+    triggerAttackRelease(note, duration = "16n", time = 0, accent = false, slide = false) {
+      if (accent) {
+        this._monoSynth.volume.setValueAtTime(this.volume + 4, time);
+        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
+        this._monoSynth.envelope.decay = this.decay * 0.7; 
+      } else {
+        this._monoSynth.volume.setValueAtTime(this.volume, time);
+        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
+        this._monoSynth.envelope.decay = this.decay;
+      }
+           
+      if (slide) {
+        this._monoSynth.portamento = 0.08;
+      } else {
+        this._monoSynth.portamento = 0;
+      }
+           
+      this._monoSynth.triggerAttackRelease(note, duration, time);
+    }
   }
-  catch (error) {
-    console.error("Error in midi arranger")
+     
+  const DAWSome = {
+    TbThreeOThree: () => new TbThreeOThree()
   }
-
+  
+  await init();
 })();
-
