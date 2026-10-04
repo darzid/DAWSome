@@ -2954,7 +2954,14 @@
           }
         }
       };
-      const closedHat = addTrack("ClosedHat", closedHatSynth, null);
+      const hatReverb = {
+        name: "JCReverb",
+        parameters: {
+          roomSize: 0.05,
+          wet: 0.05
+        }
+      };
+      const closedHat = addTrack("ClosedHat", closedHatSynth, [hatReverb]);
       let chNotes1 = mk([
         [42, 1.0, 0.125],
       ]);
@@ -2989,7 +2996,7 @@
           }
         }
       };
-      const openHat = addTrack("OpenHat", openHatSynth, null);
+      const openHat = addTrack("OpenHat", openHatSynth, [hatReverb]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
       createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
       console.log("created open hat");
