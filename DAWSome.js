@@ -446,6 +446,7 @@
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
+    
     const makeToneNode = (deviceInfo) => {
       const logSteps = true;
 
@@ -489,7 +490,7 @@
       if (deviceNameParts.length > 1) {
         console.log("Creating DAWSome device " + deviceName)
       }
-      let device = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceInfo.parameters) : DAWSome[deviceName]();
+      let device = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceInfo.parameters) : DAWSome[deviceName](deviceInfo.parameters);
       if (logSteps) console.log(`makeToneNode: created device "${deviceInfo.name}"`, device);
 
       let deviceContext = device;
@@ -2833,7 +2834,7 @@
 
     function createDemoSong() {
       console.log("creating demo song");
-      const mk = (list) => list.map(([pitch, start, duration]) => ({ id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY }));
+      const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: state.nextId++, pitch, start, duration, velocity, slide }));
 
       console.log("creating kick");
       const kickSynth = {
@@ -2871,85 +2872,60 @@
       };
       const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
       console.log("creating kick clip");
-      const kickNotes = mk([[36, 0, 0.25]]);
-      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 28);
-      createClip(kick, 32, BEATS_PER_BAR / 4, kickNotes, 46);
-      createClip(kick, 48, BEATS_PER_BAR / 4, kickNotes, 64);
+      const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
+      createClip(kick, 0, BEATS_PER_BAR / 4, kickNotes, 32);
       console.log("created kick clip");
 
       console.log("creating bass");
       const bassSynth = {
-        name: "MonoSynth",
+        name: "DAWSome.TbThreeOThree",
         type: "Instrument",
         parameters: {
-          "volume": 0,
-          "portamento": 0,
-          "oscillator": {
-            "type": "sawtooth"
-          },
-          "filter": {
-            "Q": 0.3,
-            "detune": -1000,
-            "frequency": 0,
-            "gain": 0,
-            "rolloff": -48,
-            "type": "bandpass"
-          },
-          "envelope": {
-            "attack": 0.01,
-            "decay": 1.2,
-            "sustain": 0.01,
-            "release": 0.01
-          },
-          "filterEnvelope": {
-            "attack": 0.1,
-            "decay": 1.3,
-            "sustain": 1,
-            "release": 0.7,
-            "releaseCurve": "linear",
-            "baseFrequency": 20,
-            "octaves": 5
-          }
+          cutoff: 300,
+          resonance: 4,
+          envelopeModulation: 0.02,
+          decay: 0.3,
+          accent: 0.3,
+          drive: 0.36,
+          waveform: "sawtooth",
+          volume: -25
         }
       };
       const bass = addTrack("Bass", bassSynth, [kickDistortion]);
       const bassNotes = mk([
-        [27, 0.25, 0.2],
-        [32, 0.5, 0.25],
-        [34, 0.75, 0.2],
+        [27, 0.25, 0.2, DEFAULT_VELOCITY],
+        [32, 0.5, 0.25, DEFAULT_VELOCITY],
+        [34, 0.75, 0.2, ACCENT_VELOCITY],
 
-        [29, 1.25, 0.2],
-        [34, 1.5, 0.25],
-        [32, 1.75, 0.2],
+        [29, 1.25, 0.2, DEFAULT_VELOCITY],
+        [34, 1.5, 0.25, DEFAULT_VELOCITY, true],
+        [32, 1.75, 0.2, DEFAULT_VELOCITY],
 
-        [32, 2.25, 0.2],
-        [27, 2.5, 0.25],
-        [27, 2.75, 0.2],
+        [32, 2.25, 0.2, DEFAULT_VELOCITY],
+        [27, 2.5, 0.25, DEFAULT_VELOCITY],
+        [27, 2.75, 0.2, ACCENT_VELOCITY],
 
-        [34, 3.25, 0.2],
-        [37, 3.5, 0.25],
-        [32, 3.75, 0.2],
+        [34, 3.25, 0.2, DEFAULT_VELOCITY],
+        [37, 3.5, 0.25, DEFAULT_VELOCITY],
+        [32, 3.75, 0.2, DEFAULT_VELOCITY],
         
-        [29, 4.25, 0.2],
-        [32, 4.5, 0.25],
-        [34, 4.75, 0.2],
+        [29, 4.25, 0.2, DEFAULT_VELOCITY],
+        [32, 4.5, 0.25, DEFAULT_VELOCITY],
+        [34, 4.75, 0.2, DEFAULT_VELOCITY, true],
 
-        [29, 5.25, 0.2],
-        [34, 5.5, 0.25],
-        [32, 5.75, 0.2],
+        [29, 5.25, 0.2, DEFAULT_VELOCITY],
+        [34, 5.5, 0.25, DEFAULT_VELOCITY],
+        [32, 5.75, 0.2, DEFAULT_VELOCITY],
 
-        [32, 6.25, 0.2],
-        [29, 6.5, 0.25],
-        [27, 6.75, 0.2],
+        [32, 6.25, 0.2, DEFAULT_VELOCITY],
+        [29, 6.5, 0.25, DEFAULT_VELOCITY],
+        [27, 6.75, 0.2, DEFAULT_VELOCITY],
 
-        [32, 7.25, 0.2],
-        [29, 7.5, 0.25],
-        [34, 7.75, 0.2]
+        [32, 7.25, 0.2, DEFAULT_VELOCITY],
+        [29, 7.5, 0.25, DEFAULT_VELOCITY],
+        [34, 7.75, 0.2, DEFAULT_VELOCITY]
       ]);
-      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
-      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
-      createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 46);
-      createClip(bass, 48, BEATS_PER_BAR * 2, bassNotes, 64);
+      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 32);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2957,7 +2933,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          volume: -10,
+          volume: -20,
           portamento: 100,
           modulationIndex: 1,
           octaves: 0,
@@ -2976,8 +2952,7 @@
         [42, 0.5, 0.125],
         [42, 0.75, 0.125]
       ]);
-      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes, 46);
-      createClip(closedHat, 48, BEATS_PER_BAR / 4, chNotes, 64);
+      createClip(closedHat, 24, BEATS_PER_BAR / 4, chNotes, 32);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -2985,7 +2960,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          "volume": -7.5,
+          "volume": -24,
           "portamento": 0,
           "harmonicity": 0.65,
           "modulationIndex": 1,
@@ -3003,20 +2978,23 @@
       };
       const openHat = addTrack("OpenHat", openHatSynth, null);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
+      createClip(openHat, 16, BEATS_PER_BAR / 4, ohNotes, 32);
       console.log("created open hat");
 
+      /*
       console.log("creating 303");
       const tb303Synth = {
         name: "DAWSome.TbThreeOThree",
-        parameters: {}
+        parameters: {
+          volume: -45
+        }
       };
       const tb303Delay = {
         name: "PingPongDelay",
         parameters: {
           delayTime: "8n.",
           feedback: 0.3,
-          wet: 0.25
+          wet: 0.05
         }
       }
       const tb303 = addTrack("303", tb303Synth, [tb303Delay]);
@@ -3032,7 +3010,7 @@
       ]);
       createClip(tb303, 0, BEATS_PER_BAR / 2, tb303Notes, 64);
       console.log("created 303");
-      
+      */
 
       console.log("created demo song");
 
@@ -3042,10 +3020,19 @@
   }
 
   class TbThreeOThree  {
-    constructor() {
+    constructor(parameters = { 
+      cutoff: 400,
+      resonance: 7,
+      envelopeModulation: 0.6,
+      decay: 0.3,
+      accent: 0.8,
+      drive: 0.35,
+      waveform: "sawtooth",
+      volume: -30 }) {
+        
       this._monoSynth = new Tone.MonoSynth({
         portamento: 0.08,
-        volume: -6,
+        volume: 0,
         oscillator: {
           type: "sawtooth"
         },
@@ -3076,14 +3063,14 @@
       });
       this._monoSynth.connect(this._distortion);
       
-      this.cutoff = 400;
-      this.resonance = 7;
-      this._envelopeModulation = 0.6;
-      this._decay = 0.3;
-      this._accent = 0.8;
-      this.drive = 0.35;
-      this.waveform = "sawtooth";
-      this._volume = -4;
+      this.cutoff = parameters.cutoff;
+      this.resonance = parameters.resonance;
+      this._envelopeModulation = parameters.envelopeModulation;
+      this._decay = parameters.decay;
+      this._accent = parameters.accent;
+      this.drive = parameters.drive;
+      this.waveform = parameters.waveform;
+      this.volume = parameters.volume;
     }
        
     get name() { return "DAWSome.TbThreeOThree"; }
@@ -3127,7 +3114,7 @@
         
     get volume() { return this._volume; }
     set volume(value) {
-      if (value < 0 || value > 1) throw "Volume must be between -100 and 0";
+      if (value < -100 || value > 0) throw "Volume must be between -100 and 0";
       this._volume = value;
     }
         
@@ -3136,54 +3123,43 @@
     }
     
     triggerAttack(note, time = 0, velocity, slide = false) {
-      if (velocity == ACCENT_VELOCITY) {
-        this._monoSynth.volume.setValueAtTime(this.volume + 4, time);
-        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
-        this._monoSynth.envelope.decay = this.decay * 0.7; 
-      } else {
-        this._monoSynth.volume.setValueAtTime(this.volume, time);
-        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
-        this._monoSynth.envelope.decay = this.decay;
-      }
-           
-      if (slide) {
-        this._monoSynth.portamento = 0.08;
-      } else {
-        this._monoSynth.portamento = 0;
-      }
-           
+      this._prepareNote(time, velocity, slide);
       this._monoSynth.triggerAttack(note, time, velocity);
     }
     
-    triggerRelease(note, duration = "16n", time = 0, velocity, slide = false) {
-      this._monoSynth.triggerRelease(note, time);
+    triggerRelease(time) {
+      this._monoSynth.triggerRelease(time);
     }
     
     triggerAttackRelease(note, duration = "16n", time = 0, velocity, slide = false) {
+      this._prepareNote(time, velocity, slide)
+      this._monoSynth.triggerAttackRelease(note, duration, time, velocity);
+    }
+    
+    _prepareNote(time, velocity, slide) {
       if (velocity == ACCENT_VELOCITY) {
-        //console.log("Accent")
-        this._monoSynth.volume.setValueAtTime(this.volume + 4, time);
+        console.log("Accent")
+        this._monoSynth.volume.setValueAtTime(this.volume, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
         this._monoSynth.envelope.decay = this.decay * 0.7; 
       } else {
-        //console.log("Default")
-        this._monoSynth.volume.setValueAtTime(this.volume, time);
+        console.log("Default")
+        this._monoSynth.volume.setValueAtTime(this.volume - 4, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
         this._monoSynth.envelope.decay = this.decay;
       }
            
       if (slide) {
+        console.log("Slide")
         this._monoSynth.portamento = 0.08;
       } else {
         this._monoSynth.portamento = 0;
       }
-           
-      this._monoSynth.triggerAttackRelease(note, duration, time, velocity);
     }
   }
      
   const DAWSome = {
-    TbThreeOThree: () => new TbThreeOThree()
+    TbThreeOThree: (parameters) => new TbThreeOThree(parameters)
   }
   
   await init();
