@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;800;900&display=swap');
+
 :root {
     --bg: #1c1c1c; --panel: #2a2a2a; --border: #3b3b3b; --text: #d8d8d8; --muted: #8f8f8f;
     --accent: #f2b544; --play: #8be34d;
@@ -20,6 +22,8 @@
   body {
     background: var(--bg); color: var(--text);
     font: 0.8em/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family2: 'Orbitron', sans-serif;
+    font-size2: x-small;
     overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   }
   #presets-data { display: none; }
