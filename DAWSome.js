@@ -21,6 +21,7 @@
   const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
   const DEFAULT_VELOCITY = 100;
+  const ACCENT_VELOCITY = 127;
   const MIN_FREE_DURATION = 1 / 16;
   const EPS = 1e-6;
   const DRAG_THRESHOLD = 4;
@@ -53,6 +54,8 @@
     lineSub: "#2e2e2e", lineBeat: "#3d3d3d", lineBar: "#5a5a5a",
     regionShade: "rgba(0, 0, 0, 0.4)", regionEdge: "#707070",
     note: "#f2b544", noteBorder: "#7a5312", noteSelected: "#fff1c9",
+    accentNote: "#f244b5", accentNoteSelected: "#ffc9f1",
+    slideNoteBorder: "#0000ff",
     playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
     keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
     keyTextDark: "#333333", keyTextLight: "#b0b0b0",
@@ -75,7 +78,7 @@
     selectedClipId: null,
   };
   const ed = {           // clip-editor settings
-    gridMode: "medium", triplet: false, snap: true, loop: true, drawMode: true,
+    gridMode: "medium", triplet: false, accent: false, slide: false, snap: true, loop: true, drawMode: true,
     lastDuration: 0.25, selected: new Set(), activeKey: null,
   };
   var deviceList = null;
@@ -99,7 +102,7 @@
     loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
     trackHeadersWrap: $("trackHeadersWrap"), trackHeaders: $("trackHeaders"),
     clipTitle: $("clipTitle"), len: $("lenInput"), loopClip: $("loopClipBtn"), end: $("endInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
-    snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"),
+    snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"), accent: $("accentBtn"), slide: $("slideBtn"),
     edKeysWrap: $("edKeysWrap"), edKeysCanvas: $("edKeysCanvas"), hint: $("hint"),
     clipEditorTabBtn: $("clip-editor-tab-button"), instrumentTabBtn: $("instrument-panel-tab-button"), effectsTabBtn: $("effects-panel-tab-button"), modulationTabBtn: $("modulation-panel-tab-button"), mixerTabBtn: $("mixer-tab-button"),
   };
@@ -720,9 +723,10 @@
               hz: hz(n.pitch),
               dur: toTicks(Math.min(n.duration, clip.length - n.start)),
               vel: n.velocity / 127,
+              slide: n.slide
             }));
 
-          const part = new Tone.Part((time, ev) => ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel), events);
+          const part = new Tone.Part((time, ev) => ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide), events);
           part.start(beatsToTime(clip.start));
           //console.log("part started", audio.beatsToTime(clip.start));
 
@@ -1414,9 +1418,9 @@
       const y = pitchToRow(n.pitch) * rh - sy;
       if (x1 < 0 || x0 > W || y + rh < 0 || y > H) continue;
       const w = Math.max(2, x1 - x0 - 1), h = Math.max(2, rh - 2);
-      c.fillStyle = ed.selected.has(n.id) ? COLORS.noteSelected : COLORS.note;
+      c.fillStyle = ed.selected.has(n.id) ? n.velocity == ACCENT_VELOCITY ? COLORS.accentNoteSelected : COLORS.noteSelected : n.velocity == ACCENT_VELOCITY ? COLORS.accentNote : COLORS.note;
       c.fillRect(Math.round(x0), y + 1, w, h);
-      c.strokeStyle = COLORS.noteBorder;
+      c.strokeStyle = n.slide ? COLORS.slideNoteBorder : COLORS.noteBorder;
       c.lineWidth = 1;
       c.strokeRect(Math.round(x0) + 0.5, y + 1.5, w - 1, h - 1);
     }
@@ -1480,7 +1484,7 @@
       if (o.pitch === pitch && o.start > start + EPS) duration = Math.min(duration, o.start - start);
     }
     if (duration < EPS) return null;
-    const note = { id: state.nextId++, pitch, start, duration, velocity: DEFAULT_VELOCITY };
+    const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? ACCENT_VELOCITY : DEFAULT_VELOCITY, slide: ed.slide };
     clip.notes.push(note);
     audio.preview(clip.trackId, pitch);
     notesChanged();
@@ -1995,6 +1999,8 @@
   bindToggle(dom.loopClip, ed, "loop", () => { });
   bindToggle(dom.triplet, ed, "triplet", () => { dom.gridReadout.textContent = editorGrid().label; ev.requestRender(); });
   bindToggle(dom.snap, ed, "snap", () => { });
+  bindToggle(dom.accent, ed, "accent", () => { });
+  bindToggle(dom.slide, ed, "slide", () => { });
   dom.draw.addEventListener("click", () => setDrawMode(!ed.drawMode));
   dom.clear.addEventListener("click", () => {
     const clip = currentClip();
@@ -3253,8 +3259,8 @@
       this._distortion.connect(destination);
     }
     
-    triggerAttack(note, time = 0, accent = false, slide = false) {
-      if (accent) {
+    triggerAttack(note, time = 0, velocity = DEFAULT_VELOCITY / 127, slide = false) {
+      if (velocity == ACCENT_VELOCITY / 127) {
         this._monoSynth.volume.setValueAtTime(this.volume + 4, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
         this._monoSynth.envelope.decay = this.decay * 0.7; 
@@ -3273,12 +3279,12 @@
       this._monoSynth.triggerAttack(note, time);
     }
     
-    triggerRelease(note, duration = "16n", time = 0, accent = false, slide = false) {
+    triggerRelease(note, duration = "16n", time = 0, velocity = DEFAULT_VELOCITY / 127, slide = false) {
       this._monoSynth.triggerRelease(note, time);
     }
     
-    triggerAttackRelease(note, duration = "16n", time = 0, accent = false, slide = false) {
-      if (accent) {
+    triggerAttackRelease(note, duration = "16n", time = 0, velocity = DEFAULT_VELOCITY / 127, slide = false) {
+      if (velocity == ACCENT_VELOCITY / 127) {
         this._monoSynth.volume.setValueAtTime(this.volume + 4, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
         this._monoSynth.envelope.decay = this.decay * 0.7; 
