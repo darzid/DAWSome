@@ -65,7 +65,7 @@
   // ===== State =====
   var state = {
     name: "DemoProject",
-    bpm: 146,
+    bpm: 130,
     loop: true,
     follow: true,
     drawClips: false,
@@ -2844,7 +2844,7 @@
           "detune": -1000,
           "pitchDecay": 0.05,
           "octaves": 8,
-          "volume": 0,
+          "volume": -5,
           "envelope": {
             "attack": 0.001,
             "attackCurve": "linear",
@@ -2873,7 +2873,7 @@
       const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
       console.log("creating kick clip");
       const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      createClip(kick, 0, BEATS_PER_BAR / 4, kickNotes, 32);
+      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 64);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -2883,49 +2883,58 @@
         parameters: {
           cutoff: 300,
           resonance: 4,
-          envelopeModulation: 0.02,
-          decay: 0.3,
-          accent: 0.3,
-          drive: 0.36,
+          envelopeModulation: 0.1,
+          decay: 0.22,
+          accent: 1,
+          drive: 1,
           waveform: "sawtooth",
           volume: -25
         }
       };
-      const bass = addTrack("Bass", bassSynth, [kickDistortion]);
+      const bass = addTrack("Bass", bassSynth, []);
       const bassNotes = mk([
+        [25, 0.00, 0.1, 0.4],
         [27, 0.25, 0.2, DEFAULT_VELOCITY],
         [32, 0.5, 0.25, DEFAULT_VELOCITY],
         [34, 0.75, 0.2, ACCENT_VELOCITY],
 
+        [27, 1.00, 0.1, 0.4],
         [29, 1.25, 0.2, DEFAULT_VELOCITY],
-        [34, 1.5, 0.25, DEFAULT_VELOCITY, true],
+        [34, 1.5, 0.25, DEFAULT_VELOCITY],
         [32, 1.75, 0.2, DEFAULT_VELOCITY],
 
+        [30, 2.00, 0.2, 0.4],
         [32, 2.25, 0.2, DEFAULT_VELOCITY],
         [27, 2.5, 0.25, DEFAULT_VELOCITY],
         [27, 2.75, 0.2, ACCENT_VELOCITY],
 
+        [32, 3.00, 0.2, 0.4],
         [34, 3.25, 0.2, DEFAULT_VELOCITY],
-        [37, 3.5, 0.25, DEFAULT_VELOCITY],
+        [37, 3.5, 0.25, DEFAULT_VELOCITY, true],
         [32, 3.75, 0.2, DEFAULT_VELOCITY],
-        
+
+        [27, 4.00, 0.2, 0.4],
         [29, 4.25, 0.2, DEFAULT_VELOCITY],
         [32, 4.5, 0.25, DEFAULT_VELOCITY],
         [34, 4.75, 0.2, DEFAULT_VELOCITY, true],
 
+        [27, 5.00, 0.2, 0.4],
         [29, 5.25, 0.2, DEFAULT_VELOCITY],
         [34, 5.5, 0.25, DEFAULT_VELOCITY],
         [32, 5.75, 0.2, DEFAULT_VELOCITY],
 
-        [32, 6.25, 0.2, DEFAULT_VELOCITY],
+        [30, 6.00, 0.2, 0.4],
+        [32, 6.25, 0.2, DEFAULT_VELOCITY, true],
         [29, 6.5, 0.25, DEFAULT_VELOCITY],
-        [27, 6.75, 0.2, DEFAULT_VELOCITY],
-
+        [27, 6.75, 0.2, ACCENT_VELOCITY],
+        
+        [30, 7.00, 0.2, 0.4],
         [32, 7.25, 0.2, DEFAULT_VELOCITY],
         [29, 7.5, 0.25, DEFAULT_VELOCITY],
         [34, 7.75, 0.2, DEFAULT_VELOCITY]
       ]);
-      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 32);
+      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
+      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 64);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2933,26 +2942,30 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          volume: -20,
+          volume: -22,
           portamento: 100,
           modulationIndex: 1,
           octaves: 0,
           envelope: {
             attack: 0.01,
-            decay: 0.05,
+            decay: 0.02,
             sustain: 0.1,
-            release: 1.4
+            release: 1.0
           }
         }
       };
       const closedHat = addTrack("ClosedHat", closedHatSynth, null);
-      let chNotes = mk([
+      let chNotes1 = mk([
+        [42, 1.0, 0.125],
+      ]);
+      let chNotes2 = mk([
         [42, 0.0, 0.125],
         [42, 0.25, 0.125],
         [42, 0.5, 0.125],
         [42, 0.75, 0.125]
       ]);
-      createClip(closedHat, 24, BEATS_PER_BAR / 4, chNotes, 32);
+      createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
+      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 64);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -2960,7 +2973,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          "volume": -24,
+          "volume": -30,
           "portamento": 0,
           "harmonicity": 0.65,
           "modulationIndex": 1,
@@ -2978,7 +2991,7 @@
       };
       const openHat = addTrack("OpenHat", openHatSynth, null);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      createClip(openHat, 16, BEATS_PER_BAR / 4, ohNotes, 32);
+      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
       console.log("created open hat");
 
       /*
@@ -3138,19 +3151,19 @@
     
     _prepareNote(time, velocity, slide) {
       if (velocity == ACCENT_VELOCITY) {
-        console.log("Accent")
+       // console.log("Accent")
         this._monoSynth.volume.setValueAtTime(this.volume, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
         this._monoSynth.envelope.decay = this.decay * 0.7; 
       } else {
-        console.log("Default")
+        //console.log("Default")
         this._monoSynth.volume.setValueAtTime(this.volume - 4, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
         this._monoSynth.envelope.decay = this.decay;
       }
            
       if (slide) {
-        console.log("Slide")
+      //  console.log("Slide")
         this._monoSynth.portamento = 0.08;
       } else {
         this._monoSynth.portamento = 0;
