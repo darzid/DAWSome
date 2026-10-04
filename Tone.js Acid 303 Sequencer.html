@@ -2,7 +2,7 @@
 <html lang="en" class="h-full bg-slate-950 text-slate-100">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>TB-303 Acid Synthesizer & Sequencer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -10,16 +10,13 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;800;900&display=swap');
 
+body, html { width: 100%; height: 100%; }
     body {
       font-family: 'Share Tech Mono', monospace;
-      user-select: none;
-      font-size: smaller;
       
+      font-size: smaller;
     }
 
-.scroll {
-  overflow-y: auto;
-}
     .font-synth {
       font-family: 'Orbitron', sans-serif;
     }
@@ -28,6 +25,8 @@
     .brushed-metal {
       background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 25%, #94a3b8 50%, #cbd5e1 75%, #e2e8f0 100%);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+      height: 100%;
     }
 
     /* Vintage LED Display Glow */
@@ -104,9 +103,13 @@
       background: #334155;
       border-radius: 4px;
     }
+    
+    .flex-rows { flex-direction: row; }
+    
+    .note-button { width: 20pt; }
   </style>
 </head>
-<body class="h-full flex flex-col justify-between items-center p-2 sm:p-6 bg-slate-950 min-h-screen scroll">
+<body class="flex flex-col justify-between items-center bg-slate-950">
 
   <!-- Top Title Banner -->
   <header class="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
@@ -115,30 +118,26 @@
         <i data-lucide="activity" class="w-6 h-6"></i>
       </div>
       <div>
-        <h1 class="font-synth text-xl sm:text-2xl font-black tracking-wider text-slate-100 flex items-center gap-2">
-          ACID-303 <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/40">TB-303 CLONE</span>
-        </h1>
-        <p class="text-xs text-slate-400">Authentic Tone.js Acid Bassline Synthesizer & Sequencer</p>
-      </div>
-    </div>
-    
-    <!-- Audio Init Overlay Button / Info -->
-    <div id="audio-status" class="flex items-center gap-2">
       <button id="start-audio-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-md shadow-lg shadow-emerald-900/40 flex items-center gap-2 text-sm transition animate-pulse">
         <i data-lucide="power" class="w-4 h-4"></i> START AUDIO ENGINE
       </button>
+     <!--   <h1 class="font-synth text-xl sm:text-2xl font-black tracking-wider text-slate-100 flex items-center gap-2">
+          ACID-303 <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/40">TB-303 CLONE</span>
+        </h1>
+        <p class="text-xs text-slate-400">Authentic Tone.js Acid Bassline Synthesizer & Sequencer</p>-->
+      </div>
     </div>
   </header>
 
   <!-- Main Synthesizer Box -->
-  <main class="w-full max-w-6xl brushed-metal rounded-2xl p-4 sm:p-8 border-2 border-slate-400 text-slate-900 shadow-2xl relative overflow-hidden my-auto">
+  <main class="w-full max-w-6xl brushed-metal rounded-2xl p-4 sm:p-8 border-2 border-slate-400 text-slate-900 shadow-2xl relative my-auto">
     
     <!-- Decorative Branding -->
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-slate-500/40 pb-4 mb-6 gap-4">
-      <div>
+     <!-- <div>
         <span class="font-synth text-2xl sm:text-3xl font-black tracking-widest text-slate-800 drop-shadow-sm">ROLAND-STYLE TB-303</span>
         <span class="block text-xs font-semibold tracking-widest text-slate-600 uppercase">Computer Music Bass Line Synthesizer</span>
-      </div>
+      </div>-->
 
       <!-- Pattern Preset Selector & Utility Bar -->
       <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -263,7 +262,7 @@
     <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-400/40 p-3 rounded-xl border border-slate-400/80 mb-6">
       
       <!-- Play / Stop & BPM -->
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <button id="play-btn" class="px-5 py-2.5 synth-btn text-emerald-800 font-black rounded-lg text-sm flex items-center gap-2 hover:bg-white tracking-wide">
           <i data-lucide="play" class="w-4 h-4 fill-emerald-700"></i> PLAY
         </button>
@@ -312,13 +311,18 @@
       <div class="min-w-[700px]">
         
         <!-- Step Indicators (LEDs) -->
-        <div class="grid grid-cols-16 gap-1 mb-3 text-center">
+        <div class="flex-rows gap-1 mb-3 text-center" style="display: flex; flex-direction: row">
           <script>
             for (let i = 0; i < 16; i++) {
               document.write(`
-                <div class="flex flex-col items-center">
+                <div id="step-${i}" class="items-center" style="display: flex; flex-direction: column">
                   <span class="text-[9px] font-mono text-slate-500 mb-1">${i + 1}</span>
                   <div id="step-led-${i}" class="w-3 h-3 rounded-full bg-slate-950 border border-slate-800 transition-all duration-75"></div>
+                  <div id="step-note-${i}"></div>
+                  <div id="step-oct-${i}"></div>
+                  <div id="step-gate-${i}" class="note-button"></div>
+                  <div id="step-accent-${i}" class="note-button"></div>
+                  <div id="step-slide-${i}" class="note-button"></div>
                 </div>
               `);
             }
@@ -326,41 +330,41 @@
         </div>
 
         <!-- Pitch Selection Row -->
-        <div class="mb-2">
+     <!--   <div class="mb-2">
           <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">NOTE PITCH</div>
-          <div class="grid grid-cols-16 gap-1" id="grid-notes">
+          <div class="grid grid-cols-16 gap-1" id="grid-notes">-->
             <!-- JS dynamically populates pitch dropdowns -->
-          </div>
-        </div>
+       <!--   </div>
+        </div>-->
 
         <!-- Octave Selection Row -->
-        <div class="mb-3">
+      <!--  <div class="mb-3">
           <div class="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-1">OCTAVE</div>
-          <div class="grid grid-cols-16 gap-1" id="grid-octaves">
+          <div class="grid grid-cols-16 gap-1" id="grid-octaves">-->
             <!-- JS dynamically populates octave selectors -->
-          </div>
-        </div>
+     <!--     </div>
+        </div>-->
 
         <!-- Toggles Grid: Gate, Accent, Slide -->
         <div class="space-y-1.5 pt-2 border-t border-slate-800">
           
           <!-- GATE / ON Row -->
-          <div class="flex items-center">
+     <!--     <div class="flex items-center">
             <div class="w-16 text-[10px] font-bold text-emerald-400">GATE</div>
             <div class="grid grid-cols-16 gap-1 flex-1" id="grid-gate"></div>
-          </div>
+          </div>-->
 
           <!-- ACCENT Row -->
-          <div class="flex items-center">
+      <!--    <div class="flex items-center">
             <div class="w-16 text-[10px] font-bold text-amber-400">ACCENT</div>
             <div class="grid grid-cols-16 gap-1 flex-1" id="grid-accent"></div>
-          </div>
+          </div>-->
 
           <!-- SLIDE / PORTAMENTO Row -->
-          <div class="flex items-center">
+    <!--      <div class="flex items-center">
             <div class="w-16 text-[10px] font-bold text-fuchsia-400">SLIDE</div>
             <div class="grid grid-cols-16 gap-1 flex-1" id="grid-slide"></div>
-          </div>
+          </div>-->
 
         </div>
 
@@ -548,16 +552,18 @@
     const gridAccentEl = document.getElementById('grid-accent');
     const gridSlideEl = document.getElementById('grid-slide');
 
+    const gridNoteSelectors = document.querySelectorAll(".note-selector");
+    
     function renderGrid() {
-      gridNotesEl.innerHTML = '';
-      gridOctavesEl.innerHTML = '';
-      gridGateEl.innerHTML = '';
-      gridAccentEl.innerHTML = '';
-      gridSlideEl.innerHTML = '';
+     // gridNotesEl.innerHTML = '';
+      //gridOctavesEl.innerHTML = '';
+      //gridGateEl.innerHTML = '';
+      //gridAccentEl.innerHTML = '';
+      //gridSlideEl.innerHTML = '';
 
       for (let i = 0; i < 16; i++) {
         const step = pattern[i];
-
+        
         // 1. Note Select Dropdown
         const noteSelect = document.createElement('select');
         noteSelect.className = 'w-full bg-slate-950 text-emerald-400 text-[10px] font-mono border border-slate-700 rounded p-0.5 outline-none cursor-pointer focus:border-emerald-500';
@@ -571,7 +577,7 @@
         noteSelect.addEventListener('change', (e) => {
           pattern[i].note = e.target.value;
         });
-        gridNotesEl.appendChild(noteSelect);
+        document.getElementById(`step-note-${i}`).appendChild(noteSelect);
 
         // 2. Octave Select Dropdown
         const octSelect = document.createElement('select');
@@ -586,37 +592,52 @@
         octSelect.addEventListener('change', (e) => {
           pattern[i].octave = parseInt(e.target.value);
         });
-        gridOctavesEl.appendChild(octSelect);
+        document.getElementById(`step-oct-${i}`).appendChild(octSelect);
 
         // 3. Gate Toggle Button
         const gateBtn = document.createElement('button');
         gateBtn.className = `w-full h-7 rounded text-[10px] font-bold transition flex items-center justify-center ${step.gate ? 'bg-emerald-600 text-slate-950 shadow-md shadow-emerald-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`;
-        gateBtn.textContent = step.gate ? 'ON' : 'OFF';
+        gateBtn.textContent = step.gate ? 'GATE' : 'OFF';
         gateBtn.addEventListener('click', () => {
           step.gate = !step.gate;
-          renderGrid();
+          gateBtn.textContent = step.gate ? 'GATE' : 'OFF';
+          gateBtn.className = `w-full h-7 rounded text-[10px] font-bold transition flex items-center justify-center ${step.gate ? 'bg-emerald-600 text-slate-950 shadow-md shadow-emerald-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`;
+     
+         // renderGrid();
         });
-        gridGateEl.appendChild(gateBtn);
+        document.getElementById(`step-gate-${i}`).appendChild(gateBtn);
+
+       // gridGateEl.appendChild(gateBtn);
 
         // 4. Accent Toggle Button
         const accentBtn = document.createElement('button');
         accentBtn.className = `w-full h-7 rounded text-[10px] font-bold transition flex items-center justify-center ${step.accent ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`;
-        accentBtn.textContent = step.accent ? 'ACC' : '-';
+        accentBtn.textContent = step.accent ? 'ACC' : '---';
         accentBtn.addEventListener('click', () => {
           step.accent = !step.accent;
-          renderGrid();
+          //renderGrid();
+          accentBtn.textContent = step.accent ? 'ACC' : '---';
+          accentBtn.className = `w-full h-7 rounded text-[10px] font-bold transition flex items-center justify-center ${step.accent ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`;
+      
         });
-        gridAccentEl.appendChild(accentBtn);
+        document.getElementById(`step-accent-${i}`).appendChild(accentBtn);
+
+       // gridAccentEl.appendChild(accentBtn);
 
         // 5. Slide Toggle Button
         const slideBtn = document.createElement('button');
         slideBtn.className = `w-full h-7 rounded text-[10px] font-bold transition flex items-center justify-center ${step.slide ? 'bg-fuchsia-600 text-slate-100 shadow-md shadow-fuchsia-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`;
-        slideBtn.textContent = step.slide ? 'SLD' : '-';
+        slideBtn.textContent = step.slide ? 'SLD' : '---';
         slideBtn.addEventListener('click', () => {
           step.slide = !step.slide;
-          renderGrid();
+          //renderGrid();
+          slideBtn.textContent = step.slide ? 'SLD' : '---';
+          slideBtn.className = `w-full h-7 rounded text-[10px] font-bold transition flex items-center justify-center ${step.slide ? 'bg-fuchsia-600 text-slate-100 shadow-md shadow-fuchsia-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}`;
+      
         });
-        gridSlideEl.appendChild(slideBtn);
+        document.getElementById(`step-slide-${i}`).appendChild(slideBtn);
+
+        //gridSlideEl.appendChild(slideBtn);
       }
     }
 
