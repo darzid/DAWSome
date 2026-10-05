@@ -1,4 +1,5 @@
-(async () => {
+(async () => 
+{
     console.log("DAWSome.js start")
     let toneInitialized = false;
     let toneLookAhead = 0.05;
@@ -14,7 +15,6 @@
           });
       }
     }
-  
   
     // ===== Constants =====
     const PITCH_COUNT = 128;
@@ -64,72 +64,8 @@
       clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
     };
   
-    // ===== State =====
-    const INITIAL_STATE = {
-      name: "DemoProject",
-      bpm: 130,
-      swing: 0.05,
-      loop: true,
-      follow: true,
-      drawClips: false,
-      playing: false,
-      playheadBeat: 0,
-      tracks: [],          // { id, name, color, instrument, mute }
-      clips: [],           // { id, trackId, name, start, length (beats), notes: [{ id, pitch, start, duration, velocity }] }
-      nextId: 1,
-      selectedTrackId: null,
-      selectedClipId: null,
-    };
+
     
-    class StateManager {
-      _state;
-      
-      init(state) {
-        this._state = state;
-        const stateInputs = document.querySelectorAll("input[dataset-state]");
-        stateInputs.forEach(input => {
-          input.value = state[input.dataset.state];
-          if (!input.dataset.binding) {
-            input.addEventListener("input", () => this.updateState(input.dataset.state, input.value));
-            input.dataset.binding = true;
-          }
-        });
-        const stateToggleButtons = document.querySelectorAll("button[dataset-state]");
-        stateToggleButtons.forEach(button => {
-          button.classList.toggle("on", state[button.dataset.state]);
-          if (!button.dataset.binding) {
-            button.addEventListener("click", () => {
-              button.classList.toggle("on");
-              this.updateState(button.dataset.state, button.classList.contains("on"))
-            });
-            button.dataset.binding = true;
-          }
-        });
-        const stateSpans = document.querySelectorAll("span[dataset-state]");
-        stateSpans.forEach(element => {
-          element.innerHTML = state[element.dataset.state];
-        });
-      }
-      
-      set(key, value) {
-        if (this._state[key] === value) return;
-        this._state[key] = value;
-        this._stateChanged = true;
-        const stateSpans = document.querySelectorAll(`span[dataset-state="${key}"]`);
-        stateSpans.forEach(element => element.innerHTML = value);
-        document.dispatchEvent(new CustomEvent("StateChanged", { detail: { key: key, value: value } }));
-      }
-      
-      get(key) { return this._state[key]; }
-      
-      getAndIncrease(key) {
-        let newId = this.getState(key);
-        this.updateState(key, newId + 1);
-        return newId;
-      }
-    }
-    const stateManager = new StateManager();
-    stateManager.init(INITIAL_STATE);
 
   const ed = {           // clip-editor settings
     gridMode: "medium", triplet: false, accent: false, slide: false, snap: true, loop: true, drawMode: true,
@@ -161,7 +97,7 @@
     edKeysWrap: $("edKeysWrap"), edKeysCanvas: $("edKeysCanvas"), hint: $("hint"),
     clipEditorTabBtn: $("clip-editor-tab-button"), instrumentTabBtn: $("instrument-panel-tab-button"), effectsTabBtn: $("effects-panel-tab-button"), modulationTabBtn: $("modulation-panel-tab-button"), mixerTabBtn: $("mixer-tab-button"),
   };
-  
+
 
   // ===== Helpers =====
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -220,7 +156,10 @@
   
   // ===== TimelineView: zoom, scroll, pinch, ruler — shared by arrangement and clip editor =====
   class TimelineView {
+    _pauseRender = false
+  ;
     constructor(o) {
+      this.pauseRender();
       this.o = o;   // { gridWrap, gridCanvas, rulerWrap, rulerCanvas, scroller, spacer, hZoom, vZoom, rowHeight, rowCount, contentBeats, render, onLocate, onZoom }
       this.pxPerBeat = 80;
       this.rowHeight = o.rowHeight;
@@ -230,15 +169,26 @@
       this.pointers = new Map();
       this.pinch = null;
       this.rulerDrag = null;
-      o.scroller.addEventListener("scroll", () => this.requestRender());
+      o.scroller.addEventListener("scroll", () => this.requestRender("scroll"));
       o.scroller.addEventListener("wheel", (e) => this.onWheel(e, o.scroller), { passive: false });
       this.bindRuler();
     }
 
+    pauseRender() {
+      this._pauseRender = true;
+      console.log("render paused", this);
+    }
+    resumeRender() {
+      this._pauseRender = false;
+      console.log("render resumed", this);
+      this.layout();
+    }
+    
     layout() {
       this.grid = sizeCanvas(this.o.gridCanvas, this.o.gridWrap.clientWidth, this.o.gridWrap.clientHeight);
       this.ruler = sizeCanvas(this.o.rulerCanvas, this.o.rulerWrap.clientWidth, this.o.rulerWrap.clientHeight);
-      this.requestRender();
+      if (this._pauseRender) return;
+      this.requestRender("layout");
     }
 
     updateSpacer() {
@@ -246,9 +196,11 @@
       this.o.spacer.style.height = `${this.o.rowCount() * this.rowHeight}px`;
     }
 
-    requestRender() {
+    requestRender(source) {
+      if (this._pauseRender) return;
       if (this.queued) return;
       this.queued = true;
+      console.log("render request queued by " + source)
       requestAnimationFrame(() => {
         this.queued = false;
         if (this.grid) this.o.render();
@@ -283,7 +235,7 @@
       this.updateSpacer();
       this.o.scroller.scrollLeft = this.beatToX(beatAtAnchor) - anchorX;
       if (this.o.onZoom) this.o.onZoom();
-      this.requestRender();
+      this.requestRender("setPxPerBeat");
     }
 
     setRowHeight(value, anchorY, rowAtAnchor) {
@@ -291,7 +243,7 @@
       this.updateSpacer();
       this.o.scroller.scrollTop = rowAtAnchor * this.rowHeight - anchorY;
       if (this.o.onZoom) this.o.onZoom();
-      this.requestRender();
+      this.requestRender("setRowHeight");
     }
 
     zoomH(factor, anchorX = this.o.scroller.clientWidth / 2) {
@@ -505,7 +457,7 @@
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
-    
+    {
     /*
     const makeToneNode = (deviceInfo) => {
       const logSteps = true;
@@ -562,7 +514,7 @@
       source.connect(ch.channel);
     };
     */
-    
+    }
     const connectModulators = (ch, track) => {
       console.log("connect modulators");
       try {
@@ -597,7 +549,8 @@
     const chain = (trackId) => chains.get(trackId);
     
     document.addEventListener("StateChanged", (e) => {
-      console.log(`audio.StateChanged: ${e.detail.key} => ${e.detail.value}`);
+      
+      //console.log(`audio.StateChanged: ${e.detail.key} => ${e.detail.value}`);
       updateAudio(e.detail.key, e.detail.value);
     });
     
@@ -662,8 +615,8 @@
         updateTrackModulationDevice(ch, ch.modulationDevices.indexOf(modulationDeviceState), modulationDeviceState)
       );
     };
-    const updateTrackChain = (trackId, key, value) {
-      ch = chain(trackId);
+    const updateTrackChain = (trackId, key, value) => {
+      let ch = chain(trackId);
       if (key.startsWith("audioDevices[")) {
         key = key.replace("audioDevices[", "");
         let keyParts = key.split("].");
@@ -818,6 +771,7 @@
           const old = parts.get(clip.id);
           if (old) old.dispose();
 
+          return;
           const ch = chain(clip.trackId);
           if (!ch) throw "No chain found for track " + clip.trackId;
           console.log("rebuildClip, create events", clip)
@@ -891,7 +845,7 @@
   };
 
   // ===== Standard MIDI File parser (SMF format 0/1, PPQ division) =====
-  /*function parseMidiFile(buffer) {
+  function parseMidiFile(buffer) {
     const bytes = new Uint8Array(buffer);
     let pos = 0;
     const u8 = () => bytes[pos++];
@@ -962,7 +916,7 @@
       }
     }
     return { format, bpm, tracks };
-  }*/
+  }
 
   function deselectTrack() {
     if (!stateManager.get("selectedTrackId")) {
@@ -972,7 +926,7 @@
     if (trackElement) {
       trackElement.classList.remove("selected");
     }
-    stateManager.get("selectedTrackId") = null;
+    stateManager.set("selectedTrackId", null);
 
     console.log("track cleared")
     bottomPanelManager.refreshActivePanel();
@@ -989,6 +943,7 @@
     if (trackElement) {
       trackElement.classList.add("selected");
     }
+    
     /*   let trackElement = document.getElementById(stateManager.get("selectedTrackId"));
        trackElement.classList.add("selected");
        console.log("track selected", trackElement)*/
@@ -1008,31 +963,33 @@
     if (!modulators) modulators = [];
 
     console.log("addTrack " + name)
-    let devices = [];
+    let audioDevices = [];
     instrument.presetName = "Default";
-    devices.push(instrument);
+    audioDevices.push(instrument);
     effects.forEach(fx => {
       fx.type = "Effect";
       fx.presetName = "Default";
-      devices.push(fx);
+      audioDevices.push(fx);
     });
-    console.log("addingTrack " + name)
-    modulators.forEach(modulator => devices.push(modulator.modulator));
-    console.log("add track model", devices)
+    let modulationDevices = [];
+    modulators.forEach(modulator => modulationDevices.push(modulator));
+  
+    let trackCount = stateManager.get("tracks").length;
     const track = {
       id: stateManager.getAndIncrease("nextId"),
       name: "",
-      color: TRACK_COLORS[stateManager.get("tracks").length % TRACK_COLORS.length],
+      color: TRACK_COLORS[trackCount % TRACK_COLORS.length],
       instrumentName: instrument.name,
       instrumentParameters: instrument.parameters,
-      devices: devices,
-      effects: effects,
-      modulators: modulators,
+      audioDevices: audioDevices,
+      effectDevices: effects,
+      modulationDevices: modulationDevices,
       mute: "false",
       volume: -8
     };
-    console.log("adding new track to state ", track.id)
-    set(`tracks.${track.id}`, track);
+    console.log("track color " + track.color)
+    stateManager.set(`tracks.${track.id}`, track);
+    
     try {
       //stateManager.get("tracks").push(track);
       //audio.addTrack(track);
@@ -1097,11 +1054,13 @@
 
   // Everything that must follow a change to clip placement, tracks, or loop length.
   function arrangementChanged() {
-    stateManager.set("loop", true);
+    if (av._pauseRender) return;
+    console.log("arrangementChanged");
+    //stateManager.set("loop", true);
     //audio.setLoop(stateManager.get("loop"), songEndBeats());
     av.updateSpacer();
     renderTrackHeaders();
-    av.requestRender();
+    av.requestRender("arrangementChanged");
     updateClipButtons();
   }
 
@@ -1110,20 +1069,20 @@
     const clip = currentClip();
     if (clip) audio.rebuildClip(clip);
     ev.updateSpacer();
-    ev.requestRender();
-    av.requestRender();
+    ev.requestRender("notesChanged");
+    av.requestRender("notesChanged");
   }
 
   function editorClipChanged() {
-    console.log("clip changed")
+    console.log("editorClipChanged")
     const clip = currentClip();
     dom.currentClipTitle.textContent = clip ? `${clip.name} (${trackById(clip.trackId).name})` : "No clip selected";
     dom.currentClipLength.value = clip ? clip.length / BEATS_PER_BAR : 1;
     dom.currentClipEnd.value = clip ? clip.end : 1;
     dom.currentClipLength.disabled = !clip;
     ev.updateSpacer();
-    ev.requestRender();
-    av.requestRender();
+    ev.requestRender("editorClipChanged");
+    av.requestRender("editorClipChanged");
     updateClipButtons();
   }
 
@@ -1149,6 +1108,7 @@
     onZoom: () => renderTrackHeaders(),
   });
 
+
   const arrangementStep = () => gridStep("wide", false, av.pxPerBeat).step;
   const clipAt = (beat, row) => {
     const track = stateManager.get("tracks")[row];
@@ -1162,6 +1122,12 @@
   const onClipRightEdge = (clip, x) => x >= av.beatToX(clipEnd(clip)) - Math.min(8, av.beatToX(clip.length) * 0.4);
 
   function renderArrangement() {
+    if (av._pauseRender) return;
+    
+    console.log("render Arrangement");
+    let clips = stateManager.get("clips");
+    let tracks = stateManager.get("tracks");
+    
     const c = av.grid;
     const { W, H, sx, sy, drawW, firstRow, lastRow } = av.viewport();
     const rh = av.rowHeight;
@@ -1177,13 +1143,21 @@
     }
     av.drawVerticalLines(c, H, arrangementStep(), drawW);
     av.drawRegion(c, H, songEndBeats(), drawW);
-
+    if (firstRow >= lastRow) console.warn("no rows")
+    if (lastRow - firstRow == 0) console.warn("zero rows")
     c.font = "1.5vh system-ui, sans-serif";
     c.textBaseline = "top";
     c.textAlign = "left";
-    for (const clip of stateManager.get("clips")) {
-      const row = stateManager.get("tracks").findIndex((t) => t.id === clip.trackId);
-      if (row < firstRow || row > lastRow) continue;
+    //console.log(`Rendering ${clips.length} clips`);
+    for (const clip of clips) {
+      const row = tracks.findIndex((t) => t.id === clip.trackId);
+      
+      
+      if (row < firstRow || row > lastRow) {
+        console.log(`Skipping clip ${clip.id} for track ${clip.trackId}`, row);
+        continue;
+      }
+      console.log(`Rendering clip ${clip.id} for track ${clip.trackId}`, clip, row);
       const x0 = av.beatToX(clip.start) - sx;
       const x1 = av.beatToX(clipEnd(clip)) - sx;
       if (x1 < 0 || x0 > W) continue;
@@ -1191,6 +1165,7 @@
       const w = Math.max(2, x1 - x0 - 1);
       const track = trackById(clip.trackId);
       const selected = clip.id === stateManager.get("selectedClipId");
+      if (!track) console.log("track not found", clip.trackId)
       c.fillStyle = track.color;
       c.globalAlpha = track.mute ? 0.45 : 1;
       c.fillRect(Math.round(x0), y, w, h);
@@ -1206,14 +1181,14 @@
       }
       // mini note preview
       const body = h - 16;
-
+      
       if (body > 6 && clip.notes.length) {
+        console.log(`Rendering clip details ${clip.id} for track ${clip.trackId}`, clip, row);
         let lo = 127, hi = 0;
         for (const n of clip.notes) { lo = Math.min(lo, n.pitch); hi = Math.max(hi, n.pitch); }
         const span = Math.max(hi - lo + 1, 12);
         const rowPx = body / span;
-
-
+        
         let clipRepeatStart = clip.start;
         let clipRepeats = (clip.end - clip.start) / clip.length;
         let clipWidth = (x1 - x0) / clipRepeats;
@@ -1224,6 +1199,7 @@
           c.fillStyle = clipRepeatIndex == 0 ? COLORS.clipNote : COLORS.clipRepeatNote;
           for (const n of clip.notes) {
             if (n.start >= clip.length) continue;
+            //console.log(`Rendering clip note for track ${clip.trackId}`, n);
             const nx = clipStartX + av.beatToX(n.start);
             if (nx > x1) continue;
             const nw = Math.max(1, av.beatToX(Math.min(n.duration, clip.length - n.start)) - 1);
@@ -1255,7 +1231,8 @@
            clipRepeatStart += clip.length;
          }*/
       }
-
+      else
+        console.log(`Skipping  clip details ${clip.id} for track ${clip.trackId}`, clip, row);
       if (selected) {
         c.strokeStyle = COLORS.clipSelected;
         c.lineWidth = 2;
@@ -1268,13 +1245,18 @@
 
   // Track headers are DOM so names and instruments are editable; they scroll with the lanes.
   function renderTrackHeaders() {
+    if (av._pauseRender) return;
+    const tracks = stateManager.get("tracks");
+    
     const rh = av.rowHeight;
     dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
     const existing = new Map([...dom.trackHeaders.children].map((el) => [Number(el.dataset.id), el]));
-    dom.trackHeaders.replaceChildren();
-    for (const track of stateManager.get("tracks")) {
+    
+    for (const track of tracks) {
+      
       let el = existing.get(track.id);
       if (!el) {
+        console.log("createTrackHeader " + track.id, track)
         el = document.createElement("div");
         el.className = "track";
         el.dataset.id = track.id;
@@ -1282,28 +1264,33 @@
           <button class="btn mini mute" title="Mute">M</button>
           <input class="name" type="text" title="Track name" readonly="readonly">
           <button class="btn mini del" title="Delete track">×</button>`;
+          
+        dom.trackHeaders.appendChild(el);
+        console.log("added track header for track " + track.id)
+        
+        const nameInput = el.querySelector(".name");
+        nameInput.ondblclick = () => { if (nameInput.readOnly) nameInput.readOnly = false };
+        nameInput.onblur = () => nameInput.readOnly = true;
+
+        el.querySelector(".mute").classList.toggle("on", track.mute);
+        if (document.activeElement !== nameInput) nameInput.value = track.name;
+        document.addEventListener("MuteChanged", (e) => {
+          if (e.detail.trackId !== track.id) return;
+          el.querySelector(".mute").classList.toggle("on", track.mute);
+        })
       }
+      else 
+        console.log("updateTrackHeader " + track.id, track)
       el.style.height = `${rh}px`;
       el.classList.toggle("selected", track.id === stateManager.get("selectedTrackId"));
       el.querySelector(".swatch").style.background = track.color;
 
-      const nameInput = el.querySelector(".name");
-      if (document.activeElement !== nameInput) nameInput.value = track.name;
-      nameInput.ondblclick = () => { if (nameInput.readOnly) nameInput.readOnly = false };
-      nameInput.onblur = () => nameInput.readOnly = true;
 
-      el.querySelector(".mute").classList.toggle("on", track.mute);
-
-      dom.trackHeaders.appendChild(el);
-
-      document.addEventListener("MuteChanged", (e) => {
-        if (e.detail.trackId !== track.id) return;
-        el.querySelector(".mute").classList.toggle("on", track.mute);
-      })
     }
+    
+    if (!tracks) console.log("No trackheaders to render")
   }
-
-  {
+  
     av.o.scroller.addEventListener("scroll", () => {
       dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
     });
@@ -1311,8 +1298,7 @@
     dom.trackHeadersWrap.addEventListener("click", (e) => {
       console.log("click", e.currentTarget, e.target, e.srcElement)
       if (e.target === dom.trackHeadersWrap) deselectTrack();
-    }
-    );
+    });
     dom.trackHeaders.addEventListener("click", (e) => {
       const el = e.target.closest(".track");
       if (!el) return;
@@ -1349,7 +1335,7 @@
         editorClipChanged();
         document.dispatchEvent(new CustomEvent("TrackNameChanged", { detail: { trackId: track.id, trackName: track.name } }));
       }
-      arrangementChanged();
+     // arrangementChanged();
     });
   
     function fillDevicePresets(el, presets, deviceName) {
@@ -1388,7 +1374,7 @@
         start0: clip.start, length0: clip.length, beat0: p.beat, row0: p.row, x0: p.x, vx0: p.vx, vy0: p.vy, moved: false,
       };
       if (e.pointerType !== "touch") av.o.scroller.setPointerCapture(e.pointerId);
-      av.requestRender();
+      av.requestRender("pointerDown");
     });
   
     av.o.scroller.addEventListener("pointermove", (e) => {
@@ -1414,6 +1400,7 @@
         if (track && track.id !== d.clip.trackId) {
           d.clip.trackId = track.id;
           selectTrack(track);
+          console.log("pointermove");
           renderTrackHeaders();
         }
       } else {
@@ -1421,7 +1408,7 @@
         d.clip.length = Math.max(step, end - d.clip.start);
       }
       av.updateSpacer();
-      av.requestRender();
+      av.requestRender("pointerMove");
     });
   
     function endArrangementPointer(e) {
@@ -1431,6 +1418,7 @@
       aDrag = null;
       if (d.moved) {
         audio.rebuildClip(d.clip);
+        console.log("endArrangementPointer");
         arrangementChanged();
         editorClipChanged();
       }
@@ -1448,6 +1436,7 @@
       const start = snapFloor(p.beat, BEATS_PER_BAR);
       if (!stateManager.get("drawClips")) return;
       selectClip(createClip(track, start, BEATS_PER_BAR));
+      console.log("scroller dblclick")
       arrangementChanged();
     });
   
@@ -1460,7 +1449,6 @@
       arrangementChanged();
       editorClipChanged();
     });
-  }
   
     // ===== Clip editor (piano roll) =====
     const ev = new TimelineView({
@@ -1495,6 +1483,9 @@
     };
   
     function renderEditor() {
+      if (ev._pauseRender) return;
+      
+      console.log("renderEditor")
       const c = ev.grid;
       const { W, H, sx, sy, drawW, firstRow, lastRow } = ev.viewport();
       const rh = ev.rowHeight;
@@ -1663,7 +1654,7 @@
         audio.preview(clip.trackId, d.anchor.pitch);
       }
       ev.updateSpacer();
-      ev.requestRender();
+      ev.requestRender("updateNoteMove");
     }
   
     function updateNoteResize(p) {
@@ -1674,7 +1665,7 @@
       d.note.duration = Math.max(step ?? MIN_FREE_DURATION, end - d.note.start);
       ed.lastDuration = d.note.duration;
       ev.updateSpacer();
-      ev.requestRender();
+      ev.requestRender("updateNoteResize");
     }
   
     function updatePaint(clip, p) {
@@ -1728,7 +1719,7 @@
         ed.selected.clear();
       }
       if (nDrag && !touch) ev.o.scroller.setPointerCapture(e.pointerId);
-      ev.requestRender();
+      ev.requestRender("pointerDown");
     });
   
     ev.o.scroller.addEventListener("pointermove", (e) => {
@@ -1769,8 +1760,9 @@
       } else if (d.type === "resize") {
         commitNoteEdit(clip, d);
       }
-      ev.requestRender();
+      ev.requestRender("endPointerDown");
     }
+    
     ev.o.scroller.addEventListener("pointerup", (e) => endEditorPointer(e, false));
     ev.o.scroller.addEventListener("pointercancel", (e) => endEditorPointer(e, true));
     ev.o.scroller.addEventListener("touchmove", (e) => {
@@ -1802,7 +1794,7 @@
       const clip = currentClip();
       audio.keyOff(clip ? clip.trackId : stateManager.get("selectedTrackId"), ed.activeKey);
       ed.activeKey = null;
-      ev.requestRender();
+      ev.requestRender("keyOff");
     }
   
     dom.edKeysCanvas.addEventListener("pointerdown", (e) => {
@@ -1818,7 +1810,7 @@
       const clip = currentClip();
       ed.activeKey = keyPitchAt(e);
       audio.keyOn(clip ? clip.trackId : stateManager.get("selectedTrackId"), ed.activeKey);
-      ev.requestRender();
+      ev.requestRender("pointerDown");
     });
     dom.edKeysCanvas.addEventListener("pointermove", (e) => {
       if (!keyDrag || keyDrag.pointerId !== e.pointerId) return;
@@ -1852,8 +1844,8 @@
       stateManager.set("playheadBeat", beat);
       audio.seek(beat);
       updatePosReadout();
-      av.requestRender();
-      ev.requestRender();
+      av.requestRender("setPlayhead");
+      ev.requestRender("setPlayhead");
     }
   
     function followPlayhead(view, beat) {
@@ -1871,8 +1863,8 @@
         const local = editorPlayhead();
         if (local !== null) followPlayhead(ev, local);
       }
-      av.requestRender();
-      ev.requestRender();
+      av.requestRender("tickPlayhead");
+      ev.requestRender("tickPlayhead");
       requestAnimationFrame(tickPlayhead);
     }
   
@@ -2025,7 +2017,7 @@
     ed.drawMode = on;
     dom.draw.classList.toggle("on", on);
     if (on) ed.selected.clear();
-    ev.requestRender();
+    ev.requestRender("setDrawMode");
   }
 
   function bindToggle(button, target, key, onChange) {
@@ -2059,6 +2051,8 @@
   bindToggle(dom.follow, state, "follow", () => { });
   bindToggle(dom.drawClips, state, "drawClips", () => { });
   */
+  
+  
   
   dom.addTrack.addEventListener("click", () => {
     addTrack(`Track ${stateManager.get("tracks").length + 1}`, DEFAULT_INSTRUMENT);
@@ -2103,7 +2097,7 @@
     
     arrangementChanged();
     ev.updateSpacer();
-    ev.requestRender();
+    ev.requestRender("currentClipLength change");
   });
   dom.currentClipEnd.addEventListener("change", () => {
     const clip = currentClip();
@@ -2113,14 +2107,14 @@
     
     arrangementChanged();
     ev.updateSpacer();
-    ev.requestRender();
-    av.requestRender();
+    ev.requestRender("currentClipEnd change");
+    av.requestRender("currentClipEnd change");
   });
 
   dom.gridSelect.addEventListener("change", () => {
     ed.gridMode = dom.gridSelect.value;
     dom.gridReadout.textContent = editorGrid().label;
-    ev.requestRender();
+    ev.requestRender("gridSelect change");
   });
   dom.currentClipLoop.addEventListener("click", () => {
     const clip = currentClip();
@@ -2130,7 +2124,7 @@
     console.log("loop changed", clip.loop)
   });
   //bindToggle(dom.currentClipLoop, ed, "loop", () => { });
-  bindToggle(dom.triplet, ed, "triplet", () => { dom.gridReadout.textContent = editorGrid().label; ev.requestRender(); });
+  bindToggle(dom.triplet, ed, "triplet", () => { dom.gridReadout.textContent = editorGrid().label; ev.requestRender("triplet change"); });
   bindToggle(dom.snap, ed, "snap", () => { });
   bindToggle(dom.accent, ed, "accent", () => { });
   bindToggle(dom.slide, ed, "slide", () => { });
@@ -2160,12 +2154,12 @@
     const clip = currentClip();
     if (e.code === "Space") { e.preventDefault(); togglePlay(); }
     else if (e.key === "b" || e.key === "B") setDrawMode(!ed.drawMode);
-    else if (e.key === "Escape") { ed.selected.clear(); ev.requestRender(); }
+    else if (e.key === "Escape") { ed.selected.clear(); ev.requestRender("escape pressed"); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") { e.preventDefault(); duplicateClip(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a" && clip) {
       e.preventDefault();
       ed.selected = new Set(clip.notes.map((n) => n.id));
-      ev.requestRender();
+      ev.requestRender("keyDown");
     } else if (e.key === "Delete" || e.key === "Backspace") {
       if (clip && ed.selected.size) deleteNotes(clip, [...ed.selected]);
       else if (clip) { removeClip(clip.id); arrangementChanged(); editorClipChanged(); }
@@ -2270,15 +2264,7 @@
     }
 
     showClipEditorPanel() {
-    /*  if (!currentClip())
-        dom.loopClip.classList.remove("on");
-      else*/
         this.showPanel(this.editor, dom.clipEditorTabBtn);
-
-      /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${stateManager.get("selectedTrackId")}"]`);
-      const trackElement = trackHeader.closest(".track");
-      trackElement.scrollIntoView();
-      console.log("scroll into view", trackElement);*/
     }
 
     showInstrumentPanel() {
@@ -2810,10 +2796,7 @@
                 }
               });
             //  templateColumns += "min-content";
-             /* if (listMetadata.itemMethods) {
-                templateColumns += "min-content";
-                console.log("add column for methods")
-              }*/
+
               
               listContainer.appendChild(listElement);
               listElement.style.gridTemplateColumns = templateColumns;
@@ -2855,6 +2838,8 @@
           listItemValue.innerText = listItem[name];
           listElement.appendChild(listItemValue);
         });
+        
+        
         /*
         Object.keys(listMetadata.itemMethods).forEach(methodName => {
           let method = listMetadata.itemMethods[methodName];
@@ -2864,6 +2849,8 @@
           listElement.appendChild(methodButton);
           methodButton.onclick = () => eval(`${method.functionName}(listItem, listMetadata, trackDeviceListsState[listName], listElement, trackDeviceNode)`);
         });*/
+        
+        
       }
       
       function addSample(srcElement, listMetadata, list, listElement, sampler) {
@@ -2929,46 +2916,112 @@
   var bottomPanelManager = new BottomPanelManager();
   var mixer = new Mixer(audio, stateManager);
 
-  async function init() {
-    console.log("init");
-    await deviceBrowser.loadDevices();
-    await presetBrowser.loadPresets();
-
-    const coarse = window.matchMedia("(pointer: coarse)").matches;
-    dom.hint.textContent = coarse
-      ? "Arrangement: tap clip to edit, drag to move, drag edge to resize, pinch to zoom. Editor: tap adds, tap note deletes, drag moves. Rulers: tap to locate, drag ↕ zoom ↔ scroll."
-      : "Arrangement: double-click lane = new clip · drag clip = move · right edge = resize · right-click = delete · Ctrl+D duplicate. Editor: click adds · click note deletes (Draw) · Ctrl+wheel zoom · Shift+wheel scroll · Space play · B draw/select";
-    if (!audio.available) {
-      dom.play.disabled = true;
-      dom.hint.textContent = "Tone.js could not be loaded (network). Editing works; playback is disabled.";
+    class StateManager {
+      _state;
+      
+      init(state) {
+        console.log("stateManager.init", state);
+        this._state = state;
+        const stateInputs = document.querySelectorAll("input[data-state]");
+        console.log("stateManager.init", state, stateInputs);
+        stateInputs.forEach(input => {
+          input.value = state[input.dataset.state];
+          console.log(`stateManager.init: ${input.dataset.state} = ${input.value}`);
+          if (!input.dataset.binding) {
+            input.addEventListener("input", () => this.updateState(input.dataset.state, input.value));
+            input.dataset.binding = true;
+          }
+        });
+        const stateToggleButtons = document.querySelectorAll("button[data-state]");
+        stateToggleButtons.forEach(button => {
+          button.classList.toggle("on", state[button.dataset.state]);
+          if (!button.dataset.binding) {
+            button.addEventListener("click", () => {
+              button.classList.toggle("on");
+              this.updateState(button.dataset.state, button.classList.contains("on"))
+            });
+            button.dataset.binding = true;
+          }
+        });
+        const stateSpans = document.querySelectorAll("span[data-state]");
+        stateSpans.forEach(element => {
+          element.innerHTML = state[element.dataset.state];
+        });
+        
+        //renderTrackHeaders();
+        //arrangementChanged();
+      }
+      
+      set(key, value) {
+        if (this._state[key] === value) return;
+        this._state[key] = value;
+        this._stateChanged = true;
+        console.log("state.set(" + key, value);
+        const stateSpans = document.querySelectorAll(`span[dataset-state="${key}"]`);
+        stateSpans.forEach(element => element.innerHTML = value);
+        document.dispatchEvent(new CustomEvent("StateChanged", { detail: { key: key, value: value } }));
+      }
+      
+      get(key) { 
+        let context = this._state;
+        let keyParts = key.split(".");
+        for (let partIndex = 0; partIndex < keyParts.length - 1; partIndex++) {
+          context = context[keyParts[partIndex]];
+        }
+        let value = context[keyParts[keyParts.length - 1]];
+        //console.log("state get " + key, value);
+        return value;
+        /*
+        if (key.indexOf(".") == -1) {
+          let value = this._state[key];
+          console.log(`state.get(${key}) => ${value}`);
+          return value;
+        }
+        else {
+          let parts = key.split(".");
+          let value = this._state[parts[0]][parts[1]];
+          console.log(`state.get(${key}) => ${value}`);
+          return value;
+        }*/
+          
+      }
+      
+      getAndIncrease(key) {
+        let newId = this.get(key);
+        this.set(key, newId + 1);
+        return newId;
+      }
     }
-    ev.rowHeight = coarse ? 22 : 18;
-    av.rowHeight = coarse ? 60 : 52;
-    layoutAll();
-    const aw = av.o.scroller.clientWidth || 800;
-    av.pxPerBeat = clamp(aw / (8 * BEATS_PER_BAR), av.o.hZoom.min, av.o.hZoom.max);
-    const ew = ev.o.scroller.clientWidth || 800;
-    ev.pxPerBeat = clamp(ew / (ew < 600 ? BEATS_PER_BAR : 2 * BEATS_PER_BAR), 30, 160);
-
-    createDemoSong();
-
-    audio.setBpm(stateManager.get("bpm"));
-    audio.setSwing(stateManager.get("swing"));
     
-    updateSongSettingsUI(dom, state);
-
-    dom.gridReadout.textContent = editorGrid().label;
-    updatePosReadout();
-    arrangementChanged();
-    editorClipChanged();
-    ev.o.scroller.scrollTop = pitchToRow(60) * ev.rowHeight - ev.o.scroller.clientHeight / 2;
-
-    const observer = new ResizeObserver(layoutAll);
-    for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
-
-    function createDemoSong() {
+        // ===== State =====
+    var defaultProject = {
+      name: "DemoProject2",
+      bpm: 135,
+      swing: 0.05,
+      loop: true,
+      songLength: 0,
+      follow: true,
+      drawClips: false,
+      playing: false,
+      playheadBeat: 0,
+      tracks: [],          // { id, name, color, instrument, mute }
+      clips: [],           // { id, trackId, name, start, length (beats), notes: [{ id, pitch, start, duration, velocity }] }
+      nextId: 1,
+      selectedTrackId: null,
+      selectedClipId: null,
+    };
+    
+    var stateManager = null;;
+    
+  stateManager = new StateManager();
+  createDemoSong();
+  stateManager.init(defaultProject);
+  console.log("Default project", stateManager._state);
+  
+  
+  function createDemoSong() {
       console.log("creating demo song");
-      const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: stateManager.getAndIncrease("nextId"), pitch, start, duration, velocity, slide }));
+      const createNotes = (list) => list.map(([id, pitch, start, duration, velocity, slide]) => ({ id: id, pitch, start, duration, velocity, slide }));
 
       console.log("creating kick");
       const kickSynth = {
@@ -3004,12 +3057,29 @@
           "release": 0.25
         }
       };
-      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
-      console.log("creating kick clip");
-      const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 64);
-      console.log("created kick clip");
-
+      const kickNotes = createNotes([[3, 36, 0, 0.25, DEFAULT_VELOCITY]]);
+      
+      defaultProject.tracks.push({
+        id: 1,
+        name: "Kick",
+        color: TRACK_COLORS[0 % TRACK_COLORS.length],
+        volume: 0,
+        mute: false,
+        instrument: kickSynth,
+        effects: [kickDistortion, kickCompressor],
+        modulators: []
+        }
+      );
+      defaultProject.clips.push({
+        id: 2,
+        trackId: 1, 
+        name: "Kick 1", 
+        start: 0, 
+        length: 0.5, 
+        end: 16, 
+        loop: true, 
+        notes: kickNotes });
+        
       console.log("creating bass");
       const bassSynth = {
         name: "DAWSome.TbThreeOThree",
@@ -3025,8 +3095,7 @@
           volume: -25
         }
       };
-      const bass = addTrack("Bass", bassSynth, []);
-      const bassNotes = mk([
+      const bassNotes = createNotes([
         [25, 0.00, 0.1, 0.4],
         [27, 0.25, 0.2, DEFAULT_VELOCITY],
         [32, 0.5, 0.25, DEFAULT_VELOCITY],
@@ -3067,11 +3136,28 @@
         [29, 7.50, 0.25, DEFAULT_VELOCITY],
         [34, 7.75, 0.25, DEFAULT_VELOCITY]
       ]);
-      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
-      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
-      createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
+      defaultProject.tracks.push({
+        id: 4,
+        name: "Bass",
+        color: TRACK_COLORS[1 % TRACK_COLORS.length],
+        volume: 0,
+        mute: false,
+        instrument: bassSynth,
+        effects: [],
+        modulators: []
+        }
+      );
+      defaultProject.clips.push({
+        id: 5,
+        trackId: 4, 
+        name: "Bass 1", 
+        start: 0, 
+        length: 8, 
+        end: 8,
+        loop: false, 
+        notes: bassNotes });
       console.log("created bass");
-
+/*
       console.log("creating closedhat");
       const closedHatSynth = {
         name: "MetalSynth",
@@ -3097,10 +3183,10 @@
         }
       };
       const closedHat = addTrack("ClosedHat", closedHatSynth, [hatReverb]);
-      let chNotes1 = mk([
+      let chNotes1 = createNotes([
         [42, 1.0, 0.125],
       ]);
-      let chNotes2 = mk([
+      let chNotes2 = createNotes([
         [42, 0.0, 0.125],
         [42, 0.25, 0.125],
         [42, 0.5, 0.125],
@@ -3132,10 +3218,10 @@
         }
       };
       const openHat = addTrack("OpenHat", openHatSynth, [hatReverb]);
-      let ohNotes = mk([[42, 0.5, 0.125]]);
+      let ohNotes = createNotes([[42, 0.5, 0.125]]);
       createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
       console.log("created open hat");
-
+*/
       /*
       console.log("creating 303");
       const tb303Synth = {
@@ -3153,7 +3239,7 @@
         }
       }
       const tb303 = addTrack("303", tb303Synth, [tb303Delay]);
-      const tb303Notes = mk([
+      const tb303Notes = createNotes([
         [36, 0.00, 0.25],
         [48, 0.25, 0.25],
         [36, 0.50, 0.25],
@@ -3169,9 +3255,52 @@
 
       console.log("created demo song");
 
-      deselectClip();
-      deselectTrack();
+    /*  deselectClip();
+      deselectTrack();*/
     }
+    
+  async function init() {
+    console.log("init");
+    await deviceBrowser.loadDevices();
+    await presetBrowser.loadPresets();
+    console.log("main init")
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    dom.hint.textContent = coarse
+      ? "Arrangement: tap clip to edit, drag to move, drag edge to resize, pinch to zoom. Editor: tap adds, tap note deletes, drag moves. Rulers: tap to locate, drag ↕ zoom ↔ scroll."
+      : "Arrangement: double-click lane = new  · drag clip = move · right edge = resize · right-click = delete · Ctrl+D duplicate. Editor: click adds · click note deletes (Draw) · Ctrl+wheel zoom · Shift+wheel scroll · Space play · B draw/select";
+    if (!audio.available) {
+      dom.play.disabled = true;
+      dom.hint.textContent = "Tone.js could not be loaded (network). Editing works; playback is disabled.";
+    }
+    ev.rowHeight = coarse ? 22 : 18;
+    av.rowHeight = coarse ? 60 : 52;
+    layoutAll();
+    const aw = av.o.scroller.clientWidth || 800;
+    av.pxPerBeat = clamp(aw / (8 * BEATS_PER_BAR), av.o.hZoom.min, av.o.hZoom.max);
+    const ew = ev.o.scroller.clientWidth || 800;
+    ev.pxPerBeat = clamp(ew / (ew < 600 ? BEATS_PER_BAR : 2 * BEATS_PER_BAR), 30, 160);
+    
+    
+    
+    
+    //audio.setBpm(stateManager.get("bpm"));
+    //audio.setSwing(stateManager.get("swing"));
+    
+   // updateSongSettingsUI(dom, state);
+
+    dom.gridReadout.textContent = editorGrid().label;
+   /* updatePosReadout();
+    arrangementChanged();
+    editorClipChanged();*/
+    
+    ev.o.scroller.scrollTop = pitchToRow(60) * ev.rowHeight - ev.o.scroller.clientHeight / 2;
+    
+    const observer = new ResizeObserver(layoutAll);
+    for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
+    
+    av.resumeRender();
+    ev.resumeRender();
+    renderTrackHeaders();
   }
 
   class TbThreeOThree  {
@@ -3316,6 +3445,8 @@
   const DAWSome = {
     TbThreeOThree: (parameters) => new TbThreeOThree(parameters)
   }
-  
+  console.log("before init")
   await init();
-}})();
+}
+
+)();
