@@ -1,7 +1,7 @@
 class Mixer {
-    constructor(audio, stateManager) {
+    constructor(audio, state) {
       this.audio = audio;
-      this.stateManager = stateManager;
+      this.state = state;
       this.mixer = document.querySelector(".mixer");
     }
     
@@ -90,7 +90,7 @@ class Mixer {
           document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: false }}));
           soloedMuteButtons.push(muteButton);
         //  soloedMuteButtons = soloedMuteButtons.splice(soloedMuteButtons.indexOf(muteButton),1);
-          this.stateManager.getState("tracks").forEach(projectTrack => {
+          this.state.tracks.forEach(projectTrack => {
             if (track != projectTrack) {
               projectTrack.mute = true;
             //  this.audio.updateTrack(projectTrack);
@@ -117,7 +117,7 @@ class Mixer {
             document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: muteTrackId, muted: false }}));
           })
           
-          this.stateManager.getState("tracks").forEach(projectTrack => {
+          this.state.tracks.forEach(projectTrack => {
             if (track != projectTrack) {
               projectTrack.mute = false;
             //  this.audio.updateTrack(projectTrack);
