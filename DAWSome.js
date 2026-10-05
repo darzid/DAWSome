@@ -1,82 +1,131 @@
 (async () => {
-  let toneInitialized = false;
-  let toneLookAhead = 0.05;
-
-  let swRegistration = null;
-
-  if (location.origin !== "file://") {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("./service-worker.js")
-        .then((reg) => {
-          swRegistration = reg;
-        });
-    }
-  }
-
-  // ===== Constants =====
-  const PITCH_COUNT = 128;
-  const TOP_PITCH = PITCH_COUNT - 1;
-  const BEATS_PER_BAR = 4;                 // fixed 4/4
-  const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-  const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
-  const DEFAULT_VELOCITY = 0.75;
-  const ACCENT_VELOCITY = 1.0;
-  const MIN_FREE_DURATION = 1 / 16;
-  const EPS = 1e-6;
-  const DRAG_THRESHOLD = 4;
-  const TAP_SLOP = 8;
-  const ZOOM_BUTTON_FACTOR = 1.25;
-  const MIN_SONG_BEATS = 16;
-  const SONG_TAIL_BEATS = 16;              // empty space kept after the last clip
-
-  const FIXED_GRIDS = { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 };
-  const ADAPTIVE_MIN_PX = { widest: 96, wide: 48, medium: 24, narrow: 12, narrowest: 6 };
-  const ADAPTIVE_STEPS = [4, 2, 1, 0.5, 0.25, 0.125, 0.0625];
-  const STEP_LABELS = new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]);
-  const TRACK_COLORS = ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"];
-
-  const DEFAULT_INSTRUMENT = {
-    name: "MonoSynth",
-    type: "Instrument",
-    parameters: {
-      "volume": 0,
-      "portamento": 0,
-      "oscillator": {
-        "type": "sawtooth"
+  {
+    console.log("DAWSome.js start")
+    let toneInitialized = false;
+    let toneLookAhead = 0.05;
+  
+    let swRegistration = null;
+  
+    if (location.origin !== "file://") {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("./service-worker.js")
+          .then((reg) => {
+            swRegistration = reg;
+          });
       }
     }
-  };
   
-  const COLORS = {
-    void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
-    laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
-    lineSub: "#2e2e2e", lineBeat: "#3d3d3d", lineBar: "#5a5a5a",
-    regionShade: "rgba(0, 0, 0, 0.4)", regionEdge: "#707070",
-    note: "#f2b544", noteBorder: "#7a5312", noteSelected: "#fff1c9",
-    accentNote: "#f244b5", accentNoteSelected: "#ffc9f1",
-    slideNoteBorder: "#0000ff",
-    playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
-    keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
-    keyTextDark: "#333333", keyTextLight: "#b0b0b0",
-    clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
-  };
+  
+    // ===== Constants =====
+    const PITCH_COUNT = 128;
+    const TOP_PITCH = PITCH_COUNT - 1;
+    const BEATS_PER_BAR = 4;                 // fixed 4/4
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
+    const DEFAULT_VELOCITY = 0.75;
+    const ACCENT_VELOCITY = 1.0;
+    const MIN_FREE_DURATION = 1 / 16;
+    const EPS = 1e-6;
+    const DRAG_THRESHOLD = 4;
+    const TAP_SLOP = 8;
+    const ZOOM_BUTTON_FACTOR = 1.25;
+    const MIN_SONG_BEATS = 16;
+    const SONG_TAIL_BEATS = 16;              // empty space kept after the last clip
+  
+    const FIXED_GRIDS = { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 };
+    const ADAPTIVE_MIN_PX = { widest: 96, wide: 48, medium: 24, narrow: 12, narrowest: 6 };
+    const ADAPTIVE_STEPS = [4, 2, 1, 0.5, 0.25, 0.125, 0.0625];
+    const STEP_LABELS = new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]);
+    const TRACK_COLORS = ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"];
+  
+    const DEFAULT_INSTRUMENT = {
+      name: "MonoSynth",
+      type: "Instrument",
+      parameters: {
+        "volume": 0,
+        "portamento": 0,
+        "oscillator": {
+          "type": "sawtooth"
+        }
+      }
+    };
+    
+    const COLORS = {
+      void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
+      laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
+      lineSub: "#2e2e2e", lineBeat: "#3d3d3d", lineBar: "#5a5a5a",
+      regionShade: "rgba(0, 0, 0, 0.4)", regionEdge: "#707070",
+      note: "#f2b544", noteBorder: "#7a5312", noteSelected: "#fff1c9",
+      accentNote: "#f244b5", accentNoteSelected: "#ffc9f1",
+      slideNoteBorder: "#0000ff",
+      playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
+      keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
+      keyTextDark: "#333333", keyTextLight: "#b0b0b0",
+      clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
+    };
+  
+    // ===== State =====
+    const INITIAL_STATE = {
+      name: "DemoProject",
+      bpm: 130,
+      swing: 0.05,
+      loop: true,
+      follow: true,
+      drawClips: false,
+      playing: false,
+      playheadBeat: 0,
+      tracks: [],          // { id, name, color, instrument, mute }
+      clips: [],           // { id, trackId, name, start, length (beats), notes: [{ id, pitch, start, duration, velocity }] }
+      nextId: 1,
+      selectedTrackId: null,
+      selectedClipId: null,
+    };
+    
+    class StateManager {
+      _state;
+      
+      initializeState(state) {
+        this._state = state;
+        const stateInputs = document.querySelectorAll("input[@data-state]");
+        stateInputs.forEach(input => {
+          input.value = state[input.dataset.state];
+          if (!input.dataset.binding) {
+            input.addEventListener("input", () => this.updateState(input.dataset.state, input.value));
+            input.dataset.binding = true;
+          }
+        });
+        const stateToggleButtons = document.querySelectorAll("button[@data-state]");
+        stateToggleButtons.forEach(button => {
+          button.classList.toggle("on", state[button.dataset.state]);
+          if (!button.dataset.binding) {
+            button.addEventListener("click", () => {
+              button.classList.toggle("on");
+              this.updateState(button.dataset.state, button.classList.contains("on"))
+            });
+            button.dataset.binding = true;
+          }
+        });
+        const stateSpans = document.querySelectorAll("span[@data-state]");
+        stateSpans.forEach(element => {
+          element.innerHTML = state[element.dataset.state];
+        });
+      }
+      
+      updateState(name, value) {
+        if (this._state[name] === value) return;
+        this._state[name] = value;
+        this._stateChanged = true;
+        const stateSpans = document.querySelectorAll(`span[@data-state="${name}"]`);
+        stateSpans.forEach(element => element.innerHTML = value);
+        document.dispatchEvent(new CustomEvent("StateChanged", { detail: { name: name, value: value } }));
+      }
+    }
+    const stateManager = new StateManager();
+    stateManager.initializeState(INITIAL_STATE);
+  }
 
-  // ===== State =====
-  var state = {
-    name: "DemoProject",
-    bpm: 130,
-    loop: true,
-    follow: true,
-    drawClips: false,
-    playing: false,
-    playheadBeat: 0,
-    tracks: [],          // { id, name, color, instrument, mute }
-    clips: [],           // { id, trackId, name, start, length (beats), notes: [{ id, pitch, start, duration, velocity }] }
-    nextId: 1,
-    selectedTrackId: null,
-    selectedClipId: null,
-  };
+  {
   const ed = {           // clip-editor settings
     gridMode: "medium", triplet: false, accent: false, slide: false, snap: true, loop: true, drawMode: true,
     lastDuration: 0.25, selected: new Set(), activeKey: null,
@@ -96,7 +145,7 @@
   const $ = (id) => document.getElementById(id);
   const dom = {
     projectName: $("project-name"),
-    play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), songLoopLength: $("songLenInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
+    play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), swing: $("swingInput"), loopLength: $("loopLengthInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
     importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
     loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
@@ -161,7 +210,8 @@
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     return c;
   }
-
+  }
+  
   // ===== TimelineView: zoom, scroll, pinch, ruler — shared by arrangement and clip editor =====
   class TimelineView {
     constructor(o) {
@@ -437,72 +487,38 @@
     }
   }
 
+
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
     const transport = Tone.getTransport();
+    transport.swing = 0.25;
+    transport.swingSubdivision = "32n";
     const PPQ = transport.PPQ;
     const chains = new Map();   // trackId → { instrument, channel, device name }
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
     
+    /*
     const makeToneNode = (deviceInfo) => {
       const logSteps = true;
 
       if (logSteps) console.log(`makeToneNode: creating device "${deviceInfo.name}"`);
-      const getValueParams = (deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath) => {
-        if (paramContextPath)
-          if (logSteps) console.log(`getValueParams: ${paramContextPath}`, deviceMetadataContext);
-          else
-            if (logSteps) console.log(`getValueParams: ${deviceInfo.name}`, deviceMetadataContext);
-        Object.keys(deviceMetadataContext).forEach(paramName => {
-
-          let paramPath = paramContextPath ? paramContextPath + "." + paramName : paramName;
-
-          let paramMetadataPath = deviceMetadataContext[paramName];
-          if (logSteps) console.log(`Device param "${paramPath}" metadata path: ${paramMetadataPath}`);
-
-          let parts = paramMetadataPath.split("/");
-          if (parts[0] != "unitTypes" && parts[0] != "enumTypes") {
-            if (!deviceInfoContext[paramName])
-              deviceInfoContext[paramName] = {};
-            getValueParams(
-              deviceContext[paramName],
-              deviceInfoContext[paramName],
-              deviceList[parts[0]][parts[1]].parameters,
-              paramPath
-            );
-          }
-          else {
-            if (deviceContext[paramName].name && (deviceContext[paramName].name == "Signal" || deviceContext[paramName].name == "Param"))
-              deviceInfoContext[paramName] = deviceContext[paramName].value;
-            else
-              deviceInfoContext[paramName] = deviceContext[paramName];
-            if (logSteps) console.log(`Device param "${paramPath}" set: ${deviceInfoContext}`);
-          }
-        })
-      }
+      
       let deviceNameParts = deviceInfo.name.split(".");
       let deviceNamespace = deviceNameParts.length > 1 ? deviceNameParts[0] : "Tone";
-      let deviceName = deviceNameParts[deviceNameParts.length - 1];
+      let deviceClassName = deviceNameParts[deviceNameParts.length - 1];
       
       if (deviceNameParts.length > 1) {
-        console.log("Creating DAWSome device " + deviceName)
+        console.log("Creating DAWSome device " + deviceClassName)
       }
-      let device = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceInfo.parameters) : DAWSome[deviceName](deviceInfo.parameters);
+      let device = (deviceNameParts.length === 1) ? new Tone[deviceClassName](deviceInfo.parameters) : DAWSome[deviceClassName](deviceInfo.parameters);
       if (logSteps) console.log(`makeToneNode: created device "${deviceInfo.name}"`, device);
 
-      let deviceContext = device;
-      let deviceMetadataContext = deviceList.devices[deviceInfo.name].parameters;
-      let deviceInfoContext = deviceInfo.parameters;
-      let paramContextPath = "";
-
-      if (logSteps) console.log(`Device "${deviceInfo.name}": Filling device state (deviceContext, deviceMetadataContext)`, deviceContext, deviceMetadataContext);
       try {
-        getValueParams(deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath);
+         updateDeviceState(deviceInfo.name, device, deviceState.parameters, deviceMetadata);
         if (logSteps) console.log(`Device "${deviceInfo.name}": Device state filled`, deviceInfo);
-
       }
       catch (error) {
         console.error("error while trying to create device state", error);
@@ -539,6 +555,8 @@
       });
       source.connect(ch.channel);
     };
+    */
+    
     const connectModulators = (ch, track) => {
       console.log("connect modulators");
       try {
@@ -570,113 +588,157 @@
         throw error;
       }
     }
-    const updateInstrument = (trackId, instrumentName) => {
-      const ch = chain(trackId);
-      const track = state.tracks.find(track => track.id == trackId);
-      track.devices[0].name = instrumentName;
-      track.devices[0].parameters = {};
-
-      console.log("updating instrument", instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
-      ch.instrument.dispose();
-      //track.devices[0].parameters = track.instrumentParameters;
-      ch.instrument = makeToneNode(track.devices[0].name);
-      track.instrumentName = track.devices[0].name;
-
-      //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
-      ch.instrumentName = track.instrumentName;
-      ch.instrumentParameters = track.instrumentParameters;
-      connectDevices(ch);
-    };
     const chain = (trackId) => chains.get(trackId);
-    document.addEventListener("MuteChanged", (e) => {
-      const ch = chain(e.detail.trackId);
-      ch.channel.mute = e.detail.muted;
-      console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
+    
+    document.addEventListener("StateChanged", (e) => {
+      console.log(`audio.StateChanged: ${e.detail.key} => ${e.detail.value}`);
+      update(e.detail.key, e.detail.value);
     });
-    document.addEventListener("VolumeChanged", (e) => {
-      const ch = chain(e.detail.trackId);
-      ch.channel.volume.value = e.detail.volume;
-      console.log(`audio.VolumeChanged: ${e.detail.trackId}, volume changed to ${ch.channel.volume}`);
-    });
-    document.addEventListener("InstrumentChanged", (e) => {
-      //updateInstrument(e.detail.trackId, e.detail.instrumentName);
-      console.log(`audio.InstrumentChanged: ${e.detail.trackId}, instrument changed to ${e.detail.instrumentName}`);
-    });
+    
+    const update = (key, value) => {
+      // Examples:
+      // - update("bpm", 140)
+      // - update("swing", 0.5)
+      // - update("tracks.track1.instrumentName", "MonoSynth");
+      // - update("tracks.track1.mute", true);
+      // - update("tracks.track1.devices[0]", { name: "MonoSynth", parameters: { volume: -20, cutoff: 400}})
+      // - update("tracks.track1.devices[0].volume", -10);
+      
+      let keyParts = key.split(".");
+      const propertyPath = key.substring(0, key.lastIndexOf("."));
+      if (keyParts.length == 1)
+        updateTransport(key, value);
+      else if (key.startsWith("tracks.")) {
+        key = key.replace("tracks.", "");
+        const trackId = key.split(".")[0];
+        key = key.replace(trackId + ".", "");
+        updateTrack(trackId, key, value);
+        
+      }
+    };
+    const updateTransport = (key, value) => {
+      if (key == "bpm")
+        transport.bpm.value = value;
+      else if (key == "swing")
+        transport.swing = value;
+      else if (key == "loop") {
+        transport.loop = value;
+        transport.loopStart = 0;
+      }
+      else if (key == "loopLength")
+        transport.loopEnd = toTicks(value);
+    };
+    const updateTrack = (trackId, key, value) => {
+      const ch = chain(trackId);
+      if (key.startsWith("devices[")) {
+        key = key.replace("devices[", "");
+        keyParts = key.split("].");
+        const deviceIndex = keyParts[0];
+        if (!keyParts[1])
+          updateTrackDevice(ch, deviceIndex, value);
+        else
+          updateTrackDeviceParameter(ch.devices[deviceIndex], keyParts[1], value);
+      }
+      else {
+        if (key == "volume")
+          ch.channel.volume.value = value;
+        else if (key == "mute")
+          ch.channel.mute = value;
+      }
+    };
+    const updateTrackAudioDevice = (ch, deviceIndex, deviceState) => {
+      updateTrackDevice(ch, ch.audioDevices, deviceIndex, deviceState);
+      connectAudioDevice(ch, ch.audioDevices, deviceIndex, deviceState);
+    }
+    const updateTrackModulationDevice = (ch, deviceIndex, deviceState) => {
+      updateTrackDevice(ch, ch.modulationDevices, deviceIndex, deviceState);
+      connectModulationDevice(ch, ch.audioDevices, deviceIndex, deviceState);
+    }
+    const updateTrackDevice = (ch, devices, deviceIndex, deviceState) => {
+      if (devices.length > deviceIndex) {
+        const oldDevice = devices[deviceIndex];
+        oldDevice.disconnect();
+        oldDevice.dispose();
+      }
+      let deviceNamespace = value.name;
+      let deviceNameParts = deviceNamespace.split(".");
+      deviceNamespace = deviceNameParts.length > 1 ? deviceNameParts[0] : "Tone";
+      let deviceName = deviceNameParts[deviceNameParts.length - 1];
+      let deviceParameters = value.parameters;
+      const newDevice = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceParameters) : DAWSome[deviceName](deviceParameters);
+      
+      if (devices.length <= deviceIndex)
+        devices.push(newDevice);
+      else
+        devices[deviceIndex] = newDevice;
+      
+      buildDeviceState(newDevice.name, newDevice, deviceState);
+    };
+    const connectAudioDevice = (ch, devices, deviceIndex, deviceState) => {
+      let newDevice = devices[deviceIndex];
+      if (deviceIndex > 0)
+        devices[deviceIndex - 1].connect(newDevice);
+      if (deviceIndex < devices.length - 1)
+        newDevice.connect(devices[deviceIndex + 1]);
+      else
+        newDevice.connect(ch);
+    };
+    const connectModulationDevice = (ch, modulationDevices, modulationDeviceIndex, modulationDeviceState) => {
+      const modulationDevice = modulationDevices[modulationDeviceIndex];
+      let targetAudioDevice = ch.audioDevices[modulationDeviceState.targetDeviceIndex];
+      if (!targetAudioDevice)
+        console.warn("Target device not found", modulationDeviceState.targetDeviceIndex, ch.audioDevices);
+      let parts = modulationDeviceState.targetParameter.split(".");
+      let target = targetAudioDevice;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        target = target[parts[partIndex]];
+      }
+      modulationDevice.connect(target);
+      modulationDevice.start();
+    }
+    const buildDeviceState = (deviceName, deviceContext, deviceStateContext, deviceMetadataContext, paramContextPath) => {
+      let logSteps = true;
+      if (logSteps) {
+        if (paramContextPath)
+          console.log(`getValueParams: ${paramContextPath}`, deviceMetadataContext);
+        else
+          console.log(`getValueParams: ${deviceName}`, deviceMetadataContext);
+      }
+        
+      Object.keys(deviceMetadataContext).forEach(paramName => {
+        let paramPath = paramContextPath ? paramContextPath + "." + paramName : paramName;
+        let paramMetadataPath = deviceMetadataContext[paramName];
+        if (logSteps) 
+          console.log(`Device param "${paramPath}" metadata path: ${paramMetadataPath}`);
 
+        let parts = paramMetadataPath.split("/");
+        if (parts[0] != "unitTypes" && parts[0] != "enumTypes") {
+          if (!deviceStateContext[paramName])
+            deviceStateContext[paramName] = {};
+          buildDeviceState(deviceContext[paramName], deviceStateContext[paramName], deviceList[parts[0]][parts[1]].parameters, paramPath);
+        }
+        else {
+          if (deviceContext[paramName].name && (deviceContext[paramName].name == "Signal" || deviceContext[paramName].name == "Param"))
+            deviceInfoContext[paramName] = deviceContext[paramName].value;
+          else
+            deviceInfoContext[paramName] = deviceContext[paramName];
+          if (logSteps) 
+            console.log(`Device param "${paramPath}" set: ${deviceStateContext}`);
+        }
+      })
+    };
+    const updateTrackDeviceParameter = (device, parameterName, value) => {
+      if (device[parameterName].name) 
+        device[parameterName].value = value;
+      else
+        device[parameterName] = value;
+    };
+    
     return {
       available: true,
       unlock: () => {
         Tone.start();
       },
-      setBpm: (bpm) => { transport.bpm.value = bpm; },
-      setLoop: (on, endBeats) => {
-        transport.loop = on;
-        transport.loopStart = 0;
-        transport.loopEnd = toTicks(endBeats);
-      },
-      addTrack: (track) => {
-        console.log("adding track")
-        const channel = new Tone.Channel(track.volume).toDestination();
-        channel.mute = track.mute;
-        track.devices[0].parameters = track.instrumentParameters;
-        console.log("making chain");
-        chains.set(track.id,
-          {
-            instrument: makeToneNode(track.devices[0]),
-            channel,
-            instrumentName: track.devices[0].name,
-            instrumentParameters: track.instrumentParameters,
-            effects: makeToneNodes(track.effects),
-            modulators: makeToneNodes(track.modulators.map(m => m.modulator))
-          });
-        console.log("made chain");
-
-        const ch = chain(track.id);
-        if (ch.instrument == null) throw "instrument null"
-        connectDevices(ch);
-        connectModulators(ch, track);
-        console.log("added track", chain(track.id));
-      },
-      updateTrack: (track) => {
-        console.log("updating track")
-        const ch = chain(track.id);
-        if (ch.instrumentName !== track.instrumentName || ch.instrumentParameters !== track.instrumentParameters) {
-          console.log("updating instrument", track.instrumentName, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
-          ch.instrument.dispose();
-          track.devices[0] = {
-            name: track.instrumentName,
-            presetName: "",
-            parameters: {}
-          }
-          track.devices[0].parameters = track.instrumentParameters;
-          console.log("making device node")
-          ch.instrument = makeToneNode(track.devices[0]);
-          //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
-          ch.instrumentName = track.instrumentName;
-          ch.instrumentParameters = track.instrumentParameters;
-          connectDevices(ch);
-          console.log("made device node")
-        }
-        if (ch.instrumentParameters !== track.instrumentParameters) {
-          console.log("updating instrument", track.devices[0].name, ch.instrumentName, ch.instrumentParameters, track.instrumentParameters);
-          ch.instrument.dispose();
-          track.devices[0].parameters = track.instrumentParameters;
-          ch.instrument = makeToneNode(track.devices[0]);
-          //console.log("updated instrument", track.instrumentName, track.instrumentParameters);
-          ch.instrumentName = track.instrumentName;
-          ch.instrumentParameters = track.instrumentParameters;
-          connectDevices(ch);
-        }
-        if (track.effects.length != ch.effects.length) {
-          ch.effects = makeToneNodes(track.effects);
-          connectDevices(ch);
-        }
-        if (track.modulators.length != ch.modulators.length) {
-          ch.modulators = makeToneNodes(track.modulators.map(m => m.modulator));
-          connectModulators(ch, track);
-        }
-      },
-
       getTrackInstrument: (track) => {
         const ch = chain(track.id);
         return ch.instrument;
@@ -804,6 +866,7 @@
     const ppq = division;
 
     let bpm = null;
+    let 
     const tracks = [];
     for (let t = 0; t < trackCount && pos < bytes.length; t++) {
       if (str(4) !== "MTrk") throw new Error("Malformed track chunk.");
@@ -926,9 +989,10 @@
       mute: false,
       volume: -8
     };
+    stateManager.updateState(`tracks.${track.id}`, track);
     try {
-      state.tracks.push(track);
-      audio.addTrack(track);
+      //state.tracks.push(track);
+      //audio.addTrack(track);
       selectTrack(track);
       mixer.addTrackFader(track);
       console.log("added track model", track)
@@ -990,7 +1054,8 @@
 
   // Everything that must follow a change to clip placement, tracks, or loop length.
   function arrangementChanged() {
-    audio.setLoop(state.loop, songEndBeats());
+    stateManager.updateState("loop", true);
+    //audio.setLoop(state.loop, songEndBeats());
     av.updateSpacer();
     renderTrackHeaders();
     av.requestRender();
@@ -1005,8 +1070,6 @@
     ev.requestRender();
     av.requestRender();
   }
-
-
 
   function editorClipChanged() {
     console.log("clip changed")
@@ -1197,710 +1260,723 @@
     }
   }
 
-  av.o.scroller.addEventListener("scroll", () => {
-    dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
-  });
-
-  dom.trackHeadersWrap.addEventListener("click", (e) => {
-    console.log("click", e.currentTarget, e.target, e.srcElement)
-    if (e.target === dom.trackHeadersWrap) deselectTrack();
-  }
-  );
-  dom.trackHeaders.addEventListener("click", (e) => {
-    const el = e.target.closest(".track");
-    if (!el) return;
-    const track = trackById(Number(el.dataset.id));
-    selectTrack(track);
-    if (e.target.classList.contains("mute")) {
-      track.mute = !track.mute;
-      audio.updateTrack(track);
-      document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
-    } else if (e.target.classList.contains("del")) {
-      removeTrack(track.id);
-      if (!currentClip()) editorClipChanged();
-      document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
-    } else if (e.target.classList.contains("name")) {
-      bottomPanelManager.refreshActivePanel();
-      return false;
+  {
+    av.o.scroller.addEventListener("scroll", () => {
+      dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
+    });
+  
+    dom.trackHeadersWrap.addEventListener("click", (e) => {
+      console.log("click", e.currentTarget, e.target, e.srcElement)
+      if (e.target === dom.trackHeadersWrap) deselectTrack();
     }
-    arrangementChanged();
-    e.preventDefault();
-    //e.cancelBubble();
-  });
-
-  dom.trackHeaders.addEventListener("change", (e) => {
-    const el = e.target.closest(".track");
-    if (!el) return;
-    const track = trackById(Number(el.dataset.id));
-
-    if (e.target.classList.contains("name")) {
-      track.name = e.target.value.trim() || track.name;
-      e.target.value = track.name;
-      editorClipChanged();
-      document.dispatchEvent(new CustomEvent("TrackNameChanged", { detail: { trackId: track.id, trackName: track.name } }));
-    }
-    arrangementChanged();
-  });
-
-  function fillDevicePresets(el, presets, deviceName) {
-    console.log("fillDevicePresets", presets, deviceName)
-
-    let instSelect = el.querySelector(".inst");
-    let presetSelect = el.querySelector(".instPreset");
-    presetSelect.innerHTML = "";
-    if (!presets[deviceName])
-      return;
-    console.log("found presets for " + deviceName, presets[deviceName])
-    Object.keys(presets[deviceName]).forEach(presetName => {
-      presetSelect.innerHTML += `<option value="${presetName}">${presetName}</option>`;
-    })
-  }
-
-  dom.trackHeaders.addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
-
-  let aDrag = null;   // { type: "move" | "resize", pointerId, clip, start0, length0, beat0, row0, x0, vx0, vy0, moved }
-
-  av.o.scroller.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
-    audio.unlock();//.catch(() => { });
-    if (av.trackDown(e)) { aDrag = null; return; }
-    const p = av.point(e);
-    const clip = clipAt(p.beat, p.row);
-    if (!clip) {
-      deselectClip();
-      console.log("deselect xlip")
-      return;
-    }
-    selectClip(clip);
-    if (!state.drawClips) return;
-    aDrag = {
-      type: onClipRightEdge(clip, p.x) ? "resize" : "move", pointerId: e.pointerId, clip,
-      start0: clip.start, length0: clip.length, beat0: p.beat, row0: p.row, x0: p.x, vx0: p.vx, vy0: p.vy, moved: false,
-    };
-    if (e.pointerType !== "touch") av.o.scroller.setPointerCapture(e.pointerId);
-    av.requestRender();
-  });
-
-  av.o.scroller.addEventListener("pointermove", (e) => {
-    if (av.trackMove(e)) return;
-    if (!aDrag || aDrag.pointerId !== e.pointerId) {
-      if (e.pointerType === "mouse") {
-        const p = av.point(e);
-        const clip = clipAt(p.beat, p.row);
-        av.o.scroller.style.cursor = clip ? (onClipRightEdge(clip, p.x) ? "ew-resize" : "move") : "default";
+    );
+    dom.trackHeaders.addEventListener("click", (e) => {
+      const el = e.target.closest(".track");
+      if (!el) return;
+      const track = trackById(Number(el.dataset.id));
+      selectTrack(track);
+      if (e.target.classList.contains("mute")) {
+        track.mute = !track.mute;
+        audio.updateTrack(track);
+        document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
+      } else if (e.target.classList.contains("del")) {
+        removeTrack(track.id);
+        if (!currentClip()) editorClipChanged();
+        document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
+      } else if (e.target.classList.contains("name")) {
+        bottomPanelManager.refreshActivePanel();
+        return false;
       }
-      return;
-    }
-    const p = av.point(e);
-    const d = aDrag;
-    if (!d.moved) {
-      if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < DRAG_THRESHOLD) return;
-      d.moved = true;
-    }
-    const step = arrangementStep();
-    if (d.type === "move") {
-      d.clip.start = Math.max(0, snapRound(d.start0 + (p.beat - d.beat0), step));
-      const track = state.tracks[p.row];
-      if (track && track.id !== d.clip.trackId) {
-        d.clip.trackId = track.id;
-        selectTrack(track);
-        renderTrackHeaders();
-      }
-    } else {
-      const end = snapRound(d.start0 + d.length0 + (p.x - d.x0) / av.pxPerBeat, step);
-      d.clip.length = Math.max(step, end - d.clip.start);
-    }
-    av.updateSpacer();
-    av.requestRender();
-  });
-
-  function endArrangementPointer(e) {
-    if (av.trackUp(e)) return;
-    if (!aDrag || aDrag.pointerId !== e.pointerId) return;
-    const d = aDrag;
-    aDrag = null;
-    if (d.moved) {
-      audio.rebuildClip(d.clip);
       arrangementChanged();
-      editorClipChanged();
-    }
-  }
-  av.o.scroller.addEventListener("pointerup", endArrangementPointer);
-  av.o.scroller.addEventListener("pointercancel", endArrangementPointer);
-  av.o.scroller.addEventListener("touchmove", (e) => {
-    if (e.touches.length >= 2 || aDrag) e.preventDefault();
-  }, { passive: false });
-
-  av.o.scroller.addEventListener("dblclick", (e) => {
-    const p = av.point(e);
-    const track = state.tracks[p.row];
-    if (!track || clipAt(p.beat, p.row)) return;
-    const start = snapFloor(p.beat, BEATS_PER_BAR);
-    if (!state.drawClips) return;
-    selectClip(createClip(track, start, BEATS_PER_BAR));
-    arrangementChanged();
-  });
-
-  av.o.scroller.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    const p = av.point(e);
-    const clip = clipAt(p.beat, p.row);
-    if (!clip) return;
-    removeClip(clip.id);
-    arrangementChanged();
-    editorClipChanged();
-  });
-
-  // ===== Clip editor (piano roll) =====
-  const ev = new TimelineView({
-    gridWrap: $("edGridWrap"), gridCanvas: $("edGridCanvas"), rulerWrap: $("edRulerWrap"), rulerCanvas: $("edRulerCanvas"),
-    scroller: $("edScroller"), spacer: $("edSpacer"),
-    hZoom: { min: 8, max: 400 }, vZoom: { min: 6, max: 40 }, rowHeight: 18,
-    rowCount: () => PITCH_COUNT,
-    contentBeats: () => {
-      const clip = currentClip();
-      if (!clip) return BEATS_PER_BAR;
-      const lastEnd = clip.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-      return Math.max(ceilBars(clip.length), ceilBars(lastEnd));
-    },
-    render: renderEditor,
-    onLocate: (beat) => {
-      const clip = currentClip();
-      if (!clip) return;
-      setPlayhead(clip.start + clamp(ed.snap ? snapRound(beat, editorStep()) : beat, 0, clip.length));
-    },
-    onZoom: () => { dom.gridReadout.textContent = editorGrid().label; },
-  });
-
-  const editorGrid = () => gridStep(ed.gridMode, ed.triplet, ev.pxPerBeat);
-  const editorStep = () => editorGrid().step;
-  const pitchToRow = (pitch) => TOP_PITCH - pitch;
-  const rowToPitch = (row) => TOP_PITCH - row;
-  const editorPlayhead = () => {
-    const clip = currentClip();
-    if (!clip) return null;
-    const local = state.playheadBeat - clip.start;
-    return local >= 0 && local <= ev.o.contentBeats() ? local : null;
-  };
-
-  function renderEditor() {
-    const c = ev.grid;
-    const { W, H, sx, sy, drawW, firstRow, lastRow } = ev.viewport();
-    const rh = ev.rowHeight;
-    const clip = currentClip();
-    c.fillStyle = COLORS.void;
-    c.fillRect(0, 0, W, H);
-    renderKeys();
-    if (!clip) {
-      ev.drawRuler({ subStep: null, regionEnd: 0, playheadBeat: null });
-      c.fillStyle = COLORS.message;
-      c.font = "13px system-ui, sans-serif";
-      c.textAlign = "center";
-      c.textBaseline = "middle";
-      c.fillText("Select a clip above, or press + Clip", W / 2, Math.min(H / 2, 60));
-      return;
-    }
-    for (let row = firstRow; row <= lastRow; row++) {
-      const pitch = rowToPitch(row);
-      const y = row * rh - sy;
-      c.fillStyle = BLACK_KEYS.has(pitch % 12) ? COLORS.rowBlack : COLORS.rowWhite;
-      c.fillRect(0, y, drawW, rh);
-      if (pitch % 12 === 0) {
-        c.fillStyle = COLORS.octaveLine;
-        c.fillRect(0, y + rh - 1, drawW, 1);
+      e.preventDefault();
+      //e.cancelBubble();
+    });
+  
+    dom.trackHeaders.addEventListener("change", (e) => {
+      const el = e.target.closest(".track");
+      if (!el) return;
+      const track = trackById(Number(el.dataset.id));
+  
+      if (e.target.classList.contains("name")) {
+        track.name = e.target.value.trim() || track.name;
+        e.target.value = track.name;
+        editorClipChanged();
+        document.dispatchEvent(new CustomEvent("TrackNameChanged", { detail: { trackId: track.id, trackName: track.name } }));
       }
-    }
-    const step = editorStep();
-    ev.drawVerticalLines(c, H, step, drawW);
-    ev.drawRegion(c, H, clip.length, drawW);
-
-    for (const n of clip.notes) {
-      const x0 = ev.beatToX(n.start) - sx, x1 = ev.beatToX(n.start + n.duration) - sx;
-      const y = pitchToRow(n.pitch) * rh - sy;
-      if (x1 < 0 || x0 > W || y + rh < 0 || y > H) continue;
-      const w = Math.max(2, x1 - x0 - 1), h = Math.max(2, rh - 2);
-      c.fillStyle = ed.selected.has(n.id) ? n.velocity == ACCENT_VELOCITY ? COLORS.accentNoteSelected : COLORS.noteSelected : n.velocity == ACCENT_VELOCITY ? COLORS.accentNote : COLORS.note;
-      c.fillRect(Math.round(x0), y + 1, w, h);
-      c.strokeStyle = n.slide ? COLORS.slideNoteBorder : COLORS.noteBorder;
-      c.lineWidth = 1;
-      c.strokeRect(Math.round(x0) + 0.5, y + 1.5, w - 1, h - 1);
-    }
-    const ph = editorPlayhead();
-    if (ph !== null) ev.drawPlayhead(c, H, ph);
-    ev.drawRuler({ subStep: step, regionEnd: clip.length, playheadBeat: ph });
-  }
-
-  let keysCtx = null;
-  function renderKeys() {
-    const c = keysCtx;
-    if (!c) return;
-    const W = dom.edKeysCanvas.clientWidth, H = dom.edKeysCanvas.clientHeight;
-    const { sy, firstRow, lastRow } = ev.viewport();
-    const rh = ev.rowHeight;
-    const blackW = Math.round(W * 0.62);
-    const showAll = rh >= 16;
-    c.fillStyle = COLORS.void;
-    c.fillRect(0, 0, W, H);
-    c.font = `${clamp(rh - 5, 8, 11)}px system-ui, sans-serif`;
-    c.textBaseline = "middle";
-    c.textAlign = "right";
-    for (let row = firstRow; row <= lastRow; row++) {
-      const pitch = rowToPitch(row);
-      const y = row * rh - sy;
-      const black = BLACK_KEYS.has(pitch % 12);
-      const active = ed.activeKey === pitch;
-      c.fillStyle = active ? COLORS.keyActive : COLORS.keyWhite;
-      c.fillRect(0, y, W, rh);
-      if (black) {
-        c.fillStyle = active ? COLORS.keyActive : COLORS.keyBlack;
-        c.fillRect(0, y, blackW, rh);
-      }
-      if (pitch % 12 === 0 || pitch % 12 === 5) {
-        c.fillStyle = COLORS.keyBorder;
-        c.fillRect(0, y + rh - 1, W, 1);
-      }
-      if (rh >= 8 && (pitch % 12 === 0 || showAll)) {
-        c.fillStyle = black ? COLORS.keyTextLight : COLORS.keyTextDark;
-        c.fillText(midiName(pitch), (black ? blackW : W) - 3, y + rh / 2 + 0.5);
-      }
-    }
-  }
-
-  // --- note editing ---
-  function noteAt(clip, beat, pitch) {
-    for (let i = clip.notes.length - 1; i >= 0; i--) {
-      const n = clip.notes[i];
-      if (n.pitch === pitch && beat >= n.start && beat < n.start + n.duration) return n;
-    }
-    return null;
-  }
-  const onNoteRightEdge = (n, x) => x >= ev.beatToX(n.start + n.duration) - Math.min(8, ev.beatToX(n.duration) * 0.4);
-
-  function addNoteAt(clip, beat, pitch) {
-    const step = editorStep();
-    const start = Math.max(0, ed.snap ? snapFloor(beat, step) : beat);
-    if (noteAt(clip, start + EPS, pitch)) return null;
-    let duration = step ?? ed.lastDuration;
-    for (const o of clip.notes) {
-      if (o.pitch === pitch && o.start > start + EPS) duration = Math.min(duration, o.start - start);
-    }
-    if (duration < EPS) return null;
-    const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? ACCENT_VELOCITY : DEFAULT_VELOCITY, slide: ed.slide };
-    clip.notes.push(note);
-    audio.preview(clip.trackId, pitch);
-    notesChanged();
-    return note;
-  }
-
-  function pruneNotes(clip, ids) {
-    const set = new Set(ids);
-    if (!set.size) return;
-    clip.notes = clip.notes.filter((n) => !set.has(n.id));
-    for (const id of set) ed.selected.delete(id);
-  }
-
-  function deleteNotes(clip, ids) {
-    pruneNotes(clip, ids);
-    notesChanged();
-  }
-
-  function resolveOverlaps(clip, note) {
-    const end = note.start + note.duration;
-    const doomed = [];
-    for (const other of clip.notes) {
-      if (other === note || other.pitch !== note.pitch) continue;
-      const otherEnd = other.start + other.duration;
-      if (otherEnd <= note.start + EPS || other.start >= end - EPS) continue;
-      if (other.start < note.start - EPS) other.duration = note.start - other.start;
-      else if (otherEnd > end + EPS) { other.duration = otherEnd - end; other.start = end; }
-      else doomed.push(other.id);
-    }
-    pruneNotes(clip, doomed);
-  }
-
-  let nDrag = null;   // { type: "tap" | "paint" | "move" | "resize", pointerId, ... }
-
-  function beginNoteMove(clip, note, p, pointerId) {
-    const group = !ed.drawMode && ed.selected.has(note.id) ? clip.notes.filter((n) => ed.selected.has(n.id)) : [note];
-    nDrag = {
-      type: "move", pointerId, anchor: note, moved: false,
-      items: group.map((n) => ({ note: n, start: n.start, pitch: n.pitch })),
-      beat0: p.beat, pitch0: rowToPitch(p.row), vx0: p.vx, vy0: p.vy, lastPreview: note.pitch,
-    };
-  }
-
-  function updateNoteMove(clip, p) {
-    const d = nDrag;
-    if (!d.moved) {
-      if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < DRAG_THRESHOLD) return;
-      d.moved = true;
-    }
-    const step = editorStep();
-    const anchor = d.items.find((it) => it.note === d.anchor);
-    const target = anchor.start + (p.beat - d.beat0);
-    const minStart = Math.min(...d.items.map((it) => it.start));
-    const minPitch = Math.min(...d.items.map((it) => it.pitch));
-    const maxPitch = Math.max(...d.items.map((it) => it.pitch));
-    const dBeat = Math.max((ed.snap ? snapRound(target, step) : target) - anchor.start, -minStart);
-    const dPitch = clamp(rowToPitch(p.row) - d.pitch0, -minPitch, TOP_PITCH - maxPitch);
-    for (const it of d.items) {
-      it.note.start = it.start + dBeat;
-      it.note.pitch = it.pitch + dPitch;
-    }
-    if (d.anchor.pitch !== d.lastPreview) {
-      d.lastPreview = d.anchor.pitch;
-      audio.preview(clip.trackId, d.anchor.pitch);
-    }
-    ev.updateSpacer();
-    ev.requestRender();
-  }
-
-  function updateNoteResize(p) {
-    const d = nDrag;
-    const step = editorStep();
-    const rawEnd = d.note.start + d.duration0 + (p.x - d.x0) / ev.pxPerBeat;
-    const end = ed.snap ? snapRound(rawEnd, step) : rawEnd;
-    d.note.duration = Math.max(step ?? MIN_FREE_DURATION, end - d.note.start);
-    ed.lastDuration = d.note.duration;
-    ev.updateSpacer();
-    ev.requestRender();
-  }
-
-  function updatePaint(clip, p) {
-    const step = editorStep();
-    if (!step || !ed.snap) return;
-    const cell = snapFloor(p.beat, step);
-    if (cell === nDrag.lastCell) return;
-    nDrag.lastCell = cell;
-    addNoteAt(clip, cell, nDrag.pitch);
-  }
-
-  function commitNoteEdit(clip, d) {
-    const notes = d.type === "move" ? d.items.map((it) => it.note) : [d.note];
-    for (const n of notes) {
-      if (clip.notes.includes(n)) resolveOverlaps(clip, n);
-    }
-    notesChanged();
-  }
-
-  ev.o.scroller.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
-    audio.unlock();//.catch(() => { });
-    if (ev.trackDown(e)) { nDrag = null; return; }
-    const clip = currentClip();
-    if (!clip) return;
-    const p = ev.point(e);
-    const pitch = rowToPitch(p.row);
-    const touch = e.pointerType === "touch";
-    const hit = noteAt(clip, p.beat, pitch);
-    if (hit) {
-      if (!ed.drawMode) {
-        if (e.shiftKey) {
-          if (ed.selected.has(hit.id)) ed.selected.delete(hit.id);
-          else ed.selected.add(hit.id);
-        } else if (!ed.selected.has(hit.id)) {
-          ed.selected.clear();
-          ed.selected.add(hit.id);
-        }
-      }
-      if (onNoteRightEdge(hit, p.x)) nDrag = { type: "resize", pointerId: e.pointerId, note: hit, x0: p.x, duration0: hit.duration };
-      else beginNoteMove(clip, hit, p, e.pointerId);
-      nDrag.shift = e.shiftKey;
-    } else if (ed.drawMode) {
-      if (touch) {
-        nDrag = { type: "tap", pointerId: e.pointerId, vx0: p.vx, vy0: p.vy, beat: p.beat, pitch };
-      } else {
-        const note = addNoteAt(clip, p.beat, pitch);
-        nDrag = { type: "paint", pointerId: e.pointerId, pitch, lastCell: note ? note.start : null };
-      }
-    } else if (!e.shiftKey) {
-      ed.selected.clear();
-    }
-    if (nDrag && !touch) ev.o.scroller.setPointerCapture(e.pointerId);
-    ev.requestRender();
-  });
-
-  ev.o.scroller.addEventListener("pointermove", (e) => {
-    if (ev.trackMove(e)) return;
-    const clip = currentClip();
-    if (!clip) return;
-    if (!nDrag || nDrag.pointerId !== e.pointerId) {
-      if (e.pointerType === "mouse") {
-        const p = ev.point(e);
-        const hit = noteAt(clip, p.beat, rowToPitch(p.row));
-        ev.o.scroller.style.cursor = hit ? (onNoteRightEdge(hit, p.x) ? "ew-resize" : ed.drawMode ? "pointer" : "move")
-          : ed.drawMode ? "crosshair" : "default";
-      }
-      return;
-    }
-    const p = ev.point(e);
-    switch (nDrag.type) {
-      case "tap": if (Math.hypot(p.vx - nDrag.vx0, p.vy - nDrag.vy0) > TAP_SLOP) nDrag = null; break;
-      case "paint": updatePaint(clip, p); break;
-      case "move": updateNoteMove(clip, p); break;
-      case "resize": updateNoteResize(p); break;
-    }
-  });
-
-  function endEditorPointer(e, cancelled) {
-    if (ev.trackUp(e)) return;
-    if (!nDrag || nDrag.pointerId !== e.pointerId) return;
-    const d = nDrag;
-    nDrag = null;
-    const clip = currentClip();
-    if (!clip) return;
-    if (d.type === "tap") {
-      if (!cancelled) addNoteAt(clip, d.beat, d.pitch);
-    } else if (d.type === "move") {
-      if (d.moved) commitNoteEdit(clip, d);
-      else if (!cancelled && ed.drawMode) deleteNotes(clip, [d.anchor.id]);
-      else if (!cancelled && !d.shift) { ed.selected.clear(); ed.selected.add(d.anchor.id); }
-    } else if (d.type === "resize") {
-      commitNoteEdit(clip, d);
-    }
-    ev.requestRender();
-  }
-  ev.o.scroller.addEventListener("pointerup", (e) => endEditorPointer(e, false));
-  ev.o.scroller.addEventListener("pointercancel", (e) => endEditorPointer(e, true));
-  ev.o.scroller.addEventListener("touchmove", (e) => {
-    if (e.touches.length >= 2 || (nDrag && (nDrag.type === "move" || nDrag.type === "resize"))) e.preventDefault();
-  }, { passive: false });
-
-  ev.o.scroller.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    const clip = currentClip();
-    if (!clip) return;
-    const p = ev.point(e);
-    const hit = noteAt(clip, p.beat, rowToPitch(p.row));
-    if (hit) deleteNotes(clip, [hit.id]);
-  });
-
-  ev.o.scroller.addEventListener("dblclick", (e) => {
-    const clip = currentClip();
-    if (!clip || ed.drawMode) return;
-    const p = ev.point(e);
-    if (!noteAt(clip, p.beat, rowToPitch(p.row))) addNoteAt(clip, p.beat, rowToPitch(p.row));
-  });
-
-  // --- piano keys: tap plays, drag ↕ scrolls, drag ↔ zooms ---
-  let keyDrag = null;
-  const keyPitchAt = (e) => rowToPitch(clamp(Math.floor((e.clientY - dom.edKeysCanvas.getBoundingClientRect().top + ev.o.scroller.scrollTop) / ev.rowHeight), 0, TOP_PITCH));
-
-  function keyOff() {
-    if (ed.activeKey === null) return;
-    const clip = currentClip();
-    audio.keyOff(clip ? clip.trackId : state.selectedTrackId, ed.activeKey);
-    ed.activeKey = null;
-    ev.requestRender();
-  }
-
-  dom.edKeysCanvas.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return;
-    audio.unlock();//.catch(() => { });
-    dom.edKeysCanvas.setPointerCapture(e.pointerId);
-    const anchorY = e.clientY - dom.edKeysCanvas.getBoundingClientRect().top;
-    keyDrag = {
-      pointerId: e.pointerId, mode: "key", x0: e.clientX, y0: e.clientY, anchorY,
-      scrollTop0: ev.o.scroller.scrollTop, rowHeight0: ev.rowHeight,
-      rowAtAnchor: (ev.o.scroller.scrollTop + anchorY) / ev.rowHeight,
-    };
-    const clip = currentClip();
-    ed.activeKey = keyPitchAt(e);
-    audio.keyOn(clip ? clip.trackId : state.selectedTrackId, ed.activeKey);
-    ev.requestRender();
-  });
-  dom.edKeysCanvas.addEventListener("pointermove", (e) => {
-    if (!keyDrag || keyDrag.pointerId !== e.pointerId) return;
-    const dx = e.clientX - keyDrag.x0, dy = e.clientY - keyDrag.y0;
-    if (keyDrag.mode === "key") {
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-      keyOff();
-      keyDrag.mode = Math.abs(dx) > Math.abs(dy) ? "zoom" : "scroll";
-    }
-    if (keyDrag.mode === "scroll") ev.o.scroller.scrollTop = keyDrag.scrollTop0 - dy;
-    else ev.setRowHeight(keyDrag.rowHeight0 * Math.exp(dx * 0.01), keyDrag.anchorY, keyDrag.rowAtAnchor);
-  });
-  const endKeyPointer = () => { keyOff(); keyDrag = null; };
-  dom.edKeysCanvas.addEventListener("pointerup", endKeyPointer);
-  dom.edKeysCanvas.addEventListener("pointercancel", endKeyPointer);
-  dom.edKeysCanvas.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    const { dy } = wheelDeltas(e);
-    if (e.altKey || e.ctrlKey || e.metaKey) ev.zoomV(Math.exp(-dy * 0.002), e.clientY - dom.edKeysCanvas.getBoundingClientRect().top);
-    else ev.o.scroller.scrollTop += dy;
-  }, { passive: false });
-
-  // ===== Transport =====
-  function updatePosReadout() {
-    const b = state.playheadBeat;
-    dom.pos.textContent = `${Math.floor(b / BEATS_PER_BAR) + 1}.${Math.floor(b % BEATS_PER_BAR) + 1}.${Math.floor((b % 1) * 4) + 1}`;
-  }
-
-  function setPlayhead(beat) {
-    state.playheadBeat = beat;
-    audio.seek(beat);
-    updatePosReadout();
-    av.requestRender();
-    ev.requestRender();
-  }
-
-  function followPlayhead(view, beat) {
-    const s = view.o.scroller;
-    const x = view.beatToX(beat);
-    if (x < s.scrollLeft || x > s.scrollLeft + s.clientWidth) s.scrollLeft = x - 8;
-  }
-
-  function tickPlayhead() {
-    if (!state.playing) return;
-    state.playheadBeat = audio.positionBeat();
-    updatePosReadout();
-    if (state.follow) {
-      followPlayhead(av, state.playheadBeat);
-      const local = editorPlayhead();
-      if (local !== null) followPlayhead(ev, local);
-    }
-    av.requestRender();
-    ev.requestRender();
-    requestAnimationFrame(tickPlayhead);
-  }
-
-  async function togglePlay() {
-    if (state.playing) {
-      audio.stop();
-      state.playing = false;
-      setPlayhead(0);
-    } else {
-      try {
-        await audio.play();
-        state.playing = true;
-        requestAnimationFrame(tickPlayhead);
-      } catch (err) {
-        console.error("Playback could not start:", err);
-      }
-    }
-    dom.play.textContent = state.playing ? "■" : "▶";
-    dom.play.classList.toggle("on", state.playing);
-  }
-
-  // ===== MIDI import =====
-  function importMidi(parsed, fileName) {
-    if (parsed.bpm) setBpm(clamp(Math.round(parsed.bpm), 20, 300));
-    const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
-    let first = null;
-    for (const t of parsed.tracks) {
-      
-        
-      const track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
-      const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-      const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
-      const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), notes);
-      first = first ?? clip;
-    }
-    if (first) selectClip(first);
-    arrangementChanged();
-    editorClipChanged();
-    return parsed.tracks.length;
-  }
-
-  function loadProject(projectData, fileName) {
-    console.log("loadProject " + fileName, projectData)
-    const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
-    let first = null;
-    for (const t of projectData.tracks) {
-      let track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
-      console.log("added track");
-
-      let clips = projectData.clips.filter(c => c.trackId == t.id);
-      clips.forEach(c => {
-        console.log("adding clip", c)
-        const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-        const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes, c.end);
-        console.log("added clip")
-        first = first ?? clip;
+      arrangementChanged();
+    });
+  
+    function fillDevicePresets(el, presets, deviceName) {
+      console.log("fillDevicePresets", presets, deviceName)
+  
+      let instSelect = el.querySelector(".inst");
+      let presetSelect = el.querySelector(".instPreset");
+      presetSelect.innerHTML = "";
+      if (!presets[deviceName])
+        return;
+      console.log("found presets for " + deviceName, presets[deviceName])
+      Object.keys(presets[deviceName]).forEach(presetName => {
+        presetSelect.innerHTML += `<option value="${presetName}">${presetName}</option>`;
       })
     }
-
-    console.log("loadProject parsed " + fileName, projectData)
-    state = projectData;
-    if (first) selectClip(first);
-    arrangementChanged();
-    editorClipChanged();
-    console.log("loaded project", state.tracks.length)
-    return projectData.tracks.length;
-  }
-
-  function saveProject() {
-    let projectJson = JSON.stringify(state);
-    if (window.navigator.userAgent.toString().startsWith("Mozilla/5.0 (Linux; Android 16; SM-A556B")) {
-      console.log("Project saved", { "json": projectJson });
-      return;
+  
+    dom.trackHeaders.addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+  
+    let aDrag = null;   // { type: "move" | "resize", pointerId, clip, start0, length0, beat0, row0, x0, vx0, vy0, moved }
+  
+    av.o.scroller.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      audio.unlock();//.catch(() => { });
+      if (av.trackDown(e)) { aDrag = null; return; }
+      const p = av.point(e);
+      const clip = clipAt(p.beat, p.row);
+      if (!clip) {
+        deselectClip();
+        console.log("deselect xlip")
+        return;
+      }
+      selectClip(clip);
+      if (!state.drawClips) return;
+      aDrag = {
+        type: onClipRightEdge(clip, p.x) ? "resize" : "move", pointerId: e.pointerId, clip,
+        start0: clip.start, length0: clip.length, beat0: p.beat, row0: p.row, x0: p.x, vx0: p.vx, vy0: p.vy, moved: false,
+      };
+      if (e.pointerType !== "touch") av.o.scroller.setPointerCapture(e.pointerId);
+      av.requestRender();
+    });
+  
+    av.o.scroller.addEventListener("pointermove", (e) => {
+      if (av.trackMove(e)) return;
+      if (!aDrag || aDrag.pointerId !== e.pointerId) {
+        if (e.pointerType === "mouse") {
+          const p = av.point(e);
+          const clip = clipAt(p.beat, p.row);
+          av.o.scroller.style.cursor = clip ? (onClipRightEdge(clip, p.x) ? "ew-resize" : "move") : "default";
+        }
+        return;
+      }
+      const p = av.point(e);
+      const d = aDrag;
+      if (!d.moved) {
+        if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < DRAG_THRESHOLD) return;
+        d.moved = true;
+      }
+      const step = arrangementStep();
+      if (d.type === "move") {
+        d.clip.start = Math.max(0, snapRound(d.start0 + (p.beat - d.beat0), step));
+        const track = state.tracks[p.row];
+        if (track && track.id !== d.clip.trackId) {
+          d.clip.trackId = track.id;
+          selectTrack(track);
+          renderTrackHeaders();
+        }
+      } else {
+        const end = snapRound(d.start0 + d.length0 + (p.x - d.x0) / av.pxPerBeat, step);
+        d.clip.length = Math.max(step, end - d.clip.start);
+      }
+      av.updateSpacer();
+      av.requestRender();
+    });
+  
+    function endArrangementPointer(e) {
+      if (av.trackUp(e)) return;
+      if (!aDrag || aDrag.pointerId !== e.pointerId) return;
+      const d = aDrag;
+      aDrag = null;
+      if (d.moved) {
+        audio.rebuildClip(d.clip);
+        arrangementChanged();
+        editorClipChanged();
+      }
     }
-
-    var a = document.createElement("a");
-    var file = new Blob([projectJson], { type: "text/plain" });
-    a.href = URL.createObjectURL(file);
-    a.download = `${state.name}.json`;
-    a.click();
+    av.o.scroller.addEventListener("pointerup", endArrangementPointer);
+    av.o.scroller.addEventListener("pointercancel", endArrangementPointer);
+    av.o.scroller.addEventListener("touchmove", (e) => {
+      if (e.touches.length >= 2 || aDrag) e.preventDefault();
+    }, { passive: false });
+  
+    av.o.scroller.addEventListener("dblclick", (e) => {
+      const p = av.point(e);
+      const track = state.tracks[p.row];
+      if (!track || clipAt(p.beat, p.row)) return;
+      const start = snapFloor(p.beat, BEATS_PER_BAR);
+      if (!state.drawClips) return;
+      selectClip(createClip(track, start, BEATS_PER_BAR));
+      arrangementChanged();
+    });
+  
+    av.o.scroller.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const p = av.point(e);
+      const clip = clipAt(p.beat, p.row);
+      if (!clip) return;
+      removeClip(clip.id);
+      arrangementChanged();
+      editorClipChanged();
+    });
   }
-
-  function updateSongSettingsUI() {
-    dom.projectName.value = state.name;
-    dom.bpm.value = state.bpm;
-    dom.follow.classList.toggle("on", state.follow);
-    dom.loop.classList.toggle("on", state.loop);
-    dom.drawClips.classList.toggle("on", state.drawClips);
-  }
-
-  dom.importBtn.addEventListener("click", () => dom.midiFile.click());
-  dom.midiFile.addEventListener("change", async () => {
-    const file = dom.midiFile.files[0];
-    dom.midiFile.value = "";
-    if (!file) return;
-    try {
-      const count = importMidi(parseMidiFile(await file.arrayBuffer()), file.name.replace(/\.midi?$/i, ""));
-      dom.hint.textContent = count ? `Imported ${count} track${count === 1 ? "" : "s"} from ${file.name} at the playhead.`
-        : `${file.name} contains no notes.`;
-    } catch (err) {
-      dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
+  
+  {
+    // ===== Clip editor (piano roll) =====
+    const ev = new TimelineView({
+      gridWrap: $("edGridWrap"), gridCanvas: $("edGridCanvas"), rulerWrap: $("edRulerWrap"), rulerCanvas: $("edRulerCanvas"),
+      scroller: $("edScroller"), spacer: $("edSpacer"),
+      hZoom: { min: 8, max: 400 }, vZoom: { min: 6, max: 40 }, rowHeight: 18,
+      rowCount: () => PITCH_COUNT,
+      contentBeats: () => {
+        const clip = currentClip();
+        if (!clip) return BEATS_PER_BAR;
+        const lastEnd = clip.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
+        return Math.max(ceilBars(clip.length), ceilBars(lastEnd));
+      },
+      render: renderEditor,
+      onLocate: (beat) => {
+        const clip = currentClip();
+        if (!clip) return;
+        setPlayhead(clip.start + clamp(ed.snap ? snapRound(beat, editorStep()) : beat, 0, clip.length));
+      },
+      onZoom: () => { dom.gridReadout.textContent = editorGrid().label; },
+    });
+  
+    const editorGrid = () => gridStep(ed.gridMode, ed.triplet, ev.pxPerBeat);
+    const editorStep = () => editorGrid().step;
+    const pitchToRow = (pitch) => TOP_PITCH - pitch;
+    const rowToPitch = (row) => TOP_PITCH - row;
+    const editorPlayhead = () => {
+      const clip = currentClip();
+      if (!clip) return null;
+      const local = state.playheadBeat - clip.start;
+      return local >= 0 && local <= ev.o.contentBeats() ? local : null;
+    };
+  
+    function renderEditor() {
+      const c = ev.grid;
+      const { W, H, sx, sy, drawW, firstRow, lastRow } = ev.viewport();
+      const rh = ev.rowHeight;
+      const clip = currentClip();
+      c.fillStyle = COLORS.void;
+      c.fillRect(0, 0, W, H);
+      renderKeys();
+      if (!clip) {
+        ev.drawRuler({ subStep: null, regionEnd: 0, playheadBeat: null });
+        c.fillStyle = COLORS.message;
+        c.font = "13px system-ui, sans-serif";
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        c.fillText("Select a clip above, or press + Clip", W / 2, Math.min(H / 2, 60));
+        return;
+      }
+      for (let row = firstRow; row <= lastRow; row++) {
+        const pitch = rowToPitch(row);
+        const y = row * rh - sy;
+        c.fillStyle = BLACK_KEYS.has(pitch % 12) ? COLORS.rowBlack : COLORS.rowWhite;
+        c.fillRect(0, y, drawW, rh);
+        if (pitch % 12 === 0) {
+          c.fillStyle = COLORS.octaveLine;
+          c.fillRect(0, y + rh - 1, drawW, 1);
+        }
+      }
+      const step = editorStep();
+      ev.drawVerticalLines(c, H, step, drawW);
+      ev.drawRegion(c, H, clip.length, drawW);
+  
+      for (const n of clip.notes) {
+        const x0 = ev.beatToX(n.start) - sx, x1 = ev.beatToX(n.start + n.duration) - sx;
+        const y = pitchToRow(n.pitch) * rh - sy;
+        if (x1 < 0 || x0 > W || y + rh < 0 || y > H) continue;
+        const w = Math.max(2, x1 - x0 - 1), h = Math.max(2, rh - 2);
+        c.fillStyle = ed.selected.has(n.id) ? n.velocity == ACCENT_VELOCITY ? COLORS.accentNoteSelected : COLORS.noteSelected : n.velocity == ACCENT_VELOCITY ? COLORS.accentNote : COLORS.note;
+        c.fillRect(Math.round(x0), y + 1, w, h);
+        c.strokeStyle = n.slide ? COLORS.slideNoteBorder : COLORS.noteBorder;
+        c.lineWidth = 1;
+        c.strokeRect(Math.round(x0) + 0.5, y + 1.5, w - 1, h - 1);
+      }
+      const ph = editorPlayhead();
+      if (ph !== null) ev.drawPlayhead(c, H, ph);
+      ev.drawRuler({ subStep: step, regionEnd: clip.length, playheadBeat: ph });
     }
-  });
-
-  dom.loadBtn.addEventListener("click", () => dom.projectFile.click());
-  dom.projectFile.addEventListener("change", async () => {
-    const file = dom.projectFile.files[0];
-    console.log("loading file", file)
-    dom.projectFile.value = "";
-    if (!file) return;
-    try {
-      var reader = new FileReader();
-      reader.addEventListener("load", (e) => {
-        var contents = e.target.result;
+  
+    let keysCtx = null;
+    function renderKeys() {
+      const c = keysCtx;
+      if (!c) return;
+      const W = dom.edKeysCanvas.clientWidth, H = dom.edKeysCanvas.clientHeight;
+      const { sy, firstRow, lastRow } = ev.viewport();
+      const rh = ev.rowHeight;
+      const blackW = Math.round(W * 0.62);
+      const showAll = rh >= 16;
+      c.fillStyle = COLORS.void;
+      c.fillRect(0, 0, W, H);
+      c.font = `${clamp(rh - 5, 8, 11)}px system-ui, sans-serif`;
+      c.textBaseline = "middle";
+      c.textAlign = "right";
+      for (let row = firstRow; row <= lastRow; row++) {
+        const pitch = rowToPitch(row);
+        const y = row * rh - sy;
+        const black = BLACK_KEYS.has(pitch % 12);
+        const active = ed.activeKey === pitch;
+        c.fillStyle = active ? COLORS.keyActive : COLORS.keyWhite;
+        c.fillRect(0, y, W, rh);
+        if (black) {
+          c.fillStyle = active ? COLORS.keyActive : COLORS.keyBlack;
+          c.fillRect(0, y, blackW, rh);
+        }
+        if (pitch % 12 === 0 || pitch % 12 === 5) {
+          c.fillStyle = COLORS.keyBorder;
+          c.fillRect(0, y + rh - 1, W, 1);
+        }
+        if (rh >= 8 && (pitch % 12 === 0 || showAll)) {
+          c.fillStyle = black ? COLORS.keyTextLight : COLORS.keyTextDark;
+          c.fillText(midiName(pitch), (black ? blackW : W) - 3, y + rh / 2 + 0.5);
+        }
+      }
+    }
+  
+    // --- note editing ---
+    function noteAt(clip, beat, pitch) {
+      for (let i = clip.notes.length - 1; i >= 0; i--) {
+        const n = clip.notes[i];
+        if (n.pitch === pitch && beat >= n.start && beat < n.start + n.duration) return n;
+      }
+      return null;
+    }
+    const onNoteRightEdge = (n, x) => x >= ev.beatToX(n.start + n.duration) - Math.min(8, ev.beatToX(n.duration) * 0.4);
+  
+    function addNoteAt(clip, beat, pitch) {
+      const step = editorStep();
+      const start = Math.max(0, ed.snap ? snapFloor(beat, step) : beat);
+      if (noteAt(clip, start + EPS, pitch)) return null;
+      let duration = step ?? ed.lastDuration;
+      for (const o of clip.notes) {
+        if (o.pitch === pitch && o.start > start + EPS) duration = Math.min(duration, o.start - start);
+      }
+      if (duration < EPS) return null;
+      const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? ACCENT_VELOCITY : DEFAULT_VELOCITY, slide: ed.slide };
+      clip.notes.push(note);
+      audio.preview(clip.trackId, pitch);
+      notesChanged();
+      return note;
+    }
+  
+    function pruneNotes(clip, ids) {
+      const set = new Set(ids);
+      if (!set.size) return;
+      clip.notes = clip.notes.filter((n) => !set.has(n.id));
+      for (const id of set) ed.selected.delete(id);
+    }
+  
+    function deleteNotes(clip, ids) {
+      pruneNotes(clip, ids);
+      notesChanged();
+    }
+  
+    function resolveOverlaps(clip, note) {
+      const end = note.start + note.duration;
+      const doomed = [];
+      for (const other of clip.notes) {
+        if (other === note || other.pitch !== note.pitch) continue;
+        const otherEnd = other.start + other.duration;
+        if (otherEnd <= note.start + EPS || other.start >= end - EPS) continue;
+        if (other.start < note.start - EPS) other.duration = note.start - other.start;
+        else if (otherEnd > end + EPS) { other.duration = otherEnd - end; other.start = end; }
+        else doomed.push(other.id);
+      }
+      pruneNotes(clip, doomed);
+    }
+  
+    let nDrag = null;   // { type: "tap" | "paint" | "move" | "resize", pointerId, ... }
+  
+    function beginNoteMove(clip, note, p, pointerId) {
+      const group = !ed.drawMode && ed.selected.has(note.id) ? clip.notes.filter((n) => ed.selected.has(n.id)) : [note];
+      nDrag = {
+        type: "move", pointerId, anchor: note, moved: false,
+        items: group.map((n) => ({ note: n, start: n.start, pitch: n.pitch })),
+        beat0: p.beat, pitch0: rowToPitch(p.row), vx0: p.vx, vy0: p.vy, lastPreview: note.pitch,
+      };
+    }
+  
+    function updateNoteMove(clip, p) {
+      const d = nDrag;
+      if (!d.moved) {
+        if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < DRAG_THRESHOLD) return;
+        d.moved = true;
+      }
+      const step = editorStep();
+      const anchor = d.items.find((it) => it.note === d.anchor);
+      const target = anchor.start + (p.beat - d.beat0);
+      const minStart = Math.min(...d.items.map((it) => it.start));
+      const minPitch = Math.min(...d.items.map((it) => it.pitch));
+      const maxPitch = Math.max(...d.items.map((it) => it.pitch));
+      const dBeat = Math.max((ed.snap ? snapRound(target, step) : target) - anchor.start, -minStart);
+      const dPitch = clamp(rowToPitch(p.row) - d.pitch0, -minPitch, TOP_PITCH - maxPitch);
+      for (const it of d.items) {
+        it.note.start = it.start + dBeat;
+        it.note.pitch = it.pitch + dPitch;
+      }
+      if (d.anchor.pitch !== d.lastPreview) {
+        d.lastPreview = d.anchor.pitch;
+        audio.preview(clip.trackId, d.anchor.pitch);
+      }
+      ev.updateSpacer();
+      ev.requestRender();
+    }
+  
+    function updateNoteResize(p) {
+      const d = nDrag;
+      const step = editorStep();
+      const rawEnd = d.note.start + d.duration0 + (p.x - d.x0) / ev.pxPerBeat;
+      const end = ed.snap ? snapRound(rawEnd, step) : rawEnd;
+      d.note.duration = Math.max(step ?? MIN_FREE_DURATION, end - d.note.start);
+      ed.lastDuration = d.note.duration;
+      ev.updateSpacer();
+      ev.requestRender();
+    }
+  
+    function updatePaint(clip, p) {
+      const step = editorStep();
+      if (!step || !ed.snap) return;
+      const cell = snapFloor(p.beat, step);
+      if (cell === nDrag.lastCell) return;
+      nDrag.lastCell = cell;
+      addNoteAt(clip, cell, nDrag.pitch);
+    }
+  
+    function commitNoteEdit(clip, d) {
+      const notes = d.type === "move" ? d.items.map((it) => it.note) : [d.note];
+      for (const n of notes) {
+        if (clip.notes.includes(n)) resolveOverlaps(clip, n);
+      }
+      notesChanged();
+    }
+  
+    ev.o.scroller.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      audio.unlock();//.catch(() => { });
+      if (ev.trackDown(e)) { nDrag = null; return; }
+      const clip = currentClip();
+      if (!clip) return;
+      const p = ev.point(e);
+      const pitch = rowToPitch(p.row);
+      const touch = e.pointerType === "touch";
+      const hit = noteAt(clip, p.beat, pitch);
+      if (hit) {
+        if (!ed.drawMode) {
+          if (e.shiftKey) {
+            if (ed.selected.has(hit.id)) ed.selected.delete(hit.id);
+            else ed.selected.add(hit.id);
+          } else if (!ed.selected.has(hit.id)) {
+            ed.selected.clear();
+            ed.selected.add(hit.id);
+          }
+        }
+        if (onNoteRightEdge(hit, p.x)) nDrag = { type: "resize", pointerId: e.pointerId, note: hit, x0: p.x, duration0: hit.duration };
+        else beginNoteMove(clip, hit, p, e.pointerId);
+        nDrag.shift = e.shiftKey;
+      } else if (ed.drawMode) {
+        if (touch) {
+          nDrag = { type: "tap", pointerId: e.pointerId, vx0: p.vx, vy0: p.vy, beat: p.beat, pitch };
+        } else {
+          const note = addNoteAt(clip, p.beat, pitch);
+          nDrag = { type: "paint", pointerId: e.pointerId, pitch, lastCell: note ? note.start : null };
+        }
+      } else if (!e.shiftKey) {
+        ed.selected.clear();
+      }
+      if (nDrag && !touch) ev.o.scroller.setPointerCapture(e.pointerId);
+      ev.requestRender();
+    });
+  
+    ev.o.scroller.addEventListener("pointermove", (e) => {
+      if (ev.trackMove(e)) return;
+      const clip = currentClip();
+      if (!clip) return;
+      if (!nDrag || nDrag.pointerId !== e.pointerId) {
+        if (e.pointerType === "mouse") {
+          const p = ev.point(e);
+          const hit = noteAt(clip, p.beat, rowToPitch(p.row));
+          ev.o.scroller.style.cursor = hit ? (onNoteRightEdge(hit, p.x) ? "ew-resize" : ed.drawMode ? "pointer" : "move")
+            : ed.drawMode ? "crosshair" : "default";
+        }
+        return;
+      }
+      const p = ev.point(e);
+      switch (nDrag.type) {
+        case "tap": if (Math.hypot(p.vx - nDrag.vx0, p.vy - nDrag.vy0) > TAP_SLOP) nDrag = null; break;
+        case "paint": updatePaint(clip, p); break;
+        case "move": updateNoteMove(clip, p); break;
+        case "resize": updateNoteResize(p); break;
+      }
+    });
+  
+    function endEditorPointer(e, cancelled) {
+      if (ev.trackUp(e)) return;
+      if (!nDrag || nDrag.pointerId !== e.pointerId) return;
+      const d = nDrag;
+      nDrag = null;
+      const clip = currentClip();
+      if (!clip) return;
+      if (d.type === "tap") {
+        if (!cancelled) addNoteAt(clip, d.beat, d.pitch);
+      } else if (d.type === "move") {
+        if (d.moved) commitNoteEdit(clip, d);
+        else if (!cancelled && ed.drawMode) deleteNotes(clip, [d.anchor.id]);
+        else if (!cancelled && !d.shift) { ed.selected.clear(); ed.selected.add(d.anchor.id); }
+      } else if (d.type === "resize") {
+        commitNoteEdit(clip, d);
+      }
+      ev.requestRender();
+    }
+    ev.o.scroller.addEventListener("pointerup", (e) => endEditorPointer(e, false));
+    ev.o.scroller.addEventListener("pointercancel", (e) => endEditorPointer(e, true));
+    ev.o.scroller.addEventListener("touchmove", (e) => {
+      if (e.touches.length >= 2 || (nDrag && (nDrag.type === "move" || nDrag.type === "resize"))) e.preventDefault();
+    }, { passive: false });
+  
+    ev.o.scroller.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      const clip = currentClip();
+      if (!clip) return;
+      const p = ev.point(e);
+      const hit = noteAt(clip, p.beat, rowToPitch(p.row));
+      if (hit) deleteNotes(clip, [hit.id]);
+    });
+  
+    ev.o.scroller.addEventListener("dblclick", (e) => {
+      const clip = currentClip();
+      if (!clip || ed.drawMode) return;
+      const p = ev.point(e);
+      if (!noteAt(clip, p.beat, rowToPitch(p.row))) addNoteAt(clip, p.beat, rowToPitch(p.row));
+    });
+  
+    // --- piano keys: tap plays, drag ↕ scrolls, drag ↔ zooms ---
+    let keyDrag = null;
+    const keyPitchAt = (e) => rowToPitch(clamp(Math.floor((e.clientY - dom.edKeysCanvas.getBoundingClientRect().top + ev.o.scroller.scrollTop) / ev.rowHeight), 0, TOP_PITCH));
+  
+    function keyOff() {
+      if (ed.activeKey === null) return;
+      const clip = currentClip();
+      audio.keyOff(clip ? clip.trackId : state.selectedTrackId, ed.activeKey);
+      ed.activeKey = null;
+      ev.requestRender();
+    }
+  
+    dom.edKeysCanvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      audio.unlock();//.catch(() => { });
+      dom.edKeysCanvas.setPointerCapture(e.pointerId);
+      const anchorY = e.clientY - dom.edKeysCanvas.getBoundingClientRect().top;
+      keyDrag = {
+        pointerId: e.pointerId, mode: "key", x0: e.clientX, y0: e.clientY, anchorY,
+        scrollTop0: ev.o.scroller.scrollTop, rowHeight0: ev.rowHeight,
+        rowAtAnchor: (ev.o.scroller.scrollTop + anchorY) / ev.rowHeight,
+      };
+      const clip = currentClip();
+      ed.activeKey = keyPitchAt(e);
+      audio.keyOn(clip ? clip.trackId : state.selectedTrackId, ed.activeKey);
+      ev.requestRender();
+    });
+    dom.edKeysCanvas.addEventListener("pointermove", (e) => {
+      if (!keyDrag || keyDrag.pointerId !== e.pointerId) return;
+      const dx = e.clientX - keyDrag.x0, dy = e.clientY - keyDrag.y0;
+      if (keyDrag.mode === "key") {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        keyOff();
+        keyDrag.mode = Math.abs(dx) > Math.abs(dy) ? "zoom" : "scroll";
+      }
+      if (keyDrag.mode === "scroll") ev.o.scroller.scrollTop = keyDrag.scrollTop0 - dy;
+      else ev.setRowHeight(keyDrag.rowHeight0 * Math.exp(dx * 0.01), keyDrag.anchorY, keyDrag.rowAtAnchor);
+    });
+    const endKeyPointer = () => { keyOff(); keyDrag = null; };
+    dom.edKeysCanvas.addEventListener("pointerup", endKeyPointer);
+    dom.edKeysCanvas.addEventListener("pointercancel", endKeyPointer);
+    dom.edKeysCanvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const { dy } = wheelDeltas(e);
+      if (e.altKey || e.ctrlKey || e.metaKey) ev.zoomV(Math.exp(-dy * 0.002), e.clientY - dom.edKeysCanvas.getBoundingClientRect().top);
+      else ev.o.scroller.scrollTop += dy;
+    }, { passive: false });
+  
+    // ===== Transport =====
+    function updatePosReadout() {
+      const b = state.playheadBeat;
+      dom.pos.textContent = `${Math.floor(b / BEATS_PER_BAR) + 1}.${Math.floor(b % BEATS_PER_BAR) + 1}.${Math.floor((b % 1) * 4) + 1}`;
+    }
+  
+    function setPlayhead(beat) {
+      state.playheadBeat = beat;
+      audio.seek(beat);
+      updatePosReadout();
+      av.requestRender();
+      ev.requestRender();
+    }
+  
+    function followPlayhead(view, beat) {
+      const s = view.o.scroller;
+      const x = view.beatToX(beat);
+      if (x < s.scrollLeft || x > s.scrollLeft + s.clientWidth) s.scrollLeft = x - 8;
+    }
+  
+    function tickPlayhead() {
+      if (!state.playing) return;
+      state.playheadBeat = audio.positionBeat();
+      updatePosReadout();
+      if (state.follow) {
+        followPlayhead(av, state.playheadBeat);
+        const local = editorPlayhead();
+        if (local !== null) followPlayhead(ev, local);
+      }
+      av.requestRender();
+      ev.requestRender();
+      requestAnimationFrame(tickPlayhead);
+    }
+  
+    async function togglePlay() {
+      if (state.playing) {
+        audio.stop();
+        state.playing = false;
+        setPlayhead(0);
+      } else {
         try {
-          let projectFile = JSON.parse(contents);
-          console.log("loading file", projectFile);
-          loadProject(projectFile, file.name.replace(/\.json?$/i, ""));
+          await audio.play();
+          state.playing = true;
+          requestAnimationFrame(tickPlayhead);
+        } catch (err) {
+          console.error("Playback could not start:", err);
         }
-        catch (error) {
-          console.error("Error while loading project", error)
-        }
-        finally {
-          projectFile.style.display = "none";
-        }
-      });
-
-      reader.readAsText(file);
-    } catch (err) {
-      dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
+      }
+      dom.play.textContent = state.playing ? "■" : "▶";
+      dom.play.classList.toggle("on", state.playing);
     }
-  });
-
-  dom.saveBtn.addEventListener("click", () => saveProject());
-
+  }
+  
+  {
+    // ===== MIDI import =====
+    function importMidi(parsed, fileName) {
+      if (parsed.bpm) stateManager.updateState("bpm", clamp(Math.round(parsed.bpm), 20, 300));
+      const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
+      let first = null;
+      for (const t of parsed.tracks) {
+        
+          
+        const track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
+        const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
+        const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
+        const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), notes);
+        first = first ?? clip;
+      }
+      if (first) selectClip(first);
+      arrangementChanged();
+      editorClipChanged();
+      return parsed.tracks.length;
+    }
+  
+    function loadProject(projectData, fileName) {
+      console.log("loadProject " + fileName, projectData)
+      const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
+      let first = null;
+      for (const t of projectData.tracks) {
+        let track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
+        console.log("added track");
+  
+        let clips = projectData.clips.filter(c => c.trackId == t.id);
+        clips.forEach(c => {
+          console.log("adding clip", c)
+          const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
+          const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes, c.end);
+          console.log("added clip")
+          first = first ?? clip;
+        })
+      }
+  
+      console.log("loadProject parsed " + fileName, projectData)
+      state = projectData;
+      if (first) selectClip(first);
+      arrangementChanged();
+      editorClipChanged();
+      console.log("loaded project", state.tracks.length)
+      return projectData.tracks.length;
+    }
+  
+    function saveProject() {
+      let projectJson = JSON.stringify(state);
+      if (window.navigator.userAgent.toString().startsWith("Mozilla/5.0 (Linux; Android 16; SM-A556B")) {
+        console.log("Project saved", { "json": projectJson });
+        return;
+      }
+  
+      var a = document.createElement("a");
+      var file = new Blob([projectJson], { type: "text/plain" });
+      a.href = URL.createObjectURL(file);
+      a.download = `${state.name}.json`;
+      a.click();
+    }
+  
+    function updateSongSettingsUI() {
+      dom.projectName.value = state.name;
+      dom.bpm.value = state.bpm;
+      dom.swing.value = state.swing;
+      dom.follow.classList.toggle("on", state.follow);
+      dom.loop.classList.toggle("on", state.loop);
+      dom.drawClips.classList.toggle("on", state.drawClips);
+    }
+  
+    dom.importBtn.addEventListener("click", () => dom.midiFile.click());
+    dom.midiFile.addEventListener("change", async () => {
+      const file = dom.midiFile.files[0];
+      dom.midiFile.value = "";
+      if (!file) return;
+      try {
+        const count = importMidi(parseMidiFile(await file.arrayBuffer()), file.name.replace(/\.midi?$/i, ""));
+        dom.hint.textContent = count ? `Imported ${count} track${count === 1 ? "" : "s"} from ${file.name} at the playhead.`
+          : `${file.name} contains no notes.`;
+      } catch (err) {
+        dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
+      }
+    });
+  
+    dom.loadBtn.addEventListener("click", () => dom.projectFile.click());
+    dom.projectFile.addEventListener("change", async () => {
+      const file = dom.projectFile.files[0];
+      console.log("loading file", file)
+      dom.projectFile.value = "";
+      if (!file) return;
+      try {
+        var reader = new FileReader();
+        reader.addEventListener("load", (e) => {
+          var contents = e.target.result;
+          try {
+            let projectFile = JSON.parse(contents);
+            console.log("loading file", projectFile);
+            loadProject(projectFile, file.name.replace(/\.json?$/i, ""));
+          }
+          catch (error) {
+            console.error("Error while loading project", error)
+          }
+          finally {
+            projectFile.style.display = "none";
+          }
+        });
+  
+        reader.readAsText(file);
+      } catch (err) {
+        dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
+      }
+    });
+  
+    dom.saveBtn.addEventListener("click", () => saveProject());
+  }
+  
   // ===== Controls =====
   function setBpm(bpm) {
     state.bpm = bpm;
     dom.bpm.value = bpm;
     audio.setBpm(bpm);
+  }
+  
+  function setSwing(swing) {
+    state.swing = swing;
+    dom.swing.value = swing;
+    audio.setSwing(swing);
   }
 
   function setDrawMode(on) {
@@ -1917,19 +1993,31 @@
       onChange();
     });
   }
-
-
-  dom.projectName.addEventListener("change", () => state.name = dom.projectName.value);
+  
+  //dom.projectName.addEventListener("change", () => state.name = dom.projectName.value);
 
   dom.play.addEventListener("click", togglePlay);
+  
+  /*
   dom.bpm.addEventListener("input", () => {
     const v = Number(dom.bpm.value);
-    if (v >= 20 && v <= 300) { state.bpm = v; audio.setBpm(v); }
+    if (v >= 20 && v <= 300) { stateManager.updateState("bpm", v) }
   });
   dom.bpm.addEventListener("change", () => setBpm(clamp(Number(dom.bpm.value) || state.bpm, 20, 300)));
+  */
+  /*
+  dom.swing.addEventListener("input", () => {
+    const v = Number(dom.swing.value);
+    if (v >= 0 && v <= 1) { state.swing = v; audio.setSwing(v); }
+  });
+  dom.swing.addEventListener("change", () => setSwing(clamp(Number(dom.swing.value) || state.swing, 0, 1)));
+  */
+  /*
   bindToggle(dom.loop, state, "loop", () => audio.setLoop(state.loop, songEndBeats()));
   bindToggle(dom.follow, state, "follow", () => { });
   bindToggle(dom.drawClips, state, "drawClips", () => { });
+  */
+  
   dom.addTrack.addEventListener("click", () => {
     addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
     arrangementChanged();
@@ -1964,21 +2052,23 @@
     arrangementChanged();
   }
 
-  dom.len.addEventListener("change", () => {
+  dom.currentClipLength.addEventListener("change", () => {
     const clip = currentClip();
     if (!clip) return;
     clip.length = clamp(Number(dom.len.value) || clip.length / BEATS_PER_BAR, 0.25, 256) * BEATS_PER_BAR;
     dom.len.value = clip.length / BEATS_PER_BAR;
     audio.rebuildClip(clip);
+    
     arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
   });
-  dom.end.addEventListener("change", () => {
+  dom.clipEnd.addEventListener("change", () => {
     const clip = currentClip();
     if (!clip) return;
-    clip.end = parseInt(dom.end.value);
+    clip.end = parseInt(dom.clipEnd.value);
     audio.rebuildClip(clip);
+    
     arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
@@ -2798,6 +2888,7 @@
   var mixer = new Mixer(audio, state);
 
   async function init() {
+    console.log("init");
     await deviceBrowser.loadDevices();
     await presetBrowser.loadPresets();
 
@@ -2820,7 +2911,8 @@
     createDemoSong();
 
     audio.setBpm(state.bpm);
-
+    audio.setSwing(state.swing);
+    
     updateSongSettingsUI(dom, state);
 
     dom.gridReadout.textContent = editorGrid().label;

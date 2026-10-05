@@ -24,15 +24,15 @@
       <button id="loadBtn" class="btn" title="Load project">Load</button>
       <input id="projectFile" type="file" accept=".json">
       <button id="saveBtn" class="btn" title="Save project">Save</button>
-      <input type="text" id="project-name" value="Project">
+      <input type="text" id="project-name" data-state="name" value="Project">
     </div>
     <div class="group">
       <button id="playBtn" class="btn" title="Play / Stop (Space)">▶</button>
       <span id="posReadout" class="readout">1.1.1</span>
-      <label>BPM <input id="bpmInput" type="number" min="20" max="300" step="1" value="140"></label>
-      <label>Length<input id="songLenInput" type="number" min="16" max="256" step="1" value="8"></label>
-      <button id="loopBtn" class="btn on" title="Loop the arrangement">Loop</button>
-      <button id="followBtn" class="btn on" title="Scroll with the playhead">Follow</button>
+      <label>BPM <input id="bpmInput" type="number" data-state="bpm" min="20" max="300" step="1" value="140"></label>
+      <label>Length<input id="loopLengthInput" type="number" data-state="songLength" min="16" max="256" step="1" value="8"></label>
+      <button id="loopBtn" class="btn on" data-state="loop" title="Loop the arrangement">Loop</button>
+      <button id="followBtn" class="btn on" data-state="follow" title="Scroll with the playhead">Follow</button>
 
     </div>
     <div class="group">
@@ -42,13 +42,14 @@
       <button id="addClipBtn" class="btn" title="New 1-bar clip on the selected track at the playhead">+ Clip</button>
       <button id="dupClipBtn" class="btn" title="Duplicate selected clip (Ctrl+D)">Duplicate</button>
       <button id="delClipBtn" class="btn" title="Delete selected clip">Delete clip</button>
-      <button id="drawClipsBtn" class="btn" title="Draw clips">Draw</button>
+      <button id="drawClipsBtn" class="btn" data-state="drawClips" title="Draw clips">Draw</button>
     </div>
     <div class="group">
 
       <span class="readout" style="min-width: 0">Zoom</span>
       <button id="arrZoomOutH" class="btn">H−</button><button id="arrZoomInH" class="btn">H+</button>
       <button id="arrZoomOutV" class="btn">V−</button><button id="arrZoomInV" class="btn">V+</button>
+      <label>Swing <number-input id="swingInput" data-state="swing" min="0" max="1" step="0.01" value="0.0"></label>
       <label class="version">v0.0.0</label>
     </div>
   </div>
@@ -68,10 +69,10 @@
     
     <div class="editor panel">
       <div class="toolbar">
-        <div class="group"><span id="clipTitle" class="title">No clip selected</span>
-          <label>Len <input id="lenInput" type="number" min="0.25" max="256" step="0.25" value="1"> bars</label>
-          <button id="loopClipBtn" class="btn">Loop</button>
-          <label>End <input id="endInput" type="number" min="0" max="256" step="1" value="1"></label>
+        <div class="group"><span id="clipTitle" data-state="currentClipTitle" class="title">No clip selected</span>
+          <label>Len <input id="clipLenInput" type="number" data-state="currentClipLength" min="0.25" max="256" step="0.25" value="1"> bars</label>
+          <button id="loopClipBtn" data-state="currentClipLoop" class="btn">Loop</button>
+          <label>End <input id="endInput" type="number" data-state="currentClipEnd" min="0" max="256" step="1" value="1"></label>
         </div>
         <div class="group">
           <label>Grid
@@ -96,7 +97,7 @@
           <button id="drawBtn" class="btn on" title="Draw mode (B)">Draw</button>
           <button id="clearBtn" class="btn" title="Delete all notes in this clip">Clr notes</button>
           <button id="accentBtn" class="btn" title="Accent">Accent</button>
-          <button id="slideBtn" class="btn" title="Slide">Slide</button>
+          <button id="slideBtn" class="btn" title="Slide">Accent</button>
         </div>
         <div class="group">
           <span class="readout" style="min-width: 0">Zoom</span>
@@ -133,7 +134,11 @@
 <script src="presetbrowser.js"></script>
 <script src="mixer.js"></script>
 <!--<script src="devices/DAWSome.Tb303.js" type="module"></script>-->
+
 <script src="DAWSome.js" type="module"></script>
+<script>
+  window.onerror = (e) => console.error("error", e);
+</script>
  <!-- <script src="config.js"></script>-->
 </body>
 </html>
