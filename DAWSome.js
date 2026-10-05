@@ -3021,7 +3021,8 @@
   
   function createDemoSong() {
       console.log("creating demo song");
-      const createNotes = (list) => list.map(([id, pitch, start, duration, velocity, slide]) => ({ id: id, pitch, start, duration, velocity, slide }));
+      let noteId = 100;
+      const createNotes = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: noteId++, pitch, start, duration, velocity, slide }));
 
       console.log("creating kick");
       const kickSynth = {
@@ -3057,7 +3058,7 @@
           "release": 0.25
         }
       };
-      const kickNotes = createNotes([[3, 36, 0, 0.25, DEFAULT_VELOCITY]]);
+      const kickNotes = createNotes([[36, 0, 0.25, DEFAULT_VELOCITY]]);
       
       defaultProject.tracks.push({
         id: 1,
