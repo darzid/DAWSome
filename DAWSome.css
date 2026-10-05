@@ -41,7 +41,6 @@
     
   }
   input[type="number"] { width: 10vw; }
-  #swingInput input { width: 2vw; }
   .app-header {
     display: flex;
     align-items: center;
