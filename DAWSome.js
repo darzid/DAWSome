@@ -455,7 +455,7 @@
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
     
     const makeToneNode = (deviceInfo) => {
-      const logSteps = true;
+      const logSteps = false;
 
       if (logSteps) console.log(`makeToneNode: creating device "${deviceInfo.name}"`);
       const getValueParams = (deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath) => {
@@ -612,7 +612,7 @@
 
     return {
       available: true,
-      unlock: async () => await initializeAudioContext(),
+      unlock: async () => await initializeTone(),
       setBpm: (bpm) => { transport.bpm.value = bpm; },
       setLoop: (on, endBeats) => {
         transport.loop = on;
@@ -681,7 +681,9 @@
           connectModulators(ch, track);
         }
       },
-
+      getChain: (trackId) => { 
+        const ch = chain(trackId);
+        return ch; },
       getTrackInstrument: (track) => {
         const ch = chain(track.id);
         return ch.instrument;

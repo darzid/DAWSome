@@ -1,4 +1,6 @@
 class Mixer {
+  _vuMetersToCreate = [];
+  
     constructor(audio, state) {
       this.audio = audio;
       this.state = state;
@@ -11,9 +13,12 @@ class Mixer {
       this.mixer.appendChild(faderContainer);
       
       faderContainer.innerHTML += `<label>${track.name}</label>
-        <input type="number" min="-500" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value" />
-        <input id="${track.id}-fader" type="range" min="-500" max="0.0" step="0.1" value="${track.volume}" />`;
-      
+        <input type="number" min="-500" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value">
+        <div style="display: flex; flex-direction: row">
+          <input id="${track.id}-fader" type="range" min="-500" max="0.0" step="0.1" value="${track.volume}">
+          <canvas class="vu-meter" data-val="400" width="10px" height="100px"></canvas>
+        </div>
+        `;
       document.addEventListener("TrackRemoved", (e) => {
         if (e.detail.trackId !== track.id) return;
         console.log("Track removed", e.detail)
@@ -42,6 +47,17 @@ class Mixer {
       }
       console.log("track vol", track)
       
+      let vuMeterCanvas = faderContainer.querySelector("canvas.vu-meter");
+      let vuMeter = new VuMeter(vuMeterCanvas, {
+        "boxCount": 15,
+        "boxGapFraction": 0.1,
+        "max": 500,
+      });
+      vuMeter.draw();
+      console.log("Vumeter draw")
+      let chain = this.audio.getChain(track.id);
+      //levelMeterManager.register(chain.channel.output, vuMeterCanvas);
+        
       let muteButton = document.createElement("button");
       muteButton.id=`${track.id}-mute`;
       muteButton.innerText = "Mute";
@@ -150,6 +166,13 @@ class Mixer {
     
     removeTrackFader(track) {
       
+    }
+    
+    init() {
+      this._vuMetersToCreate.forEach(vuMeter => {
+        
+      });
+      this._vuMetersToCreate = [];
     }
   }
   
