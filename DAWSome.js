@@ -47,7 +47,7 @@
       }
     }
   };
-
+  
   const COLORS = {
     void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
     laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
@@ -67,7 +67,6 @@
     name: "DemoProject",
     bpm: 130,
     loop: true,
-    loopLength: 16,
     follow: true,
     drawClips: false,
     playing: false,
@@ -441,14 +440,13 @@
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
-    console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
     const chains = new Map();   // trackId → { instrument, channel, device name }
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
-
+    
     const makeToneNode = (deviceInfo) => {
       const logSteps = true;
 
@@ -488,7 +486,7 @@
       let deviceNameParts = deviceInfo.name.split(".");
       let deviceNamespace = deviceNameParts.length > 1 ? deviceNameParts[0] : "Tone";
       let deviceName = deviceNameParts[deviceNameParts.length - 1];
-
+      
       if (deviceNameParts.length > 1) {
         console.log("Creating DAWSome device " + deviceName)
       }
@@ -605,40 +603,18 @@
       console.log(`audio.InstrumentChanged: ${e.detail.trackId}, instrument changed to ${e.detail.instrumentName}`);
     });
 
-    var tracksToAdd = [];
-    var tracksToUpdate = [];
-    var trackIdsToRemove = [];
-    var clipsToRebuild = [];
-    var clipIdsToRemove = [];
-    function processPendingItems() {
-      tracksToAdd.forEach(track => audio.addTrackChain(track));
-      tracksToAdd = [];
-      tracksToUpdate.forEach(track => audio.updateTrackChain(track));
-      tracksToUpdate = [];
-      clipsToRebuild.forEach(clip => audio.rebuildClipPart(clip));
-      clipsToRebuild = [];
-      trackIdsToRemove.forEach(trackId => audio.removeTrackChain(trackId));
-      trackIdsToRemove = [];
-      clipIdsToRemove.forEach(clipId => audio.removeClipPart(clipId));
-      clipIdsToRemove = [];
-      audio.setLoop(state.loop, songEndBeats());
-    }
-
     return {
       available: true,
-      unlock: async () => await initializeTone(),
+      unlock: () => {
+        Tone.start();
+      },
       setBpm: (bpm) => { transport.bpm.value = bpm; },
       setLoop: (on, endBeats) => {
         transport.loop = on;
         transport.loopStart = 0;
         transport.loopEnd = toTicks(endBeats);
       },
-      addTrackChain: (track) => {
-        if (!toneInitialized) {
-          tracksToAdd.push(track);
-          return;
-        }
-
+      addTrack: (track) => {
         console.log("adding track")
         const channel = new Tone.Channel(track.volume).toDestination();
         channel.mute = track.mute;
@@ -661,7 +637,7 @@
         connectModulators(ch, track);
         console.log("added track", chain(track.id));
       },
-      updateTrackChain: (track) => {
+      updateTrack: (track) => {
         console.log("updating track")
         const ch = chain(track.id);
         if (ch.instrumentName !== track.instrumentName || ch.instrumentParameters !== track.instrumentParameters) {
@@ -724,22 +700,14 @@
         }
         return ch.modulators;
       },
-      removeTrackChain: (trackId) => {
-        if (!toneInitialized) {
-          trackIdsToRemove.push(trackId);
-          return;
-        }
+      removeTrack: (trackId) => {
         const ch = chain(trackId);
         if (!ch) return;
         ch.instrument.dispose();
         ch.channel.dispose();
         chains.delete(trackId);
       },
-      rebuildClipPart: (clip) => {
-        if (!toneInitialized) {
-          clipsToRebuild.push(clip);
-          return;
-        }
+      rebuildClip: (clip) => {
 
         try {
           const old = parts.get(clip.id);
@@ -782,20 +750,20 @@
           console.error("rebuild clip", error)
         }
       },
-      removeClipPart: (clipId) => {
-        if (!toneInitialized) {
-          clipIdsToRemove.push(clipId);
-          return;
-        }
-
+      removeClip: (clipId) => {
         const part = parts.get(clipId);
         if (!part) return;
         part.dispose();
         parts.delete(clipId);
       },
       play: async () => {
-        await initializeTone();
-        processPendingItems();
+        if (!toneInitialized) {
+          //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
+          Tone.getContext().lookAhead = toneLookAhead;
+          console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
+          toneInitialized = true;
+        }
+        await Tone.start();
         transport.start();
       },
       stop: () => {
@@ -804,27 +772,15 @@
       },
       seek: (beat) => { transport.ticks = Math.round(beat * PPQ); },
       positionBeat: () => transport.getTicksAtTime(Tone.immediate()) / PPQ,
-      keyOn: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2 : DEFAULT_VELOCITY / 2, ed.slide),
+      keyOn: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2: DEFAULT_VELOCITY / 2, ed.slide),
       keyOff: (trackId, pitch) => chain(trackId)?.instrument.triggerRelease(hz(pitch), Tone.now()),
       preview: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2 : DEFAULT_VELOCITY / 2),
     };
-
-    async function initializeTone() {
-      if (!toneInitialized) {
-        console.log('initializing Tone.js context, context state: ' + Tone.getContext().state);
-        //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-        //Tone.getContext().lookAhead = toneLookAhead;
-        console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
-        console.log('Starting Tone, context state: ' + Tone.getContext().state);
-        await Tone.start();
-        toneInitialized = true;
-      }
-    }
   }
 
   const audio = createAudio() ?? {
     available: false, unlock: () => Promise.resolve(),
-    setBpm() { }, setLoop() { }, addTrackChain() { }, updateTrackChain() { }, removeTrackChain() { }, rebuildClipPart() { }, removeClipPart() { },
+    setBpm() { }, setLoop() { }, addTrack() { }, updateTrack() { }, removeTrack() { }, rebuildClip() { }, removeClip() { },
     async play() { }, stop() { }, seek() { }, positionBeat: () => 0, keyOn() { }, keyOff() { }, preview() { },
   };
 
@@ -941,7 +897,7 @@
   }
 
   // ===== Model operations =====
-  function addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
+  function addTrack(name, instrument, effects, modulators = null) {
     if (!effects) effects = []
     if (!modulators) modulators = [];
 
@@ -967,12 +923,12 @@
       devices: devices,
       effects: effects,
       modulators: modulators,
-      mute: mute,
-      volume: volume
+      mute: false,
+      volume: -8
     };
     try {
       state.tracks.push(track);
-      audio.addTrackChain(track);
+      audio.addTrack(track);
       selectTrack(track);
       mixer.addTrackFader(track);
       console.log("added track model", track)
@@ -985,7 +941,7 @@
 
   function removeTrack(trackId) {
     for (const clip of state.clips.filter((c) => c.trackId === trackId)) removeClip(clip.id);
-    audio.removeTrackChain(trackId);
+    audio.removeTrack(trackId);
     mixer.removeTrackFader(state.tracks.find((t) => t.id == trackId));
     state.tracks = state.tracks.filter((t) => t.id !== trackId);
     if (state.selectedTrackId === trackId) selectTrack(state.tracks[0]?.id ?? null);
@@ -1001,12 +957,12 @@
     let loop = end - start > length;
     const clip = { id: state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
     state.clips.push(clip);
-    audio.rebuildClipPart(clip);
+    audio.rebuildClip(clip);
     return clip;
   }
 
   function removeClip(clipId) {
-    audio.removeClipPart(clipId);
+    audio.removeClip(clipId);
     state.clips = state.clips.filter((c) => c.id !== clipId);
     if (state.selectedClipId === clipId) state.selectedClipId = null;
   }
@@ -1016,7 +972,7 @@
     ed.selected.clear();
     editorClipChanged();
   }
-
+  
   function selectClip(clip) {
     console.log("select clip")
     if (state.selectedClipId === clip.id) return;
@@ -1034,10 +990,7 @@
 
   // Everything that must follow a change to clip placement, tracks, or loop length.
   function arrangementChanged() {
-    if (songEndBeats() > state.loopLength) 
-      audio.setLoop(state.loop, songEndBeats());
-    else
-      audio.setLoop(state.loop, state.loopLength);
+    audio.setLoop(state.loop, songEndBeats());
     av.updateSpacer();
     renderTrackHeaders();
     av.requestRender();
@@ -1047,7 +1000,7 @@
   // Everything that must follow a change to the selected clip's notes.
   function notesChanged() {
     const clip = currentClip();
-    if (clip) audio.rebuildClipPart(clip);
+    if (clip) audio.rebuildClip(clip);
     ev.updateSpacer();
     ev.requestRender();
     av.requestRender();
@@ -1260,7 +1213,7 @@
     selectTrack(track);
     if (e.target.classList.contains("mute")) {
       track.mute = !track.mute;
-      audio.updateTrackChain(track);
+      audio.updateTrack(track);
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
       removeTrack(track.id);
@@ -1367,7 +1320,7 @@
     const d = aDrag;
     aDrag = null;
     if (d.moved) {
-      audio.rebuildClipPart(d.clip);
+      audio.rebuildClip(d.clip);
       arrangementChanged();
       editorClipChanged();
     }
@@ -1835,8 +1788,8 @@
     const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
     let first = null;
     for (const t of parsed.tracks) {
-
-
+      
+        
       const track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
       const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
@@ -1893,7 +1846,6 @@
   function updateSongSettingsUI() {
     dom.projectName.value = state.name;
     dom.bpm.value = state.bpm;
-    dom.songLoopLength.value = state.loopLength;
     dom.follow.classList.toggle("on", state.follow);
     dom.loop.classList.toggle("on", state.loop);
     dom.drawClips.classList.toggle("on", state.drawClips);
@@ -2017,7 +1969,7 @@
     if (!clip) return;
     clip.length = clamp(Number(dom.len.value) || clip.length / BEATS_PER_BAR, 0.25, 256) * BEATS_PER_BAR;
     dom.len.value = clip.length / BEATS_PER_BAR;
-    audio.rebuildClipPart(clip);
+    audio.rebuildClip(clip);
     arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
@@ -2026,7 +1978,7 @@
     const clip = currentClip();
     if (!clip) return;
     clip.end = parseInt(dom.end.value);
-    audio.rebuildClipPart(clip);
+    audio.rebuildClip(clip);
     arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
@@ -2186,10 +2138,10 @@
     }
 
     showClipEditorPanel() {
-      /*  if (!currentClip())
-          dom.loopClip.classList.remove("on");
-        else*/
-      this.showPanel(this.editor, dom.clipEditorTabBtn);
+    /*  if (!currentClip())
+        dom.loopClip.classList.remove("on");
+      else*/
+        this.showPanel(this.editor, dom.clipEditorTabBtn);
 
       /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
       const trackElement = trackHeader.closest(".track");
@@ -2369,7 +2321,7 @@
           if (isInstrument) {
             track.instrumentName = e.target.value;
             console.log("Selected instrument " + track.instrumentName)
-            audio.updateTrackChain(track);
+            audio.updateTrack(track);
             console.log("Yrack updated for Selected instrument " + track.instrumentName)
             track.devices[0].presetName = "default";
             console.log("Preset set for Selected instrument " + track.instrumentName)
@@ -2384,7 +2336,7 @@
               let newFx = { name: e.target.value, parameters: {} };
               track.effects.push(newFx);
               track.devices.push(newFx);
-              audio.updateTrackChain(track);
+              audio.updateTrack(track);
               console.log("updated track with new effect " + e.target.value);
               let effects = audio.getTrackEffects(track);
               trackDeviceNode = effects[effects.length - 1];
@@ -2403,7 +2355,7 @@
           renderDeviceParameters();
           renderDeviceLists();
           document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
-          audio.updateTrackChain(track);
+          audio.updateTrack(track);
         };
 
         instrumentPresetSelect.oninput = (e) => {
@@ -2413,7 +2365,7 @@
           }
 
           console.log("Preset selected " + e.target.value, track.instrumentParameters)
-          audio.updateTrackChain(track);
+          audio.updateTrack(track);
           renderDeviceParameters();
           document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
         };
@@ -2497,7 +2449,7 @@
           });
         }
       }
-
+      
       function renderDeviceParameters(targetParamMetadata = null) {
         console.log("renderDeviceParameters", targetParamMetadata)
         parametersPanel.innerHTML = "";
@@ -2511,10 +2463,10 @@
 
           Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
         }
-
+        
         function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
           const useDeviceStateOnly = true;
-
+  
           let parameterPathParts = parameterPath.split(".");
           let parameterName = parameterPathParts[parameterPathParts.length - 1];
           let parameterGroup = parameterPathParts.length > 1 ? parameterPath.substring(0, parameterPath.length - (parameterName.length + 1)) : "";
@@ -2523,28 +2475,28 @@
           }
           if (parameterName === "frequency")
             console.warn("frequency", trackDeviceState)
-
+  
           let parameterMetadataPath = deviceMetadata.parameters[parameterName];
           let parts = parameterMetadataPath.split("/");
           let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
-
+  
           //console.log("param metadata", parameterMetadataPath, paramMetadata);
-
+  
           let paramElement = document.createElement("div");
           paramElement.className = "parameter";
           paramElement.dataset.group = parameterGroup;
           if (parameterGroup)
             paramElement.classList.add("hidden");
           parametersPanel.appendChild(paramElement);
-
+  
           if (parts[0] == "unitTypes" || parts[0] == "enumTypes") {
             let stateValue = getParamState(parameterPath);
             let paramContext = getParameterContext(parameterPath, trackDeviceState);
-
+  
             let paramIsObject = paramContext[parameterName].name == "Signal" || paramContext[parameterName].name == "Param" || isObject(paramContext[parameterName]);
             //console.log(`param ${parameterName} is object: ${paramIsObject}`);
             let paramValue = paramIsObject ? paramContext[parameterName].value : paramContext[parameterName];
-
+  
             if (stateValue != undefined && stateValue !== paramValue) {
               console.warn(`using state value for "${parameterPath}", stateValue/paramValue`, stateValue, paramValue)
               paramValue = stateValue;
@@ -2553,22 +2505,22 @@
               if (stateValue !== paramValue && stateValue == undefined)
                 console.warn("using param context value " + parameterPath, paramValue, stateValue, trackDeviceState)
             }
-
+  
             if (useDeviceStateOnly) {
               paramValue = stateValue;
             }
-
+  
             let label = document.createElement("label");
             let prefix = parameterGroup ? "> " : "";
             label.innerText = prefix + parameterName; // parameterPath.replace(".", " ");
             paramElement.appendChild(label);
-
+  
             let valueGroup = document.createElement("div");
             valueGroup.className = "value-group";
             paramElement.appendChild(valueGroup);
-
+  
             if (parts[0] == "unitTypes") {
-
+  
               let input = document.createElement("number-input");
               input.readOnly = true;
               valueGroup.appendChild(input);
@@ -2588,10 +2540,10 @@
                   paramContext[parameterName].value = input.value;
                 else
                   paramContext[parameterName] = input.value;
-
+  
                 updateParamState(parameterPath, input.value);
               }
-
+              
               let unitLabel = document.createElement("label");
               unitLabel.className = "unit";
               valueGroup.appendChild(unitLabel);
@@ -2602,7 +2554,7 @@
               else if (paramMetadata.unit) {
                 unitLabel.innerText = paramMetadata.unit
               }
-
+  
             }
             else if (parts[0] == "enumTypes") {
               let select = document.createElement("select");
@@ -2639,7 +2591,7 @@
               const groupParams = parametersPanel.querySelectorAll(`div.parameter[data-group="${parameterPath}"]`);
               groupParams.forEach(param => param.classList.toggle("hidden"));
             })
-
+  
             if (parts[0] == "modules") {
               let moduleMetadata = deviceList.modules[parts[1]];
               Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
@@ -2655,7 +2607,7 @@
             try {
               //console.log("getting value for " + parameterPath);
               let trackDeviceNodeParamContext = trackDeviceNode;
-
+  
               if (parameterPath == "oscillator.detune") {
                 console.log("osc detune")
               }
@@ -2669,7 +2621,7 @@
               console.error("Traverse error", error);
             }
           }
-
+  
           function getParamState(parameterPath) {
             let parts = parameterPath.split(".");
             let paramName = parts[parts.length - 1];
@@ -2686,7 +2638,7 @@
             }
             return paramValue;
           }
-
+  
           function updateParamState(parameterPath, value) {
             // console.log("updateParamState",trackDeviceState, parameterPath, value)
             trackDeviceState[parameterName] = value;
@@ -2702,17 +2654,17 @@
           let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
           if (trackDeviceMetadata.lists) {
             console.log("create device lists html", track, trackDeviceNode, trackDeviceListsState, trackDeviceMetadata);
-
+          
             Object.keys(trackDeviceMetadata.lists).forEach(listName => {
               let listMetadata = trackDeviceMetadata.lists[listName];
               let listContainer = document.createElement("div");
               listContainer.className = "list-container";
               parametersPanel.appendChild(listContainer);
-
+              
               let label = document.createElement("label");
               label.innerText = listName;
               listContainer.appendChild(label);
-
+              
               let listElement = document.createElement("div");
               listElement.className = "list";
               listElement.name = listName;
@@ -2726,15 +2678,15 @@
                   templateColumns += "min-content ";
                 }
               });
-              //  templateColumns += "min-content";
-              /* if (listMetadata.itemMethods) {
-                 templateColumns += "min-content";
-                 console.log("add column for methods")
-               }*/
-
+            //  templateColumns += "min-content";
+             /* if (listMetadata.itemMethods) {
+                templateColumns += "min-content";
+                console.log("add column for methods")
+              }*/
+              
               listContainer.appendChild(listElement);
               listElement.style.gridTemplateColumns = templateColumns;
-
+              
               listMetadata.columns.forEach(name => {
                 let listColumn = document.createElement("div");
                 listColumn.className = "listcolumn";
@@ -2750,7 +2702,7 @@
                   addListItem(listMetadata, trackDeviceListsState[listName], listItem, listElement);
                 });
               }
-
+              
               Object.keys(listMetadata.listMethods).forEach(methodName => {
                 let method = listMetadata.listMethods[methodName];
                 let methodButton = document.createElement("button");
@@ -2763,10 +2715,10 @@
           }
         }
       }
-
+      
       function addListItem(listMetadata, list, listItem, listElement) {
         console.log("addListItem", listMetadata, list, listItem, listElement);
-
+        
         listMetadata.columns.forEach(name => {
           let listItemValue = document.createElement("div");
           listItemValue.innerText = listItem[name];
@@ -2782,14 +2734,14 @@
           methodButton.onclick = () => eval(`${method.functionName}(listItem, listMetadata, trackDeviceListsState[listName], listElement, trackDeviceNode)`);
         });*/
       }
-
+      
       function addSample(srcElement, listMetadata, list, listElement, sampler) {
         const fileInput = document.createElement("input");
         fileInput.style.display = "none";
         fileInput.type = "file";
         fileInput.accept = ".wav,.mp3";
         srcElement.parentElement.appendChild(fileInput);
-
+        
         fileInput.addEventListener("change", async (e) => {
           console.log("chanhe")
           const file = fileInput.files[0];
@@ -2799,18 +2751,18 @@
 
           if (!file) return;
           try {
-
+            
             const fileReader = new FileReader();
             // when it's read into an ArrayBuffer, we can access that in the result property of the event target
             fileReader.onload = async (event) => {
               // create a ToneAudioBuffer from the ArrayBuffer with file contents. event.target.result is the ArrayBuffer with the file content
-              const buffer = await sampler.context.decodeAudioData(event.target.result);
-
+              const buffer = await sampler.context.decodeAudioData(event.target.result); 
+  
               let noteFreq = Tone.Frequency("C2");
               if (list.length > 0) {
                 noteFreq = noteFreq.transpose(list.length);
               }
-              const listItem = { note: noteFreq.toNote(), name: fileName, url: buffer };
+              const listItem = {note: noteFreq.toNote(), name: fileName, url: buffer };
               list.push(listItem);
               addListItem(listMetadata, list, listItem, listElement);
               srcElement.parentElement.removeChild(fileInput);
@@ -2820,7 +2772,7 @@
             }
             // read the selected file into an ArrayBuffer
             fileReader.readAsArrayBuffer(file);
-
+            
           } catch (err) {
             console.error(`Could not import ${file.name}: ${err.message}`, err);
             dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
@@ -2828,7 +2780,7 @@
         });
         fileInput.click();
       }
-
+      
     }
   }
 
@@ -2866,6 +2818,8 @@
     const ew = ev.o.scroller.clientWidth || 800;
     ev.pxPerBeat = clamp(ew / (ew < 600 ? BEATS_PER_BAR : 2 * BEATS_PER_BAR), 30, 160);
 
+    createDemoSong();
+
     audio.setBpm(state.bpm);
 
     updateSongSettingsUI(dom, state);
@@ -2877,15 +2831,7 @@
     ev.o.scroller.scrollTop = pitchToRow(60) * ev.rowHeight - ev.o.scroller.clientHeight / 2;
 
     const observer = new ResizeObserver(layoutAll);
-    observeItems();
-
-    console.log("Before demo song")
-    createDemoSong();
-
-
-    function observeItems() {
-      for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
-    }
+    for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
 
     function createDemoSong() {
       console.log("creating demo song");
@@ -2899,12 +2845,12 @@
           "detune": -1000,
           "pitchDecay": 0.05,
           "octaves": 8,
-          "volume": -3,
+          "volume": -5,
           "envelope": {
             "attack": 0.001,
             "attackCurve": "linear",
             "decay": 0.1,
-            "sustain": 0.5,
+            "sustain": 0.2,
             "release": 0.1
           }
         }
@@ -2912,25 +2858,23 @@
       const kickDistortion = {
         name: "Distortion",
         parameters: {
-          "distortion": 0.1,
-          "wet": 0.5
+          "distortion": 0.2
         }
       };
       const kickCompressor = {
         name: "Compressor",
         parameters: {
-          "threshold": -24,
-          "knee": 15,
-          "ratio": 10,
+          "threshold": -12,
+          "knee": 25,
+          "ratio": 20,
           "attack": 0.6,
           "release": 0.25
         }
       };
-      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
+      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
       console.log("creating kick clip");
       const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 63);
-      createClip(kick, 64, BEATS_PER_BAR / 4, kickNotes, 95);
+      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 64);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -2939,13 +2883,13 @@
         type: "Instrument",
         parameters: {
           cutoff: 300,
-          resonance: 3,
-          envelopeModulation: 0.1,
-          decay: 0.15,
-          accent: 0.32,
-          drive: 0.8,
+          resonance: 4,
+          envelopeModulation: 0.14,
+          decay: 0.2,
+          accent: 1,
+          drive: 1,
           waveform: "sawtooth",
-          volume: 0
+          volume: -25
         }
       };
       const bass = addTrack("Bass", bassSynth, []);
@@ -2984,7 +2928,7 @@
         [32, 6.25, 0.2, DEFAULT_VELOCITY, true],
         [29, 6.5, 0.25, DEFAULT_VELOCITY],
         [27, 6.75, 0.2, ACCENT_VELOCITY],
-
+        
         [30, 7.00, 0.2, 0.4],
         [32, 7.25, 0.25, DEFAULT_VELOCITY],
         [29, 7.50, 0.25, DEFAULT_VELOCITY],
@@ -2993,7 +2937,6 @@
       createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
       createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
       createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
-      createClip(bass, 64, BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -3001,7 +2944,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          volume: -17,
+          volume: -22,
           portamento: 100,
           modulationIndex: 1,
           octaves: 0,
@@ -3032,7 +2975,6 @@
       ]);
       createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
       createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
-      createClip(closedHat, 64, BEATS_PER_BAR / 4, chNotes2, 95);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -3040,7 +2982,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          "volume": -20,
+          "volume": -30,
           "portamento": 0,
           "harmonicity": 0.65,
           "modulationIndex": 1,
@@ -3058,8 +3000,7 @@
       };
       const openHat = addTrack("OpenHat", openHatSynth, [hatReverb]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 63);
-      createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
+      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
       console.log("created open hat");
 
       /*
@@ -3100,20 +3041,27 @@
     }
   }
 
-  class TbThreeOThree {
-    constructor(parameters) {
-
+  class TbThreeOThree  {
+    constructor(parameters = { 
+      cutoff: 400,
+      resonance: 7,
+      envelopeModulation: 0.6,
+      decay: 0.3,
+      accent: 0.8,
+      drive: 0.35,
+      waveform: "sawtooth",
+      volume: -30 }) {
+      
       console.log("Tb303 create")
-      if (!parameters) parameters = {};
-      if (parameters.cutoff == undefined) parameters.cutoff = 400;
-      if (parameters.resonance == undefined) parameters.resonance = 7;
-      if (parameters.envelopeModulation == undefined) parameters.envelopeModulation = 0.6;
-      if (parameters.decay == undefined) parameters.decay = 0.3;
-      if (parameters.accent == undefined) parameters.accent = 0.8;
-      if (parameters.drive == undefined) parameters.drive = 0.35;
-      if (parameters.waveform == undefined) parameters.waveform = "sawtooth";
-      if (parameters.volume == undefined) parameters.volume = -30;
-
+      if (!parameters.cutoff) parameters.cutoff = 400;
+      if (!parameters.resonance) parameters.resonance = 7;
+      if (!parameters.envelopeModulation) parameters.envelopeModulation = 0.6;
+      if (!parameters.decay) parameters.decay = 0.3;
+      if (!parameters.accent) parameters.accent = 0.8;
+      if (!parameters.drive) parameters.drive = 0.35;
+      if (!parameters.waveform) parameters.waveform = "sawtooth";
+      if (!parameters.volume) parameters.volume = -30;
+      
       this._monoSynth = new Tone.MonoSynth({
         portamento: 0.08,
         volume: 0,
@@ -3127,9 +3075,9 @@
           release: 0.1
         },
         filter: {
-          Q: 6,
+          Q: 6, 
           type: "lowpass",
-          rolloff: -24
+          rolloff: -24 
         },
         filterEnvelope: {
           attack: 0.005,
@@ -3146,7 +3094,7 @@
         wet: 0.6
       });
       this._monoSynth.connect(this._distortion);
-
+      
       console.log("Tb303 setup", parameters.resonance)
       this.cutoff = parameters.cutoff;
       this.resonance = parameters.resonance;
@@ -3158,94 +3106,94 @@
       this.volume = parameters.volume;
       console.log("Tb303 created")
     }
-
+       
     get name() { return "DAWSome.TbThreeOThree"; }
-
+    
     get cutoff() { return this._monoSynth.filterEnvelope.baseFrequency; }
     set cutoff(value) { this._monoSynth.filterEnvelope.baseFrequency = value; }
-
+        
     get resonance() { return this._monoSynth.filter.Q; }
     set resonance(value) { this._monoSynth.filter.Q.value = value; }
-
+        
     get envelopeModulation() { return this._envelopeModulation; }
-    set envelopeModulation(value) {
+    set envelopeModulation(value) { 
       if (value < 0 || value > 1) throw "Envelope modulation must be between 0 and 1";
       this._envelopeModulation = value;
     }
-
+           
     get decay() { return this._decay; }
-    set decay(value) {
+    set decay(value) { 
       if (value < 0 || value > 1) throw "Decay must be between 0 and 1";
-      this._decay = value;
+      this._decay = value; 
     }
-
+        
     get accent() { return this._accent; }
-    set accent(value) {
+    set accent(value) { 
       if (value < 0 || value > 1) throw "Accent must be between 0 and 1";
       this._accent = value;
     }
-
+        
     get drive() { return this._distortion.distortion; }
     set drive(value) {
       if (value < 0 || value > 1) throw "Drive must be between 0 and 1";
       this._distortion.distortion = value;
     }
-
+        
     get waveform() { return this._monoSynth.oscillator.type; }
     set waveform(value) {
       if (value !== "sawtooth" && value != "square") throw "Waveform must be 'sawtooth' or 'square'";
       this._monoSynth.oscillator.type = value;
     }
-
+        
     get volume() { return this._volume; }
     set volume(value) {
       if (value < -100 || value > 0) throw "Volume must be between -100 and 0";
       this._volume = value;
     }
-
+        
     connect(destination) {
       this._distortion.connect(destination);
     }
-
+    
     triggerAttack(note, time = 0, velocity, slide = false) {
       this._prepareNote(time, velocity, slide);
       this._monoSynth.triggerAttack(note, time, velocity);
     }
-
+    
     triggerRelease(time) {
       this._monoSynth.triggerRelease(time);
     }
-
+    
     triggerAttackRelease(note, duration = "16n", time = 0, velocity, slide = false) {
       this._prepareNote(time, velocity, slide)
       this._monoSynth.triggerAttackRelease(note, duration, time, velocity);
     }
-
+    
     _prepareNote(time, velocity, slide) {
       if (velocity == ACCENT_VELOCITY) {
-        // console.log("Accent")
+       // console.log("Accent")
         this._monoSynth.volume.setValueAtTime(this.volume, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
-        this._monoSynth.envelope.decay = this.decay * 0.7;
+        this._monoSynth.envelope.decay = this.decay * 0.7; 
       } else {
         //console.log("Default")
         this._monoSynth.volume.setValueAtTime(this.volume - 4, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
         this._monoSynth.envelope.decay = this.decay;
       }
-
+           
       if (slide) {
-        //  console.log("Slide")
+      //  console.log("Slide")
         this._monoSynth.portamento = 0.08;
       } else {
         this._monoSynth.portamento = 0;
       }
     }
   }
-
+     
   const DAWSome = {
     TbThreeOThree: (parameters) => new TbThreeOThree(parameters)
   }
-
+  
   await init();
 })();
