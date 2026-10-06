@@ -2903,7 +2903,7 @@
 
       console.log("creating bass");
       const bassSynth = {
-        name: "DAWSome.TbThreeOThree",
+        name: "DAWSome.Tb303",
         type: "Instrument",
         parameters: {
           cutoff: 300,
@@ -3032,7 +3032,7 @@
 
       console.log("creating 303");
       const tb303Synth = {
-        name: "DAWSome.TbThreeOThree",
+        name: "DAWSome.Tb303",
         parameters: {
           cutoff: 500,
           resonance: 8,
@@ -3074,7 +3074,7 @@
     }
   }
 
-  class TbThreeOThree  {
+  class Tb303  {
     constructor(parameters) {
       
       console.log("Tb303 create")
@@ -3132,7 +3132,7 @@
       console.log("Tb303 created")
     }
        
-    get name() { return "DAWSome.TbThreeOThree"; }
+    get name() { return "DAWSome.Tb303"; }
     
     get cutoff() { return this._monoSynth.filterEnvelope.baseFrequency; }
     set cutoff(value) { this._monoSynth.filterEnvelope.baseFrequency = value; }
@@ -3217,7 +3217,7 @@
   }
      
   const DAWSome = {
-    TbThreeOThree: (parameters) => new TbThreeOThree(parameters)
+    Tb303: (parameters) => new Tb303(parameters)
   }
   
   await init();

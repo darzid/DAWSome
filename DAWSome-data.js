@@ -1066,7 +1066,7 @@
       }
     },
 
-    "DAWSome.TbThreeOThree": {
+    "DAWSome.Tb303": {
       "type": "Instrument",
       "parameters": {
         "cutoff": "unitTypes/Tb303Cutoff",
