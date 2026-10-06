@@ -51,6 +51,12 @@ jobs:
           const presetBrowserScript = fs.readFileSync('presetbrowser.js', 'utf8');
           const presetBrowserScriptBlock = `<script>\n${presetBrowserScript}\n</script>\n`;
           
+          const levelMeterScript = fs.readFileSync('level-meter.js', 'utf8');
+          const levelMeterScriptBlock = `<script>\n${levelMeterScript}\n</script>\n`;
+          
+          const vuMeterScript = fs.readFileSync('vu-meter.js', 'utf8');
+          const vuMeterScriptBlock = `<script>\n${vuMeterScript}\n</script>\n`;
+          
           const mixerScript = fs.readFileSync('mixer.js', 'utf8');
           const mixerScriptBlock = `<script>\n${mixerScript}\n</script>\n`;
           
@@ -62,6 +68,8 @@ jobs:
             .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
             .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
             .replace(/<script src="presetbrowser.js"><\/script>/i, `${presetBrowserScriptBlock}`)
+            .replace(/<script src="level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
+            .replace(/<script src="vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
             .replace(/<script src="mixer.js"><\/script>/i, `${mixerScriptBlock}`)
             .replace(/<script src="DAWSome.js" type="module"><\/script>/i, `${mainScriptBlock}`);
           

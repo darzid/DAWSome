@@ -461,7 +461,7 @@
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
     
     const makeToneNode = (deviceInfo) => {
-      const logSteps = true;
+      const logSteps = false;
 
       if (logSteps) console.log(`makeToneNode: creating device "${deviceInfo.name}"`);
       const getValueParams = (deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath) => {
@@ -530,9 +530,9 @@
 
       deviceInfos.forEach(deviceInfo => {
         try {
-          console.log("Making tone node " + deviceInfo.name, deviceInfo.parameters);
+        //  console.log("Making tone node " + deviceInfo.name, deviceInfo.parameters);
           let device = makeToneNode(deviceInfo);
-          console.log("Made tone node " + deviceInfo.name, device);
+        //  console.log("Made tone node " + deviceInfo.name, device);
           devices.push(device);
         }
         catch (error) {
@@ -626,11 +626,11 @@
         transport.loopEnd = toTicks(endBeats);
       },
       addTrack: (track) => {
-        console.log("adding track")
+        //console.log("adding track")
         const channel = new Tone.Channel(track.volume).connect(masterChannel);
         channel.mute = track.mute;
         track.devices[0].parameters = track.instrumentParameters;
-        console.log("making chain");
+        //console.log("making chain");
         chains.set(track.id,
           {
             instrument: makeToneNode(track.devices[0]),
@@ -640,13 +640,13 @@
             effects: makeToneNodes(track.effects),
             modulators: makeToneNodes(track.modulators.map(m => m.modulator))
           });
-        console.log("made chain");
+        //console.log("made chain");
 
         const ch = chain(track.id);
         if (ch.instrument == null) throw "instrument null"
         connectDevices(ch);
         connectModulators(ch, track);
-        console.log("added track", chain(track.id));
+        //console.log("added track", chain(track.id));
       },
       updateTrack: (track) => {
         console.log("updating track")
@@ -728,7 +728,7 @@
 
           const ch = chain(clip.trackId);
           if (!ch) throw "No chain found for track " + clip.trackId;
-          console.log("rebuildClip, create events", clip)
+          //console.log("rebuildClip, create events", clip)
           const events = clip.notes
             .filter((n) => n.start < clip.length - EPS)
             .map((n) => ({
@@ -888,7 +888,7 @@
     }
     state.selectedTrackId = null;
 
-    console.log("track cleared")
+   // console.log("track cleared")
     bottomPanelManager.refreshActivePanel();
   }
 
@@ -922,7 +922,7 @@
     if (!effects) effects = []
     if (!modulators) modulators = [];
 
-    console.log("addTrack " + name)
+   // console.log("addTrack " + name)
     let devices = [];
     instrument.presetName = "Default";
     devices.push(instrument);
@@ -931,9 +931,9 @@
       fx.presetName = "Default";
       devices.push(fx);
     });
-    console.log("addingTrack " + name)
+    //console.log("addingTrack " + name)
     modulators.forEach(modulator => devices.push(modulator.modulator));
-    console.log("add track model", devices)
+    //console.log("add track model", devices)
     const track = {
       id: state.nextId++,
       name,
@@ -952,7 +952,7 @@
       audio.addTrack(track);
       selectTrack(track);
       mixer.addTrackFader(track);
-      console.log("added track model", track)
+      //console.log("added track model", track)
     }
     catch (error) {
       console.error("error while adding track", error)
@@ -1030,7 +1030,7 @@
 
 
   function editorClipChanged() {
-    console.log("clip changed")
+  //  console.log("clip changed")
     const clip = currentClip();
     dom.clipTitle.textContent = clip ? `${clip.name} (${trackById(clip.trackId).name})` : "No clip selected";
     dom.len.value = clip ? clip.length / BEATS_PER_BAR : 1;
