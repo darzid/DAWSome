@@ -440,6 +440,7 @@
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
+    console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
     const chains = new Map();   // trackId → { instrument, channel, device name }
@@ -491,7 +492,6 @@
         console.log("Creating DAWSome device " + deviceName)
       }
       let device = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceInfo.parameters) : DAWSome[deviceName](deviceInfo.parameters);
-      //await device.ready;
       if (logSteps) console.log(`makeToneNode: created device "${deviceInfo.name}"`, device);
 
       let deviceContext = device;
@@ -606,9 +606,7 @@
 
     return {
       available: true,
-      unlock: () => {
-        Tone.start();
-      },
+      unlock: async () => await initializeAudioContext(),
       setBpm: (bpm) => { transport.bpm.value = bpm; },
       setLoop: (on, endBeats) => {
         transport.loop = on;
@@ -627,7 +625,7 @@
             channel,
             instrumentName: track.devices[0].name,
             instrumentParameters: track.instrumentParameters,
-            effects:makeToneNodes(track.effects),
+            effects: makeToneNodes(track.effects),
             modulators: makeToneNodes(track.modulators.map(m => m.modulator))
           });
         console.log("made chain");
@@ -758,13 +756,7 @@
         parts.delete(clipId);
       },
       play: async () => {
-        if (!toneInitialized) {
-          //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-          Tone.getContext().lookAhead = toneLookAhead;
-          console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
-          toneInitialized = true;
-        }
-        await Tone.start();
+        await initializeTone();
         transport.start();
       },
       stop: () => {
@@ -777,6 +769,18 @@
       keyOff: (trackId, pitch) => chain(trackId)?.instrument.triggerRelease(hz(pitch), Tone.now()),
       preview: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2 : DEFAULT_VELOCITY / 2),
     };
+
+    async function initializeTone() {
+      if (!toneInitialized) {
+        console.log('initializing Tone.js context, context state: ' + Tone.getContext().state);
+        //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
+        Tone.getContext().lookAhead = toneLookAhead;
+        console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
+        toneInitialized = true;
+        console.log('Starting Tone, context state: ' + Tone.getContext().state);
+        await Tone.start();
+      }
+    }
   }
 
   const audio = createAudio() ?? {
@@ -898,7 +902,7 @@
   }
 
   // ===== Model operations =====
-  function addTrack(name, instrument, effects, modulators = null) {
+  function addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
     if (!effects) effects = []
     if (!modulators) modulators = [];
 
@@ -924,12 +928,11 @@
       devices: devices,
       effects: effects,
       modulators: modulators,
-      mute: false,
-      volume: -8
+      mute: mute,
+      volume: volume
     };
     try {
       state.tracks.push(track);
-      //await 
       audio.addTrack(track);
       selectTrack(track);
       mixer.addTrackFader(track);
@@ -1215,7 +1218,6 @@
     selectTrack(track);
     if (e.target.classList.contains("mute")) {
       track.mute = !track.mute;
-      //await 
       audio.updateTrack(track);
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
@@ -2203,7 +2205,7 @@
         this.renderModulationPanel();
     }
 
-     renderInstrumentPanel() {
+    renderInstrumentPanel() {
       let parentPanel = this.instrumentPanel;
       this.instrumentPanel.style.display = "flex";
       let track = state.tracks.find(track => track.id === state.selectedTrackId);
@@ -2324,7 +2326,6 @@
           if (isInstrument) {
             track.instrumentName = e.target.value;
             console.log("Selected instrument " + track.instrumentName)
-            // await 
             audio.updateTrack(track);
             console.log("Yrack updated for Selected instrument " + track.instrumentName)
             track.devices[0].presetName = "default";
@@ -2340,7 +2341,6 @@
               let newFx = { name: e.target.value, parameters: {} };
               track.effects.push(newFx);
               track.devices.push(newFx);
-              //await 
               audio.updateTrack(track);
               console.log("updated track with new effect " + e.target.value);
               let effects = audio.getTrackEffects(track);
@@ -2360,18 +2360,16 @@
           renderDeviceParameters();
           renderDeviceLists();
           document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
-          //await 
           audio.updateTrack(track);
         };
 
-        instrumentPresetSelect.oninput = async (e) => {
+        instrumentPresetSelect.oninput = (e) => {
           if (isInstrument) {
             track.instrumentParameters = devicePresets[track.instrumentName][e.target.value];
             track.devices[0].presetName = e.target.value;
           }
 
           console.log("Preset selected " + e.target.value, track.instrumentParameters)
-          //await 
           audio.updateTrack(track);
           renderDeviceParameters();
           document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
@@ -2840,7 +2838,7 @@
     const observer = new ResizeObserver(layoutAll);
     for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
 
-     function createDemoSong() {
+    function createDemoSong() {
       console.log("creating demo song");
       const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: state.nextId++, pitch, start, duration, velocity, slide }));
 
@@ -2852,12 +2850,12 @@
           "detune": -1000,
           "pitchDecay": 0.05,
           "octaves": 8,
-          "volume": -5,
+          "volume": -3,
           "envelope": {
             "attack": 0.001,
             "attackCurve": "linear",
             "decay": 0.1,
-            "sustain": 0.2,
+            "sustain": 0.5,
             "release": 0.1
           }
         }
@@ -2865,23 +2863,25 @@
       const kickDistortion = {
         name: "Distortion",
         parameters: {
-          "distortion": 0.2
+          "distortion": 0.1,
+          "wet": 0.5
         }
       };
       const kickCompressor = {
         name: "Compressor",
         parameters: {
-          "threshold": -12,
-          "knee": 25,
-          "ratio": 20,
+          "threshold": -24,
+          "knee": 15,
+          "ratio": 10,
           "attack": 0.6,
           "release": 0.25
         }
       };
-      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
+      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
       const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 64);
+      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 63);
+      createClip(kick, 64, BEATS_PER_BAR / 4, kickNotes, 95);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -2890,13 +2890,13 @@
         type: "Instrument",
         parameters: {
           cutoff: 300,
-          resonance: 4,
-          envelopeModulation: 0.14,
-          decay: 0.2,
-          accent: 1,
-          drive: 1,
+          resonance: 3,
+          envelopeModulation: 0.1,
+          decay: 0.15,
+          accent: 0.32,
+          drive: 0.8,
           waveform: "sawtooth",
-          volume: -25
+          volume: 0
         }
       };
       const bass = addTrack("Bass", bassSynth, []);
@@ -2944,6 +2944,7 @@
       createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
       createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
       createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
+      createClip(bass, 64, BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2951,7 +2952,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          volume: -22,
+          volume: -17,
           portamento: 100,
           modulationIndex: 1,
           octaves: 0,
@@ -2982,6 +2983,7 @@
       ]);
       createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
       createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
+      createClip(closedHat, 64, BEATS_PER_BAR / 4, chNotes2, 95);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -2989,7 +2991,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          "volume": -30,
+          "volume": -20,
           "portamento": 0,
           "harmonicity": 0.65,
           "modulationIndex": 1,
@@ -3007,7 +3009,8 @@
       };
       const openHat = addTrack("OpenHat", openHatSynth, [hatReverb]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
+      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 63);
+      createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
       console.log("created open hat");
 
       /*
@@ -3049,25 +3052,17 @@
   }
 
   class TbThreeOThree  {
-    constructor(parameters = { 
-      cutoff: 400,
-      resonance: 7,
-      envelopeModulation: 0.6,
-      decay: 0.3,
-      accent: 0.8,
-      drive: 0.35,
-      waveform: "sawtooth",
-      volume: -30 }) {
+    constructor(parameters) {
       
       console.log("Tb303 create")
-      if (!parameters.cutoff) parameters.cutoff = 400;
-      if (!parameters.resonance) parameters.resonance = 7;
-      if (!parameters.envelopeModulation) parameters.envelopeModulation = 0.6;
-      if (!parameters.decay) parameters.decay = 0.3;
-      if (!parameters.accent) parameters.accent = 0.8;
-      if (!parameters.drive) parameters.drive = 0.35;
-      if (!parameters.waveform) parameters.waveform = "sawtooth";
-      if (!parameters.volume) parameters.volume = -30;
+      if (parameters.cutoff == undefined) parameters.cutoff = 400;
+      if (parameters.resonance == undefined) parameters.resonance = 7;
+      if (parameters.envelopeModulation == undefined) parameters.envelopeModulation = 0.6;
+      if (parameters.decay == undefined) parameters.decay = 0.3;
+      if (parameters.accent == undefined) parameters.accent = 0.8;
+      if (parameters.drive == undefined) parameters.drive = 0.35;
+      if (parameters.waveform == undefined) parameters.waveform = "sawtooth";
+      if (parameters.volume == undefined) parameters.volume = -30;
       
       this._monoSynth = new Tone.MonoSynth({
         portamento: 0.08,
