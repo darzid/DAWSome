@@ -116,6 +116,25 @@
     <div class="instrument-panel panel"></div>
     <div class="effects-panel panel"></div>
     <div class="modulation-panel panel"></div>
+    <div class="xypad-panel panel" style="flex-direction: column">
+      <div style="flex-direction: row">
+        <label>X-axis:
+          <select name="x-device-select"></select>
+          <select name="x-parameter-select"></select>
+        </label>
+      </div>
+
+      <canvas></canvas>
+      
+      <div style="flex-direction: row">
+        <label>Y-axis:
+          <select name="y-device-select"></select>
+          <select name="y-parameter-select"></select>
+        </label>
+      </div>
+
+
+    </div>
     <div class="mixer faders panel"></div>
 
     <div class="tab-strip">
@@ -123,6 +142,7 @@
       <button id="instrument-panel-tab-button" class="btn">Instrument</button>
       <button id="effects-panel-tab-button" class="btn">Effects</button>
       <button id="modulation-panel-tab-button" class="btn">Modulation</button>
+      <button id="xypad-panel-tab-button" class="btn">XY pad</button>
       <button id="mixer-tab-button" class="btn">Mixer</button>
     </div>
   </div>

@@ -223,7 +223,13 @@
   .bottom-panel { width: stretch; margin-bottom: 0px; background: var(--bg); border-top: 2pt solid black; }
   .bottom-panel .tab-strip { border-top: 1pt solid black; }
   .bottom-panel .tab-strip button { height: auto; margin: 0pt; }
-    
+  
+  .xypad-panel canvas {
+    background: black;
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
   #projectFile, #midiFile { display: none; }
   
   number-input {

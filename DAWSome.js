@@ -106,7 +106,13 @@
     clipTitle: $("clipTitle"), len: $("lenInput"), loopClip: $("loopClipBtn"), end: $("endInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
     snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"), accent: $("accentBtn"), slide: $("slideBtn"),
     edKeysWrap: $("edKeysWrap"), edKeysCanvas: $("edKeysCanvas"), hint: $("hint"),
-    clipEditorTabBtn: $("clip-editor-tab-button"), instrumentTabBtn: $("instrument-panel-tab-button"), effectsTabBtn: $("effects-panel-tab-button"), modulationTabBtn: $("modulation-panel-tab-button"), mixerTabBtn: $("mixer-tab-button"),
+    
+    clipEditorTabBtn: $("clip-editor-tab-button"), 
+    instrumentTabBtn: $("instrument-panel-tab-button"), 
+    effectsTabBtn: $("effects-panel-tab-button"), 
+    modulationTabBtn: $("modulation-panel-tab-button"), 
+    xypadTabBtn: $("xypad-panel-tab-button"),
+    mixerTabBtn: $("mixer-tab-button"),
   };
 
   // ===== Helpers =====
@@ -2101,13 +2107,22 @@
   }
 
   class BottomPanelManager {
+    _xypadPointerDown = false;
+    _xDeviceSelect;
+    _yDeviceSelect;
+    _xyCanvas;
+    _xyCanvasContext;
+    
     constructor() {
       this.editor = document.querySelector(".editor");
       this.instrumentPanel = document.querySelector(".instrument-panel");
       this.effectsPanel = document.querySelector(".effects-panel");
       this.modulationPanel = document.querySelector(".modulation-panel");
+      this.xypadPanel = document.querySelector(".xypad-panel");
       this.mixerPanel = document.querySelector(".mixer");
 
+      this.initXyPad();
+      
       dom.clipEditorTabBtn.addEventListener("click", () => {
         dom.clipEditorTabBtn.classList.toggle("on");
         if (dom.clipEditorTabBtn.classList.contains("on")) {
@@ -2148,6 +2163,16 @@
         }
       });
 
+      dom.xypadTabBtn.addEventListener("click", () => {
+        dom.xypadTabBtn.classList.toggle("on");
+        if (dom.xypadTabBtn.classList.contains("on")) {
+          this.showXypadPanel();
+        }
+        else {
+          this.xypadPanel.style.display = "none";
+        }
+      });
+      
       dom.mixerTabBtn.addEventListener("click", () => {
         dom.mixerTabBtn.classList.toggle("on");
         if (dom.mixerTabBtn.classList.contains("on")) {
@@ -2186,6 +2211,11 @@
       this.renderModulationPanel();
     }
 
+    showXypadPanel() {
+      this.showPanel(this.xypadPanel, dom.xypadTabBtn);
+      this.renderXypadPanel();
+    }
+    
     showMixerPanel() {
       this.showPanel(this.mixerPanel, dom.mixerTabBtn);
     }
@@ -2220,6 +2250,8 @@
         this.renderEffectsPanel();
       else if (activeButton.id == "modulation-panel-tab-button")
         this.renderModulationPanel();
+      else if (activeButton.id == "xypad-panel-tab-button")
+        this.renderXypadPanel();
     }
 
     renderInstrumentPanel() {
@@ -2367,7 +2399,7 @@
 
               nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
               renderDeviceParameters();
-              createDeviceHtml(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, effectNames, effectPresets, "Effect");
+              renderDevice(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, effectNames, effectPresets, "Effect");
             }
             else {
               fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
@@ -2483,10 +2515,10 @@
           let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
           console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
 
-          Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => createParamHtml(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
+          Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => renderDeviceParameter(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
         }
         
-        function createParamHtml(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
+        function renderDeviceParameter(parameterPath, deviceMetadata, trackDeviceState, targetParameterMetadata = null) {
           const useDeviceStateOnly = true;
   
           let parameterPathParts = parameterPath.split(".");
@@ -2616,11 +2648,11 @@
   
             if (parts[0] == "modules") {
               let moduleMetadata = deviceList.modules[parts[1]];
-              Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
+              Object.keys(moduleMetadata.parameters).forEach(childParameterName => renderDeviceParameter(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
             }
             else if (parts[0] == "devices") {
               let moduleMetadata = deviceList.devices[parts[1]];
-              Object.keys(moduleMetadata.parameters).forEach(childParameterName => createParamHtml(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
+              Object.keys(moduleMetadata.parameters).forEach(childParameterName => renderDeviceParameter(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
             }
           }
 
@@ -2803,6 +2835,83 @@
         fileInput.click();
       }
       
+    }
+    
+    initXyPad() {
+      this._xDeviceSelect = this.xypadPanel.querySelector("select[name='x-device-select']");
+      this._yDeviceSelect = this.xypadPanel.querySelector("select[name='y-device-select']");
+      
+      this._xDeviceSelect.addEventListener("change", () => {
+        
+      })
+      this._xyCanvas = this.xypadPanel.querySelector("canvas");
+      this._xyCanvasContext = sizeCanvas(this._xyCanvas, this._xyCanvas.clientWidth, this._xyCanvas.clientHeight);
+      const lineWidth = 10;
+      const shadowBlur = lineWidth / 2;
+      const radius = 10;
+      const strokeStyle = "rgba(255,255,255,0.5)";
+      const shadowColor = "rgba(255,255,0,0.5)";
+      
+      this._xyCanvasContext.shadowColor = shadowColor;
+      this._xyCanvasContext.shadowBlur = shadowBlur;
+      this._xyCanvasContext.strokeStyle = strokeStyle;
+      this._xyCanvasContext.fillStyle = shadowColor;
+      this._xyCanvasContext.lineWidth = lineWidth;
+        
+      let canvasCenter = { x: this._xyCanvas.clientWidth / 2, y: this._xyCanvas.clientHeight / 2 };
+    
+      this.drawCircle(canvasCenter, radius)
+
+      this._xyCanvas.ontouchstart = (e) => {
+        this._xypadPointerDown = true;
+        this.drawCircle(this.getMousePositionOnCanvas(e), radius);
+      }
+      this._xyCanvas.ontouchend = () => {
+        this._xypadPointerDown = false;
+      }
+      this._xyCanvas.ontouchmove = (e) => {
+        if (!this._xypadPointerDown) return;
+        this._xyCanvasContext.clearRect(0,0,this._xyCanvas.clientWidth,this._xyCanvas.clientHeight)
+        this.drawCircle(this.getMousePositionOnCanvas(e), radius);
+      }
+    }
+    
+    getMousePositionOnCanvas(event) {
+      const clientX = event.clientX || event.touches[0].clientX;
+      const clientY = event.clientY || event.touches[0].clientY;
+      const { offsetLeft, offsetTop } = event.target;
+      const canvasX = clientX - offsetLeft;
+      const canvasY = clientY - offsetTop;
+      
+      return { x: canvasX, y: canvasY };
+    }
+      
+    drawCircle(position, radius) {
+        this._xyCanvasContext.beginPath();
+        this._xyCanvasContext.arc(position.x, position.y, radius, 0, 2 * Math.PI);
+        this._xyCanvasContext.stroke();
+        this._xyCanvasContext.fill();
+      }
+
+    renderXypadPanel() {
+      console.log("xypad render")
+      this.xypadPanel.style.display = "flex";
+      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      if (!track) {
+        console.log("no track")
+        this.xypadPanel.style.display = "none";
+        return;
+      }
+      else {
+        if (!dom.xypadTabBtn.classList.contains("on")) {
+          dom.xypadTabBtn.classList.add("on");
+        }
+      }
+      
+      let targetDeviceOptionsHtml = "<option>None</option>";
+      //targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+      this._xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
+      this._yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
     }
   }
 
