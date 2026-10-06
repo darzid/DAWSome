@@ -491,6 +491,7 @@
         console.log("Creating DAWSome device " + deviceName)
       }
       let device = (deviceNameParts.length === 1) ? new Tone[deviceName](deviceInfo.parameters) : DAWSome[deviceName](deviceInfo.parameters);
+      //await device.ready;
       if (logSteps) console.log(`makeToneNode: created device "${deviceInfo.name}"`, device);
 
       let deviceContext = device;
@@ -626,7 +627,7 @@
             channel,
             instrumentName: track.devices[0].name,
             instrumentParameters: track.instrumentParameters,
-            effects: makeToneNodes(track.effects),
+            effects:makeToneNodes(track.effects),
             modulators: makeToneNodes(track.modulators.map(m => m.modulator))
           });
         console.log("made chain");
@@ -928,6 +929,7 @@
     };
     try {
       state.tracks.push(track);
+      //await 
       audio.addTrack(track);
       selectTrack(track);
       mixer.addTrackFader(track);
@@ -1206,13 +1208,14 @@
     if (e.target === dom.trackHeadersWrap) deselectTrack();
   }
   );
-  dom.trackHeaders.addEventListener("click", (e) => {
+  dom.trackHeaders.addEventListener("click", async (e) => {
     const el = e.target.closest(".track");
     if (!el) return;
     const track = trackById(Number(el.dataset.id));
     selectTrack(track);
     if (e.target.classList.contains("mute")) {
       track.mute = !track.mute;
+      //await 
       audio.updateTrack(track);
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
@@ -1930,7 +1933,7 @@
   bindToggle(dom.loop, state, "loop", () => audio.setLoop(state.loop, songEndBeats()));
   bindToggle(dom.follow, state, "follow", () => { });
   bindToggle(dom.drawClips, state, "drawClips", () => { });
-  dom.addTrack.addEventListener("click", () => {
+  dom.addTrack.addEventListener("click", async () => {
     addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
     arrangementChanged();
   });
@@ -2200,7 +2203,7 @@
         this.renderModulationPanel();
     }
 
-    renderInstrumentPanel() {
+     renderInstrumentPanel() {
       let parentPanel = this.instrumentPanel;
       this.instrumentPanel.style.display = "flex";
       let track = state.tracks.find(track => track.id === state.selectedTrackId);
@@ -2317,10 +2320,11 @@
           console.log("Preset", track.devices[0].presetName)
         }
 
-        instrumentSelect.oninput = (e) => {
+        instrumentSelect.oninput = async (e) => {
           if (isInstrument) {
             track.instrumentName = e.target.value;
             console.log("Selected instrument " + track.instrumentName)
+            // await 
             audio.updateTrack(track);
             console.log("Yrack updated for Selected instrument " + track.instrumentName)
             track.devices[0].presetName = "default";
@@ -2336,6 +2340,7 @@
               let newFx = { name: e.target.value, parameters: {} };
               track.effects.push(newFx);
               track.devices.push(newFx);
+              //await 
               audio.updateTrack(track);
               console.log("updated track with new effect " + e.target.value);
               let effects = audio.getTrackEffects(track);
@@ -2355,16 +2360,18 @@
           renderDeviceParameters();
           renderDeviceLists();
           document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
+          //await 
           audio.updateTrack(track);
         };
 
-        instrumentPresetSelect.oninput = (e) => {
+        instrumentPresetSelect.oninput = async (e) => {
           if (isInstrument) {
             track.instrumentParameters = devicePresets[track.instrumentName][e.target.value];
             track.devices[0].presetName = e.target.value;
           }
 
           console.log("Preset selected " + e.target.value, track.instrumentParameters)
+          //await 
           audio.updateTrack(track);
           renderDeviceParameters();
           document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
@@ -2833,7 +2840,7 @@
     const observer = new ResizeObserver(layoutAll);
     for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
 
-    function createDemoSong() {
+     function createDemoSong() {
       console.log("creating demo song");
       const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: state.nextId++, pitch, start, duration, velocity, slide }));
 
