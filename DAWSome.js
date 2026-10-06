@@ -3051,7 +3051,17 @@
       drive: 0.35,
       waveform: "sawtooth",
       volume: -30 }) {
-        
+      
+      console.log("Tb303 create")
+      if (!parameters.cutoff) parameters.cutoff = 400;
+      if (!parameters.resonance) parameters.resonance = 7;
+      if (!parameters.envelopeModulation) parameters.envelopeModulation = 0.6;
+      if (!parameters.decay) parameters.decay = 0.3;
+      if (!parameters.accent) parameters.accent = 0.8;
+      if (!parameters.drive) parameters.drive = 0.35;
+      if (!parameters.waveform) parameters.waveform = "sawtooth";
+      if (!parameters.volume) parameters.volume = -30;
+      
       this._monoSynth = new Tone.MonoSynth({
         portamento: 0.08,
         volume: 0,
@@ -3085,6 +3095,7 @@
       });
       this._monoSynth.connect(this._distortion);
       
+      console.log("Tb303 setup", parameters.resonance)
       this.cutoff = parameters.cutoff;
       this.resonance = parameters.resonance;
       this._envelopeModulation = parameters.envelopeModulation;
@@ -3093,6 +3104,7 @@
       this.drive = parameters.drive;
       this.waveform = parameters.waveform;
       this.volume = parameters.volume;
+      console.log("Tb303 created")
     }
        
     get name() { return "DAWSome.TbThreeOThree"; }
@@ -3100,9 +3112,8 @@
     get cutoff() { return this._monoSynth.filterEnvelope.baseFrequency; }
     set cutoff(value) { this._monoSynth.filterEnvelope.baseFrequency = value; }
         
-    get resonance() { return this._monoSynth.filter.Q.value; }
-    set resonance(value) { 
-      this._monoSynth.filter.Q.value = value; }
+    get resonance() { return this._monoSynth.filter.Q; }
+    set resonance(value) { this._monoSynth.filter.Q.value = value; }
         
     get envelopeModulation() { return this._envelopeModulation; }
     set envelopeModulation(value) { 
