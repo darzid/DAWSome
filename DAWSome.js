@@ -2522,6 +2522,7 @@
             if (parts[0] == "unitTypes") {
   
               let input = document.createElement("number-input");
+              input.readOnly = true;
               valueGroup.appendChild(input);
               input.name = parameterPath;
               input.min = paramMetadata.min;
