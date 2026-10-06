@@ -440,6 +440,7 @@
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
+    console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
     const chains = new Map();   // trackId → { instrument, channel, device name }
@@ -605,9 +606,7 @@
 
     return {
       available: true,
-      unlock: () => {
-        Tone.start();
-      },
+      unlock: async () => await initializeAudioContext(),
       setBpm: (bpm) => { transport.bpm.value = bpm; },
       setLoop: (on, endBeats) => {
         transport.loop = on;
@@ -757,13 +756,7 @@
         parts.delete(clipId);
       },
       play: async () => {
-        if (!toneInitialized) {
-          //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-          Tone.getContext().lookAhead = toneLookAhead;
-          console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
-          toneInitialized = true;
-        }
-        await Tone.start();
+        await initializeTone();
         transport.start();
       },
       stop: () => {
@@ -776,6 +769,18 @@
       keyOff: (trackId, pitch) => chain(trackId)?.instrument.triggerRelease(hz(pitch), Tone.now()),
       preview: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2 : DEFAULT_VELOCITY / 2),
     };
+
+    async function initializeTone() {
+      if (!toneInitialized) {
+        console.log('initializing Tone.js context, context state: ' + Tone.getContext().state);
+        //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
+        Tone.getContext().lookAhead = toneLookAhead;
+        console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
+        toneInitialized = true;
+        console.log('Starting Tone, context state: ' + Tone.getContext().state);
+        await Tone.start();
+      }
+    }
   }
 
   const audio = createAudio() ?? {
@@ -2875,7 +2880,8 @@
       const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
       const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 64);
+      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 63);
+      createClip(kick, 64, BEATS_PER_BAR / 4, kickNotes, 95);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -2938,6 +2944,7 @@
       createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
       createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
       createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
+      createClip(bass, 64, BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -2976,6 +2983,7 @@
       ]);
       createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
       createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
+      createClip(closedHat, 64, BEATS_PER_BAR / 4, chNotes2, 95);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -3001,7 +3009,8 @@
       };
       const openHat = addTrack("OpenHat", openHatSynth, [hatReverb]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 64);
+      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 63);
+      createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
       console.log("created open hat");
 
       /*
