@@ -897,7 +897,7 @@
   }
 
   // ===== Model operations =====
-  function addTrack(name, instrument, effects, modulators = null) {
+  function addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
     if (!effects) effects = []
     if (!modulators) modulators = [];
 
@@ -923,8 +923,8 @@
       devices: devices,
       effects: effects,
       modulators: modulators,
-      mute: false,
-      volume: -8
+      mute: mute,
+      volume: volume
     };
     try {
       state.tracks.push(track);
@@ -2845,12 +2845,12 @@
           "detune": -1000,
           "pitchDecay": 0.05,
           "octaves": 8,
-          "volume": -5,
+          "volume": -3,
           "envelope": {
             "attack": 0.001,
             "attackCurve": "linear",
             "decay": 0.1,
-            "sustain": 0.2,
+            "sustain": 0.5,
             "release": 0.1
           }
         }
@@ -2858,20 +2858,21 @@
       const kickDistortion = {
         name: "Distortion",
         parameters: {
-          "distortion": 0.2
+          "distortion": 0.1,
+          "wet": 0.5
         }
       };
       const kickCompressor = {
         name: "Compressor",
         parameters: {
-          "threshold": -12,
-          "knee": 25,
-          "ratio": 20,
+          "threshold": -24,
+          "knee": 15,
+          "ratio": 10,
           "attack": 0.6,
           "release": 0.25
         }
       };
-      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor]);
+      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
       const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
       createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 64);
@@ -2883,13 +2884,13 @@
         type: "Instrument",
         parameters: {
           cutoff: 300,
-          resonance: 4,
-          envelopeModulation: 0.14,
-          decay: 0.2,
-          accent: 1,
-          drive: 1,
+          resonance: 3,
+          envelopeModulation: 0.1,
+          decay: 0.15,
+          accent: 0.32,
+          drive: 0.8,
           waveform: "sawtooth",
-          volume: -25
+          volume: 0
         }
       };
       const bass = addTrack("Bass", bassSynth, []);
@@ -2944,7 +2945,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          volume: -22,
+          volume: -17,
           portamento: 100,
           modulationIndex: 1,
           octaves: 0,
@@ -2982,7 +2983,7 @@
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          "volume": -30,
+          "volume": -20,
           "portamento": 0,
           "harmonicity": 0.65,
           "modulationIndex": 1,
@@ -3042,25 +3043,17 @@
   }
 
   class TbThreeOThree  {
-    constructor(parameters = { 
-      cutoff: 400,
-      resonance: 7,
-      envelopeModulation: 0.6,
-      decay: 0.3,
-      accent: 0.8,
-      drive: 0.35,
-      waveform: "sawtooth",
-      volume: -30 }) {
+    constructor(parameters) {
       
       console.log("Tb303 create")
-      if (!parameters.cutoff) parameters.cutoff = 400;
-      if (!parameters.resonance) parameters.resonance = 7;
-      if (!parameters.envelopeModulation) parameters.envelopeModulation = 0.6;
-      if (!parameters.decay) parameters.decay = 0.3;
-      if (!parameters.accent) parameters.accent = 0.8;
-      if (!parameters.drive) parameters.drive = 0.35;
-      if (!parameters.waveform) parameters.waveform = "sawtooth";
-      if (!parameters.volume) parameters.volume = -30;
+      if (parameters.cutoff == undefined) parameters.cutoff = 400;
+      if (parameters.resonance == undefined) parameters.resonance = 7;
+      if (parameters.envelopeModulation == undefined) parameters.envelopeModulation = 0.6;
+      if (parameters.decay == undefined) parameters.decay = 0.3;
+      if (parameters.accent == undefined) parameters.accent = 0.8;
+      if (parameters.drive == undefined) parameters.drive = 0.35;
+      if (parameters.waveform == undefined) parameters.waveform = "sawtooth";
+      if (parameters.volume == undefined) parameters.volume = -30;
       
       this._monoSynth = new Tone.MonoSynth({
         portamento: 0.08,
