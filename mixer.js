@@ -14,11 +14,9 @@ class Mixer {
       
       faderContainer.innerHTML += `<label>${track.name}</label>
         <input type="number" min="-500" max="0.0" step="0.1" value="${track.volume}" class="track-fader-value">
-        <div style="display: flex; flex-direction: row">
-          <input id="${track.id}-fader" type="range" min="-500" max="0.0" step="0.1" value="${track.volume}">
-          <canvas class="vu-meter" data-val="400" width="10px" height="100px"></canvas>
-        </div>
+        <input id="${track.id}-fader" type="range" min="-500" max="0.0" step="0.1" value="${track.volume}">
         `;
+      
       document.addEventListener("TrackRemoved", (e) => {
         if (e.detail.trackId !== track.id) return;
         console.log("Track removed", e.detail)
@@ -47,16 +45,7 @@ class Mixer {
       }
       console.log("track vol", track)
       
-      let vuMeterCanvas = faderContainer.querySelector("canvas.vu-meter");
-      let vuMeter = new VuMeter(vuMeterCanvas, {
-        "boxCount": 15,
-        "boxGapFraction": 0.1,
-        "max": 500,
-      });
-      vuMeter.draw();
-      console.log("Vumeter draw")
-      let chain = this.audio.getChain(track.id);
-      //levelMeterManager.register(chain.channel.output, vuMeterCanvas);
+      
         
       let muteButton = document.createElement("button");
       muteButton.id=`${track.id}-mute`;
@@ -160,8 +149,21 @@ class Mixer {
         
           console.log("track unsolod")
         }
+        
         //this.audio.updateTrack(track);
+
       };
+      
+      let faderMeterCanvas = document.createElement("canvas");
+      faderMeterCanvas.className = "vu-meter";
+      faderMeterCanvas.width = "5";
+      faderMeterCanvas.height = "100";
+      faderMeterCanvas.dataset.val = 400;
+      faderMeterCanvas.dataset.trackName = track.name;
+      this.mixer.appendChild(faderMeterCanvas);
+        
+      let chain = this.audio.getChain(track.id);
+      levelMeterManager.register(chain.channel.output, faderMeterCanvas);
     }
     
     removeTrackFader(track) {

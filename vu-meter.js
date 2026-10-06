@@ -12,14 +12,14 @@ class VuMeter {
     
         // Colours
         // PrimaryOn = 255, Off = 64
-        this._redOn     = 'rgba( 20,  20, 255, 0.6)'; //'rgba(255,  47,  30, 0.6)';
-        this._redOff    = 'rgba( 10,  10,  64, 0.2)'; //''rgba( 64,  12,   8, 0.2)';
+        this._redOn     = 'rgba(200,  20,  20, 0.6)'; //'rgba(255,  47,  30, 0.6)';
+        this._redOff    = 'rgba( 10,  10,  64, 0.0)'; //''rgba( 64,  12,   8, 0.2)';
         
         this._yellowOn  = 'rgba(255, 215,   5, 0.6)';
-        this._yellowOff = 'rgba(120,  90,   0, 0.2)';
+        this._yellowOff = 'rgba(120,  90,   0, 0.0)';
         
-        this._greenOn   = 'rgba(190, 140,  50, 0.6)'; //'rgba( 53, 255,  30, 0.6)';
-        this._greenOff  = 'rgba( 80,  40,  10, 0.2)'; // 'rgba( 64,  32,   8, 0.6)'; //'rgba(13,64,8,0.2)';
+        this._greenOn   = 'rgba(100, 180,  50, 0.6)'; //'rgba( 53, 255,  30, 0.6)';
+        this._greenOff  = 'rgba( 80,  40,  10, 0.0)'; // 'rgba( 64,  32,   8, 0.6)'; //'rgba(13,64,8,0.2)';
     
         // Derived and starting values
         this._width = elem.width;
@@ -63,7 +63,7 @@ class VuMeter {
         c.save();
         c.beginPath();
         c.rect(0, 0, this._width, this._height);
-        c.fillStyle = 'rgba(255, 251, 243, 0.85)'; //'rgba(32,32,32, 0.1)';
+        c.fillStyle = 'rgba(0, 0, 0, 1.0)'; //'rgba(32,32,32, 0.1)';
         c.fill();
         c.restore();
         this.drawBoxes(c, this._curVal);

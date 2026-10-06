@@ -31,13 +31,13 @@ class LevelMeterManager {
 const levelMeterManager = new LevelMeterManager();
 
 class LevelMeter {
+  _maxValue = null;
   constructor(audioNode, meterCanvasElement, vuMeter) {
     this.audioNode = audioNode;
     this.meterCanvasElement = meterCanvasElement;
     this.vuMeter = vuMeter;
-    this.analyser = new Tone.Analyser();
-    console.log("audionode", audioNode)
-    audioNode.connect(this.analyser);
+    this.meter = new Tone.Meter();
+    audioNode.connect(this.meter);
   }
 
   update() {
@@ -45,19 +45,36 @@ class LevelMeter {
       console.log("Skipping collapsed meter", this.meterCanvasElement);
       return;
     }
-
-    let values = this.analyser.getValue();
-   // console.log("value", values)
     
-    let sumSquares = 0.0;
-    for (const amplitude of values) { sumSquares += amplitude * amplitude; }
-    let value = Math.sqrt(sumSquares / values.length) * 1;
-    value = Math.abs(Math.round(value * 1000) / 1000);
+    // 100 = vol rood
+    // 80 = vol oranje
+    // 60 = vol groen
+    
+    
+    let rawValueInDb = this.meter.getValue(); // in decibels
+    let transposedValue = rawValueInDb + 80; // 0db -> 80 = vol oranje
+    let roundedValue = parseInt(Math.round(transposedValue)).toString();
+    
+    if (this._maxValue == null || this._maxValue < rawValueInDb)
+    {
+      this._maxValue = rawValueInDb;
+      //console.log(`"${this.meterCanvasElement.dataset.trackName}" peak ${rawValueInDb.toFixed(1)} db, transposed ${roundedValue}`);
+    }
+    
+    if (isNaN(roundedValue)) {
+      return;
+    }
+    let value = roundedValue;
+    /*let value = Math.round((rawValue + 100) * 1);
 
-   // if (parseFloat(this.meterCanvasElement.getAttribute("data-val")) != value) {
+    if (value == undefined) return;
+    let stringValue = parseInt(value).toString();
+    if (isNaN(stringValue)) return;*/
+    
+    if (this.meterCanvasElement.getAttribute("data-val") != value) {
       this.meterCanvasElement.setAttribute("data-val", value);
       this.vuMeter.draw();
-    //}
+    }
 
     let peak = value;
     if (this.meterCanvasElement.getAttribute("data-peak")) {
