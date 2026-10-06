@@ -3020,12 +3020,18 @@
       createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
       console.log("created open hat");
 
-      /*
       console.log("creating 303");
       const tb303Synth = {
         name: "DAWSome.TbThreeOThree",
         parameters: {
-          volume: -45
+          cutoff: 500,
+          resonance: 8,
+          envelopeModulation: 0.03,
+          decay: 0.75,
+          accent: 0.5,
+          drive: 0.35,
+          waveform: "sawtooth",
+          volume: -9
         }
       };
       const tb303Delay = {
@@ -3033,23 +3039,23 @@
         parameters: {
           delayTime: "8n.",
           feedback: 0.3,
-          wet: 0.05
+          wet: 0.25
         }
       }
       const tb303 = addTrack("303", tb303Synth, [tb303Delay]);
       const tb303Notes = mk([
-        [36, 0.00, 0.25],
-        [48, 0.25, 0.25],
-        [36, 0.50, 0.25],
-        [39, 0.75, 0.25],
-        [36, 1.00, 0.125],
-        [41, 1.25, 0.25],
-        [43, 1.50, 0.25],
-        [46, 1.75, 0.25],
+        [31, 2.25, 0.25, DEFAULT_VELOCITY, true],
+        [37, 3.00, 0.25, DEFAULT_VELOCITY, true],
+        [34, 3.75, 0.25, DEFAULT_VELOCITY, true],
+        
+        [31, 6.25, 0.25, DEFAULT_VELOCITY, true],
+        [35, 7.00, 0.125, ACCENT_VELOCITY, true],
+        [37, 7.25, 0.25, DEFAULT_VELOCITY],
+        [34, 7.75, 0.25, ACCENT_VELOCITY, true],
       ]);
-      createClip(tb303, 0, BEATS_PER_BAR / 2, tb303Notes, 64);
+      createClip(tb303, 0, BEATS_PER_BAR * 2, tb303Notes, 96);
       console.log("created 303");
-      */
+      
 
       console.log("created demo song");
 
