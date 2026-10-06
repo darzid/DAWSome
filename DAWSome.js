@@ -775,7 +775,9 @@
       },
       stop: () => {
         transport.stop();
-        for (const ch of chains.values()) ch.instrument.triggerRelease();
+        for (const ch of chains.values()) {
+          if (ch.instrument) ch.instrument.triggerRelease();
+        }
       },
       seek: (beat) => { transport.ticks = Math.round(beat * PPQ); },
       positionBeat: () => transport.getTicksAtTime(Tone.immediate()) / PPQ,
