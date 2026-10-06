@@ -65,6 +65,7 @@
   // ===== State =====
   var state = {
     name: "DemoProject",
+    masterVolume: 0,
     bpm: 130,
     loop: true,
     loopLength: 16,
@@ -449,13 +450,18 @@
     console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
+    const masterChannel = new Tone.Channel(state.masterVolume).toDestination();
     const chains = new Map();   // trackId → { instrument, channel, device name }
+    chains.set(0, {
+      channel: masterChannel
+    });
+    
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
     
     const makeToneNode = (deviceInfo) => {
-      const logSteps = false;
+      const logSteps = true;
 
       if (logSteps) console.log(`makeToneNode: creating device "${deviceInfo.name}"`);
       const getValueParams = (deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath) => {
@@ -596,14 +602,14 @@
     };
     const chain = (trackId) => chains.get(trackId);
     document.addEventListener("MuteChanged", (e) => {
-      const ch = chain(e.detail.trackId);
+      const ch = chain(e.detail.channelId);
       ch.channel.mute = e.detail.muted;
-      console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
+      console.log(`audio.MuteChanged: ${e.detail.channelId}, mute changed to ${ch.channel.mute}`);
     });
     document.addEventListener("VolumeChanged", (e) => {
-      const ch = chain(e.detail.trackId);
+      const ch = chain(e.detail.channel);
       ch.channel.volume.value = e.detail.volume;
-      console.log(`audio.VolumeChanged: ${e.detail.trackId}, volume changed to ${ch.channel.volume}`);
+      console.log(`audio.VolumeChanged: ${e.detail.channelId}, volume changed to ${ch.channel.volume}`);
     });
     document.addEventListener("InstrumentChanged", (e) => {
       //updateInstrument(e.detail.trackId, e.detail.instrumentName);
@@ -621,7 +627,7 @@
       },
       addTrack: (track) => {
         console.log("adding track")
-        const channel = new Tone.Channel(track.volume).toDestination();
+        const channel = new Tone.Channel(track.volume).connect(masterChannel);
         channel.mute = track.mute;
         track.devices[0].parameters = track.instrumentParameters;
         console.log("making chain");

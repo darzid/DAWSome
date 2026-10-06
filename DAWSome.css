@@ -191,11 +191,15 @@
   .mixer::-webkit-scrollbar-thumb { background: #555; border-radius: 1.25vw; }
   .mixer::-webkit-scrollbar-corner { background: #1c1c1c; }
 
-  .mixer .track-fader-container { display: flex; flex-direction: column; text-align: center; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; margin: 1px; background: rgba(50,50,50,0.2)}
-  .mixer .track-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); background: var(--panel); padding-top: 2px; padding-bottom: 2px; }
-  .mixer .track-fader-container button { margin: 2px; }
-  .mixer .track-fader { writing-mode: vertical-lr; direction: rtl; margin-bottom: 10px; }
-  .mixer .track-fader-value { 
+  .mixer .channel-fader-container { display: flex; flex-direction: column; text-align: center; border: 1px solid rgba(255,255,255,0.2); border-radius: 2px; margin: 1px; background: rgba(50,50,50,0.2);
+    min-width: 20vw;
+    max-width: 20vw;
+    width: 20vw;
+  }
+  .mixer .channel-fader-container label { overflow: hidden; text-overflow: ellipsis; color: var(--text); background: var(--bg); padding-top: 2px; padding-bottom: 2px; font-size: smaller; }
+  .mixer .channel-fader-container .btn { margin: 0.2em; padding: 0px;  }
+  .mixer .channel-fader { writing-mode: vertical-lr; direction: rtl; margin-bottom: 10px; }
+  .mixer .channel-fader-value { 
     display: inline-block;
     align-self: center;
     text-align: center;
@@ -338,6 +342,7 @@
 .vu-meter {
   margin-top: 5px;
   margin-bottom: 5px;
+  padding-left: -20px;
 
   padding: 0pt;
 
