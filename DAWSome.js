@@ -67,6 +67,7 @@
     name: "DemoProject",
     bpm: 130,
     loop: true,
+    loopLength: 16,
     follow: true,
     drawClips: false,
     playing: false,
@@ -117,7 +118,12 @@
   const clipById = (id) => state.clips.find((c) => c.id === id);
   const currentClip = () => clipById(state.selectedClipId) ?? null;
   const clipEnd = (clip) => clip.end ? clip.end : clip.start + clip.length;
-  const songEndBeats = () => Math.max(MIN_SONG_BEATS, ceilBars(state.clips.reduce((m, c) => Math.max(m, clipEnd(c)), 0)));
+  const songEndBeats = () => {
+    let endBeats = Math.max(MIN_SONG_BEATS, ceilBars(state.clips.reduce((m, c) => Math.max(m, clipEnd(c)), 0)));
+    if (endBeats > state.loopLength)
+      state.loopLength = endBeats;
+    return endBeats;
+  };
   const beatsToTime = (beats) => {
     let remainingBeats = beats;
     let bars = Math.floor(beats / 4);
@@ -1851,6 +1857,7 @@
   function updateSongSettingsUI() {
     dom.projectName.value = state.name;
     dom.bpm.value = state.bpm;
+    dom.songLoopLength.value = songEndBeats();
     dom.follow.classList.toggle("on", state.follow);
     dom.loop.classList.toggle("on", state.loop);
     dom.drawClips.classList.toggle("on", state.drawClips);
