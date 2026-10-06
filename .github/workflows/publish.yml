@@ -63,7 +63,7 @@ jobs:
             .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
             .replace(/<script src="presetbrowser.js"><\/script>/i, `${presetBrowserScriptBlock}`)
             .replace(/<script src="mixer.js"><\/script>/i, `${mixerScriptBlock}`)
-            .replace(/<script src="DAWSome.js"><\/script>/i, `${mainScriptBlock}`);
+            .replace(/<script src="DAWSome.js" type="module"><\/script>/i, `${mainScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
           
