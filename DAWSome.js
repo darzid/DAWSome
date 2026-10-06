@@ -813,7 +813,7 @@
       if (!toneInitialized) {
         console.log('initializing Tone.js context, context state: ' + Tone.getContext().state);
         //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-        Tone.getContext().lookAhead = toneLookAhead;
+        //Tone.getContext().lookAhead = toneLookAhead;
         console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
         console.log('Starting Tone, context state: ' + Tone.getContext().state);
         await Tone.start();
