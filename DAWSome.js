@@ -2996,6 +2996,12 @@
       this.xDeviceSelect.addEventListener("change", () => this.xDeviceSelected());
       this.yDeviceSelect.addEventListener("change", () => this.yDeviceSelected());
       
+      this.xDeviceSelect.disabled = true;
+      this.yDeviceSelect.disabled = true;
+      
+      this.xParameterSelect.disabled = true;
+      this.yParameterSelect.disabled = true;
+      
       this.ctx = sizeCanvas(this.canvas, this.canvas.clientWidth, this.canvas.clientHeight);
       
       this.ctx.strokeStyle = "rgba(255,255,255,0.5)";;
@@ -3053,45 +3059,60 @@
       if (this.track == track) return;
       this.track = track;
       this.trackAudioDevices = audio.getTrackDevices(track);
-      let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+      
+      let targetDeviceOptionsHtml = '<option>-Select device-</option>';
+      targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
       this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
-      this.xDeviceSelected();
-      this.yDeviceSelected();
+      this.xDeviceSelect.disabled = false;
+      this.yDeviceSelect.disabled = false;
     }
     
     xDeviceSelected() {
       if (!this.track) return;
+      if (!this.xDeviceSelect.value) return;
+      
       console.log("Device selected ", this.xDeviceName)
-      this.xParameterSelect.innerHTML = "";
+      this.xParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.xDeviceName);
       deviceNumberParameters.forEach(param => this.xParameterSelect.innerHTML += `<option value="${deviceNumberParameters.indexOf(param)}">${param.name}</option>`);
       this.xParameterSelect.onchange = (e) => this.xParameterSelected(deviceNumberParameters);
-      this.xParameterSelected(deviceNumberParameters);
+      this.xParameterSelect.disabled = false;
     }
     
     xParameterSelected(deviceNumberParameters) {
-      this.xParameterMetadata = deviceNumberParameters[this.xParameterSelect.value].metadata;
-      let xRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
-      let xOffset = (this.xParameterValue - this.xParameterMetadata.min) / xRange;
-      this.position.x = xOffset * this.size.width;
+      if (!this.xParameterSelect.value) {
+        this.yParameterMetadata = null;
+        this.position = this.center;
+      } else {
+        this.xParameterMetadata = deviceNumberParameters[this.xParameterSelect.value].metadata;
+        let xRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
+        let xOffset = (this.xParameterValue - this.xParameterMetadata.min) / xRange;
+        this.position.x = xOffset * this.size.width;
+      }
       this.updatePosition(this.position);
     }
     
     yDeviceSelected() {
       if (!this.track) return;
-      this.yParameterSelect.innerHTML = "";
+      if (!this.yDeviceSelect.value) return;
+      this.yParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.yDeviceName);
       deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${deviceNumberParameters.indexOf(param)}">${param.name}</option>`);
       this.yParameterSelect.onchange = (e) => this.yParameterSelected(deviceNumberParameters);
-      this.yParameterSelected(deviceNumberParameters);
+      this.yParameterSelect.disabled = false;
     }
     
     yParameterSelected(deviceNumberParameters) {
-      this.yParameterMetadata = deviceNumberParameters[this.yParameterSelect.value].metadata;
-      let yRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
-      let yOffset = (this.yParameterValue - this.yParameterMetadata.min) / yRange;
-      this.position.y = this.size.height - (yOffset * this.size.height);
+      if (!this.xParameterSelect.value) {
+        this.yParameterMetadata = null;
+        this.position = this.center;
+      } else {
+        this.yParameterMetadata = deviceNumberParameters[this.yParameterSelect.value].metadata;
+        let yRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
+        let yOffset = (this.yParameterValue - this.yParameterMetadata.min) / yRange;
+        this.position.y = this.size.height - (yOffset * this.size.height);
+      }
       this.updatePosition(this.position);
     }
     
@@ -3172,6 +3193,7 @@
       else
         audioDevice[parameterName] = value;
     }
+
   }
   
   // ===== Init =====
