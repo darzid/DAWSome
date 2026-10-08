@@ -64,7 +64,7 @@
   }
   
   // ===== State =====
-  var state = {
+  var projectState = {
     name: "DemoProject",
     masterVolume: 0,
     bpm: 130,
@@ -430,7 +430,7 @@
     console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
-    const masterChannel = new Tone.Channel(state.masterVolume).toDestination();
+    const masterChannel = new Tone.Channel(projectState.masterVolume).toDestination();
     const chains = new Map();   // trackId → { instrument, channel, device name }
     chains.set(0, {
       channel: masterChannel
@@ -490,14 +490,14 @@
       let deviceInfoContext = deviceInfo.parameters;
       let paramContextPath = "";
 
-      if (logSteps) console.log(`Device "${deviceInfo.name}": Filling device state (deviceContext, deviceMetadataContext)`, deviceContext, deviceMetadataContext);
+      if (logSteps) console.log(`Device "${deviceInfo.name}": Filling device projectState (deviceContext, deviceMetadataContext)`, deviceContext, deviceMetadataContext);
       try {
         getValueParams(deviceContext, deviceInfoContext, deviceMetadataContext, paramContextPath);
-        if (logSteps) console.log(`Device "${deviceInfo.name}": Device state filled`, deviceInfo);
+        if (logSteps) console.log(`Device "${deviceInfo.name}": Device projectState filled`, deviceInfo);
 
       }
       catch (error) {
-        console.error("error while trying to create device state", error);
+        console.error("error while trying to create device projectState", error);
         throw error;
       }
 
@@ -564,7 +564,7 @@
     }
     const updateInstrument = (trackId, instrumentName) => {
       const ch = chain(trackId);
-      const track = state.tracks.find(track => track.id == trackId);
+      const track = projectState.tracks.find(track => track.id == trackId);
       track.devices[0].name = instrumentName;
       track.devices[0].parameters = {};
 
@@ -865,7 +865,7 @@
     hZoom: { min: 3, max: 200 },
     vZoom: { min: 40, max: 120 },
     rowHeight: 52,
-    rowCount: () => state.tracks.length,
+    rowCount: () => projectState.tracks.length,
     contentBeats: () => stateHelper.songEndBeats() + Constants.SONG_TAIL_BEATS,
     render: renderArrangement,
     onLocate: (beat) => setPlayhead(helpers.clamp(snapRound(beat, arrangementStep()), 0, stateHelper.songEndBeats())),
@@ -874,10 +874,10 @@
 
   const arrangementStep = () => gridStep("wide", false, av.pxPerBeat).step;
   const clipAt = (beat, row) => {
-    const track = state.tracks[row];
+    const track = projectState.tracks[row];
     if (!track) return null;
-    for (let i = state.clips.length - 1; i >= 0; i--) {
-      const c = state.clips[i];
+    for (let i = projectState.clips.length - 1; i >= 0; i--) {
+      const c = projectState.clips[i];
       if (c.trackId === track.id && beat >= c.start && beat < helpers.clipEnd(c)) return c;
     }
     return null;
@@ -904,8 +904,8 @@
     c.font = "1.5vh system-ui, sans-serif";
     c.textBaseline = "top";
     c.textAlign = "left";
-    for (const clip of state.clips) {
-      const row = state.tracks.findIndex((t) => t.id === clip.trackId);
+    for (const clip of projectState.clips) {
+      const row = projectState.tracks.findIndex((t) => t.id === clip.trackId);
       if (row < firstRow || row > lastRow) continue;
       const x0 = av.beatToX(clip.start) - sx;
       const x1 = av.beatToX(helpers.clipEnd(clip)) - sx;
@@ -913,7 +913,7 @@
       const y = row * rh - sy + 2, h = rh - 5;
       const w = Math.max(2, x1 - x0 - 1);
       const track = stateHelper.trackById(clip.trackId);
-      const selected = clip.id === state.selectedClipId;
+      const selected = clip.id === projectState.selectedClipId;
       c.fillStyle = track.color;
       c.globalAlpha = track.mute ? 0.45 : 1;
       c.fillRect(Math.round(x0), y, w, h);
@@ -985,8 +985,8 @@
         c.strokeRect(Math.round(x0) + 1, y + 1, w - 2, h - 2);
       }
     }
-    av.drawPlayhead(c, H, state.playheadBeat);
-    av.drawRuler({ subStep: arrangementStep(), regionEnd: stateHelper.songEndBeats(), playheadBeat: state.playheadBeat });
+    av.drawPlayhead(c, H, projectState.playheadBeat);
+    av.drawRuler({ subStep: arrangementStep(), regionEnd: stateHelper.songEndBeats(), playheadBeat: projectState.playheadBeat });
   }
 
   // Track headers are DOM so names and instruments are editable; they scroll with the lanes.
@@ -995,7 +995,7 @@
     dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
     const existing = new Map([...dom.trackHeaders.children].map((el) => [Number(el.dataset.id), el]));
     dom.trackHeaders.replaceChildren();
-    for (const track of state.tracks) {
+    for (const track of projectState.tracks) {
       let el = existing.get(track.id);
       if (!el) {
         el = document.createElement("div");
@@ -1007,7 +1007,7 @@
           <button class="btn mini del" title="Delete track">×</button>`;
       }
       el.style.height = `${rh}px`;
-      el.classList.toggle("selected", track.id === state.selectedTrackId);
+      el.classList.toggle("selected", track.id === projectState.selectedTrackId);
       el.querySelector(".swatch").style.background = track.color;
 
       const nameInput = el.querySelector(".name");
@@ -1101,7 +1101,7 @@
       return;
     }
     clipManager.selectClip(clip);
-    if (!state.drawClips) return;
+    if (!projectState.drawClips) return;
     aDrag = {
       type: onClipRightEdge(clip, p.x) ? "resize" : "move", pointerId: e.pointerId, clip,
       start0: clip.start, length0: clip.length, beat0: p.beat, row0: p.row, x0: p.x, vx0: p.vx, vy0: p.vy, moved: false,
@@ -1129,7 +1129,7 @@
     const step = arrangementStep();
     if (d.type === "move") {
       d.clip.start = Math.max(0, snapRound(d.start0 + (p.beat - d.beat0), step));
-      const track = state.tracks[p.row];
+      const track = projectState.tracks[p.row];
       if (track && track.id !== d.clip.trackId) {
         d.clip.trackId = track.id;
         trackManager.selectTrack(track);
@@ -1161,10 +1161,10 @@
   }, { passive: false });
   av.o.scroller.addEventListener("dblclick", (e) => {
     const p = av.point(e);
-    const track = state.tracks[p.row];
+    const track = projectState.tracks[p.row];
     if (!track || clipAt(p.beat, p.row)) return;
     const start = snapFloor(p.beat, Constants.BEATS_PER_BAR);
-    if (!state.drawClips) return;
+    if (!projectState.drawClips) return;
     clipManager.selectClip(clipManager.createClip(track, start, Constants.BEATS_PER_BAR));
     updateManager.arrangementChanged();
   });
@@ -1206,7 +1206,7 @@
   const editorPlayhead = () => {
     const clip = stateHelper.currentClip();
     if (!clip) return null;
-    const local = state.playheadBeat - clip.start;
+    const local = projectState.playheadBeat - clip.start;
     return local >= 0 && local <= ev.o.contentBeats() ? local : null;
   };
 
@@ -1312,7 +1312,7 @@
       if (o.pitch === pitch && o.start > start + Constants.EPS) duration = Math.min(duration, o.start - start);
     }
     if (duration < Constants.EPS) return null;
-    const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? Constants.ACCENT_VELOCITY : Constants.DEFAULT_VELOCITY, slide: ed.slide };
+    const note = { id: projectState.nextId++, pitch, start, duration, velocity: ed.accent ? Constants.ACCENT_VELOCITY : Constants.DEFAULT_VELOCITY, slide: ed.slide };
     clip.notes.push(note);
     audio.preview(clip.trackId, pitch);
     updateManager.notesChanged();
@@ -1513,7 +1513,7 @@
   function keyOff() {
     if (ed.activeKey === null) return;
     const clip = stateHelper.currentClip();
-    audio.keyOff(clip ? clip.trackId : state.selectedTrackId, ed.activeKey);
+    audio.keyOff(clip ? clip.trackId : projectState.selectedTrackId, ed.activeKey);
     ed.activeKey = null;
     ev.requestRender();
   }
@@ -1529,7 +1529,7 @@
     };
     const clip = stateHelper.currentClip();
     ed.activeKey = keyPitchAt(e);
-    audio.keyOn(clip ? clip.trackId : state.selectedTrackId, ed.activeKey);
+    audio.keyOn(clip ? clip.trackId : projectState.selectedTrackId, ed.activeKey);
     ev.requestRender();
   });
   dom.edKeysCanvas.addEventListener("pointermove", (e) => {
@@ -1555,12 +1555,12 @@
 
   // ===== Transport =====
   function updatePosReadout() {
-    const b = state.playheadBeat;
+    const b = projectState.playheadBeat;
     dom.pos.textContent = `${Math.floor(b / Constants.BEATS_PER_BAR) + 1}.${Math.floor(b % Constants.BEATS_PER_BAR) + 1}.${Math.floor((b % 1) * 4) + 1}`;
   }
 
   function setPlayhead(beat) {
-    state.playheadBeat = beat;
+    projectState.playheadBeat = beat;
     audio.seek(beat);
     updatePosReadout();
     av.requestRender();
@@ -1574,11 +1574,11 @@
   }
 
   function tickPlayhead() {
-    if (!state.playing) return;
-    state.playheadBeat = audio.positionBeat();
+    if (!projectState.playing) return;
+    projectState.playheadBeat = audio.positionBeat();
     updatePosReadout();
-    if (state.follow) {
-      followPlayhead(av, state.playheadBeat);
+    if (projectState.follow) {
+      followPlayhead(av, projectState.playheadBeat);
       const local = editorPlayhead();
       if (local !== null) followPlayhead(ev, local);
     }
@@ -1588,34 +1588,34 @@
   }
 
   async function togglePlay() {
-    if (state.playing) {
+    if (projectState.playing) {
       audio.stop();
-      state.playing = false;
+      projectState.playing = false;
       setPlayhead(0);
     } else {
       try {
         await audio.play();
-        state.playing = true;
+        projectState.playing = true;
         requestAnimationFrame(tickPlayhead);
       } catch (err) {
         console.error("Playback could not start:", err);
       }
     }
-    dom.play.textContent = state.playing ? "■" : "▶";
-    dom.play.classList.toggle("on", state.playing);
+    dom.play.textContent = projectState.playing ? "■" : "▶";
+    dom.play.classList.toggle("on", projectState.playing);
   }
 
   // ===== MIDI import =====
   function importMidi(parsed, fileName) {
     if (parsed.bpm) setBpm(helpers.clamp(Math.round(parsed.bpm), 20, 300));
-    const startBeat = snapFloor(state.playheadBeat, Constants.BEATS_PER_BAR);
+    const startBeat = snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of parsed.tracks) {
       
         
       const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, Constants.DEFAULT_INSTRUMENT);
       const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-      const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
+      const notes = t.notes.map((n) => ({ id: projectState.nextId++, ...n }));
       const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), notes);
       first = first ?? clip;
     }
@@ -1627,7 +1627,7 @@
 
   function loadProject(projectData, fileName) {
     console.log("loadProject " + fileName, projectData)
-    const startBeat = snapFloor(state.playheadBeat, Constants.BEATS_PER_BAR);
+    const startBeat = snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of projectData.tracks) {
       let track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
@@ -1644,16 +1644,16 @@
     }
 
     console.log("loadProject parsed " + fileName, projectData)
-    state = projectData;
+    projectState = projectData;
     if (first) clipManager.selectClip(first);
     updateManager.arrangementChanged();
     updateManager.editorClipChanged();
-    console.log("loaded project", state.tracks.length)
+    console.log("loaded project", projectState.tracks.length)
     return projectData.tracks.length;
   }
 
   function saveProject() {
-    let projectJson = JSON.stringify(state);
+    let projectJson = JSON.stringify(projectState);
     if (window.navigator.userAgent.toString().startsWith("Mozilla/5.0 (Linux; Android 16; SM-A556B")) {
       console.log("Project saved", { "json": projectJson });
       return;
@@ -1662,17 +1662,17 @@
     var a = document.createElement("a");
     var file = new Blob([projectJson], { type: "text/plain" });
     a.href = URL.createObjectURL(file);
-    a.download = `${state.name}.json`;
+    a.download = `${projectState.name}.json`;
     a.click();
   }
 
   function updateSongSettingsUI() {
-    dom.projectName.value = state.name;
-    dom.bpm.value = state.bpm;
+    dom.projectName.value = projectState.name;
+    dom.bpm.value = projectState.bpm;
     dom.songLoopLength.value = stateHelper.songEndBeats();
-    dom.follow.classList.toggle("on", state.follow);
-    dom.loop.classList.toggle("on", state.loop);
-    dom.drawClips.classList.toggle("on", state.drawClips);
+    dom.follow.classList.toggle("on", projectState.follow);
+    dom.loop.classList.toggle("on", projectState.loop);
+    dom.drawClips.classList.toggle("on", projectState.drawClips);
   }
 
   dom.importBtn.addEventListener("click", () => dom.midiFile.click());
@@ -1720,7 +1720,7 @@
 
   // ===== Controls =====
   function setBpm(bpm) {
-    state.bpm = bpm;
+    projectState.bpm = bpm;
     dom.bpm.value = bpm;
     audio.setBpm(bpm);
   }
@@ -1741,25 +1741,25 @@
   }
 
 
-  dom.projectName.addEventListener("change", () => state.name = dom.projectName.value);
+  dom.projectName.addEventListener("change", () => projectState.name = dom.projectName.value);
 
   dom.play.addEventListener("click", togglePlay);
   dom.bpm.addEventListener("input", () => {
     const v = Number(dom.bpm.value);
-    if (v >= 20 && v <= 300) { state.bpm = v; audio.setBpm(v); }
+    if (v >= 20 && v <= 300) { projectState.bpm = v; audio.setBpm(v); }
   });
-  dom.bpm.addEventListener("change", () => setBpm(helpers.clamp(Number(dom.bpm.value) || state.bpm, 20, 300)));
-  bindToggle(dom.loop, state, "loop", () => audio.setLoop(state.loop, stateHelper.songEndBeats()));
-  bindToggle(dom.follow, state, "follow", () => { });
-  bindToggle(dom.drawClips, state, "drawClips", () => { });
+  dom.bpm.addEventListener("change", () => setBpm(helpers.clamp(Number(dom.bpm.value) || projectState.bpm, 20, 300)));
+  bindToggle(dom.loop, projectState, "loop", () => audio.setLoop(projectState.loop, stateHelper.songEndBeats()));
+  bindToggle(dom.follow, projectState, "follow", () => { });
+  bindToggle(dom.drawClips, projectState, "drawClips", () => { });
   dom.addTrack.addEventListener("click", async () => {
-    trackManager.addTrack(`Track ${state.tracks.length + 1}`, Constants.DEFAULT_INSTRUMENT);
+    trackManager.addTrack(`Track ${projectState.tracks.length + 1}`, Constants.DEFAULT_INSTRUMENT);
     updateManager.arrangementChanged();
   });
   dom.addClip.addEventListener("click", () => {
-    const track = stateHelper.trackById(state.selectedTrackId);
+    const track = stateHelper.trackById(projectState.selectedTrackId);
     if (!track) return;
-    const start = snapFloor(state.playheadBeat, Constants.BEATS_PER_BAR);
+    const start = snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     // selectClip(clipManager.createClip(track, start, Constants.BEATS_PER_BAR));
     clipManager.createClip(track, start, Constants.BEATS_PER_BAR);
     updateManager.arrangementChanged();
@@ -1780,7 +1780,7 @@
       stateHelper.trackById(clip.trackId),
       helpers.clipEnd(clip),
       clip.length,
-      clip.notes.map((n) => ({ ...n, id: state.nextId++ })),
+      clip.notes.map((n) => ({ ...n, id: projectState.nextId++ })),
       helpers.clipEnd(clip) + (clip.end - clip.start));
     clipManager.selectClip(copy);
     updateManager.arrangementChanged();
@@ -1883,18 +1883,18 @@
   }
   
   class StateHelper {
-    constructor(state, helpers) {
-      this.state = state;
+    constructor(projectState, helpers) {
+      this.projectState = projectState;
       this.helpers = helpers;
     }
     
-    trackById(id) { return this.state.tracks.find((t) => t.id === id); }
-    clipById(id) { return this.state.clips.find((c) => c.id === id); }
-    currentClip() { return this.clipById(this.state.selectedClipId) ?? null; }
+    trackById(id) { return this.projectState.tracks.find((t) => t.id === id); }
+    clipById(id) { return this.projectState.clips.find((c) => c.id === id); }
+    currentClip() { return this.clipById(this.projectState.selectedClipId) ?? null; }
     songEndBeats() {
-      let endBeats = Math.max(Constants.MIN_SONG_BEATS, this.helpers.ceilBars(this.state.clips.reduce((m, c) => Math.max(m, this.helpers.clipEnd(c)), 0)));
-      if (endBeats > this.state.loopLength)
-        state.loopLength = endBeats;
+      let endBeats = Math.max(Constants.MIN_SONG_BEATS, this.helpers.ceilBars(this.projectState.clips.reduce((m, c) => Math.max(m, this.helpers.clipEnd(c)), 0)));
+      if (endBeats > this.projectState.loopLength)
+        projectState.loopLength = endBeats;
       return endBeats;
     }
   }
@@ -2141,7 +2141,7 @@
       else*/
         this.showPanel(this.editor, dom.clipEditorTabBtn);
 
-      /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${state.selectedTrackId}"]`);
+      /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${projectState.selectedTrackId}"]`);
       const trackElement = trackHeader.closest(".track");
       trackElement.scrollIntoView();
       console.log("scroll into view", trackElement);*/
@@ -2208,7 +2208,7 @@
     renderInstrumentPanel() {
       let parentPanel = this.instrumentPanel;
       this.instrumentPanel.style.display = "flex";
-      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         parentPanel.style.display = "none";
         return;
@@ -2221,7 +2221,7 @@
 
     renderEffectsPanel() {
       this.effectsPanel.style.display = "flex";
-      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         console.log("no track fx")
         this.effectsPanel.style.display = "none";
@@ -2237,7 +2237,7 @@
 
     renderModulationPanel() {
       this.modulationPanel.style.display = "flex";
-      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         console.log("no track")
         this.modulationPanel.style.display = "none";
@@ -2266,7 +2266,7 @@
     renderXypadPanel() {
       console.log("xypad render")
       this.xypadPanel.style.display = "flex";
-      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         console.log("no track")
         this.xypadPanel.style.display = "none";
@@ -2766,8 +2766,8 @@
   }
 
   class TrackManager {
-    constructor(state, audio, bottomPanelManager, mixer) {
-      this.state = state;
+    constructor(projectState, audio, bottomPanelManager, mixer) {
+      this.projectState = projectState;
       this.audio = audio;
       this.bottomPanelManager = bottomPanelManager;
       this.mixer = mixer;
@@ -2776,27 +2776,27 @@
     }
     
     deselectTrack() {
-      if (!this.state.selectedTrackId) {
+      if (!this.projectState.selectedTrackId) {
         return;
       }
-      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
+      let trackElement = document.querySelector(`.track[data-id="${projectState.selectedTrackId}"]`);
       if (trackElement) {
         trackElement.classList.remove("selected");
       }
-      this.state.selectedTrackId = null;
+      this.projectState.selectedTrackId = null;
   
      // console.log("track cleared")
       this.bottomPanelManager.refreshActivePanel();
     }
   
     selectTrackById(trackId) {
-      if (trackId === this.state.selectedTrackId) {
+      if (trackId === this.projectState.selectedTrackId) {
         return;
       }
       this.deselectTrack();
-      this.state.selectedTrackId = trackId;
+      this.projectState.selectedTrackId = trackId;
   
-      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
+      let trackElement = document.querySelector(`.track[data-id="${projectState.selectedTrackId}"]`);
       if (trackElement) {
         trackElement.classList.add("selected");
       }
@@ -2826,9 +2826,9 @@
       modulators.forEach(modulator => devices.push(modulator.modulator));
       //console.log("add track model", devices)
       const track = {
-        id: this.state.nextId++,
+        id: this.projectState.nextId++,
         name,
-        color: Constants.TRACK_COLORS[this.state.tracks.length % Constants.TRACK_COLORS.length],
+        color: Constants.TRACK_COLORS[this.projectState.tracks.length % Constants.TRACK_COLORS.length],
         instrumentName: instrument.name,
         instrumentParameters: instrument.parameters,
         //device: instrument, 
@@ -2839,7 +2839,7 @@
         volume: volume
       };
       try {
-        this.state.tracks.push(track);
+        this.projectState.tracks.push(track);
         this.audio.addTrack(track);
         this.selectTrack(track);
         this.mixer.addTrackFader(track);
@@ -2852,19 +2852,19 @@
     }
   
     removeTrack(trackId) {
-      for (const clip of this.state.clips.filter((c) => c.trackId === trackId))
+      for (const clip of this.projectState.clips.filter((c) => c.trackId === trackId))
         document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
         
       this.audio.removeTrack(trackId);
-      this.mixer.removeTrackFader(this.state.tracks.find((t) => t.id == trackId));
-      this.state.tracks = this.state.tracks.filter((t) => t.id !== trackId);
-      if (this.state.selectedTrackId === trackId) this.selectTrack(this.state.tracks[0]?.id ?? null);
+      this.mixer.removeTrackFader(this.projectState.tracks.find((t) => t.id == trackId));
+      this.projectState.tracks = this.projectState.tracks.filter((t) => t.id !== trackId);
+      if (this.projectState.selectedTrackId === trackId) this.selectTrack(this.projectState.tracks[0]?.id ?? null);
     }
   }
   
   class ClipManager {
-    constructor(state, audio, bottomPanelManager, clipEditor) {
-      this.state = state;
+    constructor(projectState, audio, bottomPanelManager, clipEditor) {
+      this.projectState = projectState;
       this.audio = audio;
       this.bottomPanelManager = bottomPanelManager;
       this.ed = clipEditor;
@@ -2873,39 +2873,39 @@
     }
     
     createClip(track, start, length, notes = [], end = null) {
-      const count = this.state.clips.filter((c) => c.trackId === track.id).length + 1;
+      const count = this.projectState.clips.filter((c) => c.trackId === track.id).length + 1;
   
       if (!end) {
         end = start + length;
         console.log("determined clip end, start, length, end", start, length, end)
       }
       let loop = end - start > length;
-      const clip = { id: this.state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
-      this.state.clips.push(clip);
+      const clip = { id: this.projectState.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
+      this.projectState.clips.push(clip);
       this.audio.rebuildClip(clip);
       return clip;
     }
   
     removeClip(clipId) {
       this.audio.removeClip(clipId);
-      this.state.clips = this.state.clips.filter((c) => c.id !== clipId);
-      if (this.state.selectedClipId === clipId) 
-        this.state.selectedClipId = null;
+      this.projectState.clips = this.projectState.clips.filter((c) => c.id !== clipId);
+      if (this.projectState.selectedClipId === clipId) 
+        this.projectState.selectedClipId = null;
     }
   
     deselectClip() {
-      this.state.selectedClipId = null;
+      this.projectState.selectedClipId = null;
       this.ed.selected.clear();
       document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
     }
     
     selectClip(clip) {
       console.log("select clip")
-      if (this.state.selectedClipId === clip.id) return;
-      if (clip.trackId !== this.state.selectedTrackId)
+      if (this.projectState.selectedClipId === clip.id) return;
+      if (clip.trackId !== this.projectState.selectedTrackId)
         document.dispatchEvent(new CustomEvent("SelectTrack", { detail: { trackId: clip.trackId } }));
   
-      this.state.selectedClipId = clip.id;
+      this.projectState.selectedClipId = clip.id;
       console.log("clip selected");
   
       this.bottomPanelManager.showClipEditorPanel();
@@ -2916,8 +2916,8 @@
   }
 
   class UpdateManager {
-    constructor(state, audio, arrangementView, editorView, dom, renderTrackHeadersCallback) {
-      this.state = state;
+    constructor(projectState, audio, arrangementView, editorView, dom, renderTrackHeadersCallback) {
+      this.projectState = projectState;
       this.audio = audio;
       this.av = arrangementView;
       this.ev = editorView;
@@ -2929,7 +2929,7 @@
     
       // Everything that must follow a change to clip placement, tracks, or loop length.
     arrangementChanged() {
-      this.audio.setLoop(this.state.loop, stateHelper.songEndBeats());
+      this.audio.setLoop(this.projectState.loop, stateHelper.songEndBeats());
       this.av.updateSpacer();
       this.renderTrackHeaders();
       this.av.requestRender();
@@ -2963,7 +2963,7 @@
       this.dom.dupClip.disabled = !hasClip;
       this.dom.delClip.disabled = !hasClip;
       this.dom.clear.disabled = !hasClip;
-      this.dom.addClip.disabled = !this.state.selectedTrackId;
+      this.dom.addClip.disabled = !this.projectState.selectedTrackId;
     }
   }
   
@@ -3183,14 +3183,14 @@
     av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
   }
 
-  var stateHelper = new StateHelper(state, helpers);
+  var stateHelper = new StateHelper(projectState, helpers);
   var metadataManager = new MetadataManager();
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
   var bottomPanelManager = new BottomPanelManager();
-  var mixer = new Mixer(audio, state);
-  var trackManager = new TrackManager(state, audio, bottomPanelManager, mixer);
-  var clipManager = new ClipManager(state, audio, bottomPanelManager, ed);
-  var updateManager = new UpdateManager(state, audio, av, ev, dom, renderTrackHeaders);
+  var mixer = new Mixer(audio, projectState);
+  var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
+  var clipManager = new ClipManager(projectState, audio, bottomPanelManager, ed);
+  var updateManager = new UpdateManager(projectState, audio, av, ev, dom, renderTrackHeaders);
   
   async function init() {
     await metadataManager.loadDevices();
@@ -3222,9 +3222,9 @@
 
     createDemoSong();
 
-    audio.setBpm(state.bpm);
+    audio.setBpm(projectState.bpm);
 
-    updateSongSettingsUI(dom, state);
+    updateSongSettingsUI(dom, projectState);
 
     dom.gridReadout.textContent = editorGrid().label;
     updatePosReadout();
@@ -3237,7 +3237,7 @@
 
     function createDemoSong() {
       console.log("creating demo song");
-      const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: state.nextId++, pitch, start, duration, velocity, slide }));
+      const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch, start, duration, velocity, slide }));
 
       console.log("creating kick");
       const kickSynth = {
