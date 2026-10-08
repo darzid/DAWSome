@@ -436,7 +436,7 @@
     chains.set(0, {
       channel: masterChannel
     });
-    const sendChannels = new Map();
+    const returnChannels = new Map();
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
@@ -605,7 +605,7 @@
         transport.loopStart = 0;
         transport.loopEnd = toTicks(endBeats);
       },
-      addSendChannel: (send) => {
+      addReturnChannel: (send) => {
         const channel = new Tone.Channel(send.volume);
         channel.receive(send.name);
         const effectNode = makeToneNode(send.sendEffect);
@@ -614,12 +614,13 @@
           channel: channel,
           effect: effectNode
         };
-        sendChannels.set(send.id, chain);
+        returnChannels.set(send.id, chain);
         chains.set(send.id, chain);
         channel.connect(effectNode);
         effectNode.connect(masterChannel);
       },
-      getSendChannel: (send) => { return sendChannels(send.id) },
+      getReturnChannel: (send) => { return returnChannels(send.id) },
+      getReturnChannels: (send) => { return returnChannels },
       addTrack: (track) => {
         //console.log("adding track")
         const channel = new Tone.Channel(track.volume).connect(masterChannel);
@@ -682,6 +683,7 @@
           ch.modulators = makeToneNodes(track.modulators.map(m => m.modulator));
           connectModulators(ch, track);
         }
+        track.sends.forEach(send => ch.channel.send(send.name, send.volume));
       },
       getChain: (trackId) => { 
         const ch = chain(trackId);
@@ -2790,6 +2792,7 @@
       this.mixer = mixer;
       
       document.addEventListener("SelectTrack", (e) => this.selectTrackById(e.detail.trackId));
+      document.addEventListener("SendChanged", (e) => this.updateTrackSends(e.detail.trackId));
     }
     
     deselectTrack() {
@@ -2826,11 +2829,11 @@
         this.deselectTrack();
     }
     
-    addSend(name, volume, sendEffect) {
+    addReturn(name, volume, sendEffect) {
       const send = { id: this.projectState.nextId++, name: name, volume: volume, mute: false, sendEffect: sendEffect };
       this.projectState.sends.push(send);
-      this.audio.addSendChannel(send);
-      this.mixer.addSendFader(send);
+      this.audio.addReturnChannel(send);
+      this.mixer.addReturnFader(send);
     }
     
     addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false, sends = []) {
@@ -2876,6 +2879,12 @@
       return track;
     }
   
+    updateTrackSends(trackId) {
+      const track = trackById(trackId);
+      this.audio.updateTrack(track);
+      console.log("Sends updated for " + trackId)
+    }
+    
     removeTrack(trackId) {
       for (const clip of this.projectState.clips.filter((c) => c.trackId === trackId))
         document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
@@ -3279,10 +3288,10 @@
     const ew = ev.o.scroller.clientWidth || 800;
     ev.pxPerBeat = helpers.clamp(ew / (ew < 600 ? Constants.BEATS_PER_BAR : 2 * Constants.BEATS_PER_BAR), 30, 160);
 
-    createDemoSong();
+    
 
     audio.setBpm(projectState.bpm);
-
+    createDemoSong();
     updateSongSettingsUI(dom, projectState);
 
     dom.gridReadout.textContent = editorGrid().label;
@@ -3296,6 +3305,26 @@
 
     function createDemoSong() {
       console.log("creating demo song");
+      
+      const returnReverb = {
+        name: "Reverb",
+        parameters: {
+          roomSize: 0.25,
+          wet: 1
+        }
+      };
+      trackManager.addReturn("Reverb", 10, returnReverb);
+      
+      const returnDelay = {
+        name: "PingPongDelay",
+        parameters: {
+          delayTime: "8n",
+          feedback: 0.3,
+          wet: 1
+        }
+      }
+      trackManager.addReturn("Delay", 10, returnDelay);
+      
       const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch, start, duration, velocity, slide }));
 
       console.log("creating kick");
@@ -3403,15 +3432,7 @@
       clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
-      const hatReverb = {
-        name: "Reverb",
-        parameters: {
-          roomSize: 0.25,
-          wet: 1
-        }
-      };
-      trackManager.addSend("1-Reverb", 10, hatReverb);
-      const hatSend = { name: "1-Reverb", volume: 0  };
+      const hatReverbSend = { name: "Reverb", volume: 0 };
       
       console.log("creating closedhat");
       const closedHatSynth = {
@@ -3431,7 +3452,7 @@
         }
       };
       
-      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [hatSend]);
+      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [hatReverbSend]);
       let chNotes1 = mk([
         [42, 1.0, 0.125],
       ]);
@@ -3467,7 +3488,7 @@
           }
         }
       };
-      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [hatSend]);
+      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [hatReverbSend]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
       clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
       clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 95);
@@ -3490,12 +3511,13 @@
       const tb303Delay = {
         name: "PingPongDelay",
         parameters: {
-          delayTime: "8n.",
+          delayTime: "8n",
           feedback: 0.3,
           wet: 0.25
         }
       }
-      const tb303 = trackManager.addTrack("303", tb303Synth, [tb303Delay]);
+  
+      const tb303 = trackManager.addTrack("303", tb303Synth, [tb303Delay], [], 0, false, []);
       const tb303Notes = mk([
         [31, 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
         [37, 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],

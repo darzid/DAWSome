@@ -19,19 +19,20 @@ class Mixer {
       this.addVuMeter(this._masterChannel, this._masterFaderContainer);
     }
     
-    addSendFader(send) {
+    addReturnFader(returnChannel) {
       let faderContainer = document.createElement("div");
-      faderContainer.className = "channel-fader-container send faders";
-      this.mixer.insertBefore(faderContainer, this._insertBefore);
-      this._insertBefore = faderContainer;
+      faderContainer.className = "channel-fader-container return faders";
+      this.mixer.insertBefore(faderContainer, this._masterFaderContainer);
+      if (this._insertBefore == this._masterFaderContainer) this._insertBefore = faderContainer;
       
-      this.addFader(send, faderContainer);
-      this.addTrackMuteButton(send, faderContainer);
-      this.addTrackSoloButton(send, faderContainer);
-      this.addTrackEvents(send, faderContainer);
-      this.addVuMeter(send, faderContainer);
       
-      console.log("addSendFadee", send)
+      this.addFader(returnChannel, faderContainer);
+      this.addTrackMuteButton(returnChannel, faderContainer);
+      this.addTrackSoloButton(returnChannel, faderContainer);
+      this.addTrackEvents(returnChannel, faderContainer);
+      this.addVuMeter(returnChannel, faderContainer);
+      
+      console.log("addReturnFader", returnChannel)
       return faderContainer;
     }
     
@@ -41,8 +42,10 @@ class Mixer {
       this.mixer.insertBefore(faderContainer, this._insertBefore);
       
       this.addFader(track, faderContainer);
+      
       this.addTrackMuteButton(track, faderContainer);
       this.addTrackSoloButton(track, faderContainer);
+      this.addTrackSends(track, faderContainer);
       this.addTrackEvents(track, faderContainer);
       this.addVuMeter(track, faderContainer);
       return faderContainer;
@@ -50,21 +53,29 @@ class Mixer {
     
     addFader(channel, faderContainer) {
       faderContainer.innerHTML += `<label>${channel.name}</label>
-        <input type="number" min="-500" max="10.0" step="0.1" value="${channel.volume}" class="channel-fader-value">
-        <input id="${channel.id}-fader" type="range" min="-500" max="10.0" step="0.1" value="${channel.volume}">
+        <input type="number" min="-100" max="10.0" step="0.1" value="${channel.volume}" class="channel-fader-value">
+        <input id="${channel.id}-fader" type="range" min="-100" max="10.0" step="0.1" readonly="readonly" value="${channel.volume}">
         `;
       
-      let faderInput = faderContainer.querySelector("input[type=range]");
+      let fader = faderContainer.querySelector("input[type=range]");
       let faderValue = faderContainer.querySelector("input[type=number]");
-      faderInput.oninput = ()=> {
-        channel.volume = faderInput.value;
-        faderValue.value = faderInput.value;
-        console.log("vol change", channel)
+      fader.oninput = ()=> {
+        channel.volume = fader.value;
+        faderValue.value = fader.value;
+       // console.log("vol change", channel)
         document.dispatchEvent(new CustomEvent("VolumeChanged", { detail: { channelId: channel.id, volume: channel.volume }}));
       }
+      
       faderValue.oninput = ()=> {
         channel.volume = faderValue.value;
-        faderInput.value = faderValue.value;
+        fader.value = faderValue.value;
+        document.dispatchEvent(new CustomEvent("VolumeChanged", { detail: { channelId: channel.id, volume: channel.volume }}));
+      }
+      faderValue.ondblclick = ()=> {
+        faderValue.value = 0;
+        channel.volume = fader.value;
+        fader.value = faderValue.value;
+        console.log("dbl click vol change", channel)
         document.dispatchEvent(new CustomEvent("VolumeChanged", { detail: { channelId: channel.id, volume: channel.volume }}));
       }
     }
@@ -172,6 +183,52 @@ class Mixer {
       };
     }
 
+    addTrackSends(track, faderContainer) {
+      let sendSelect = document.createElement("select");
+      sendSelect.id = `${track.id}-sendselect`;
+      sendSelect.className = "send";
+      const returnChannels = this.audio.getReturnChannels();
+      console.log("ret channels", returnChannels);
+      sendSelect.innerHTML = "<option value=''>-Send-</option>";
+      returnChannels.forEach(returnChannel => sendSelect.innerHTML += `<option value="${returnChannel.name}">${returnChannel.name}</option>`);
+      faderContainer.appendChild(sendSelect);
+      
+      const updateSendInput = () => {
+        if (track.sends[0]) {
+          sendAmountInput.value = track.sends[0].volume;
+          sendAmountInput.style.opacity = 1;
+        }
+        else {
+          sendAmountInput.style.opacity  = 0;
+          sendAmountInput.value = "";
+        }
+      };
+      
+      sendSelect.onchange = () => {
+        if (!track.sends) track.sends = [];
+        
+        if (!sendSelect.value)
+          track.sends = [];
+        else 
+          track.sends[0] = { name: sendSelect.value, volume: 0 };
+        document.dispatchEvent(new CustomEvent("SendChanged", { detail: { trackId: track.id, sends: track.sends }}));
+        updateSendInput();
+      }
+      if (track.sends[0]) sendSelect.value = track.sends[0].name;
+      
+      let sendAmountInput = document.createElement("input");
+      sendAmountInput.type = "number";
+      sendAmountInput.min = "-100";
+      sendAmountInput.max = 10;
+      sendAmountInput.step = 0.1;
+      sendAmountInput.id = `${track.id}-sendamount`;
+      sendAmountInput.className = "send-amount";
+
+      faderContainer.appendChild(sendAmountInput);
+      
+      updateSendInput();
+    }
+    
     addTrackEvents(track, faderContainer) {
       document.addEventListener("TrackRemoved", (e) => {
         if (e.detail.trackId !== track.id) return;
