@@ -187,6 +187,8 @@ class Mixer {
       let chain = this.audio.getChain(channel.id);
       levelMeterManager.register(chain.channel.output, faderMeterCanvas);
     }
+    
+    removeTrackFader() {}
   }
   
   class MasterChannel {

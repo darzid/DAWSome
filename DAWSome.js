@@ -884,6 +884,104 @@
     return { format, bpm, tracks };
   }
 
+  class TrackManager {
+    constructor(state, audio, bottomPanelManager, mixer) {
+      this.state = state;
+      this.audio = audio;
+      this.bottomPanelManager = bottomPanelManager;
+      this.mixer = mixer;
+      
+      document.addEventListener("SelectTrack", (e) => this.selectTrackById(e.detail.trackId));
+    }
+    
+    deselectTrack() {
+      if (!this.state.selectedTrackId) {
+        return;
+      }
+      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
+      if (trackElement) {
+        trackElement.classList.remove("selected");
+      }
+      this.state.selectedTrackId = null;
+  
+     // console.log("track cleared")
+      this.bottomPanelManager.refreshActivePanel();
+    }
+  
+    selectTrackById(trackId) {
+      if (trackId === this.state.selectedTrackId) {
+        return;
+      }
+      this.deselectTrack();
+      this.state.selectedTrackId = trackId;
+  
+      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
+      if (trackElement) {
+        trackElement.classList.add("selected");
+      }
+    }
+  
+    selectTrack(track) {
+      if (track)
+        this.selectTrackById(track.id);
+      else
+        this.deselectTrack();
+    }
+    
+    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
+      if (!effects) effects = []
+      if (!modulators) modulators = [];
+  
+     // console.log("addTrack " + name)
+      let devices = [];
+      instrument.presetName = "Default";
+      devices.push(instrument);
+      effects.forEach(fx => {
+        fx.type = "Effect";
+        fx.presetName = "Default";
+        devices.push(fx);
+      });
+      //console.log("addingTrack " + name)
+      modulators.forEach(modulator => devices.push(modulator.modulator));
+      //console.log("add track model", devices)
+      const track = {
+        id: this.state.nextId++,
+        name,
+        color: TRACK_COLORS[this.state.tracks.length % TRACK_COLORS.length],
+        instrumentName: instrument.name,
+        instrumentParameters: instrument.parameters,
+        //device: instrument, 
+        devices: devices,
+        effects: effects,
+        modulators: modulators,
+        mute: mute,
+        volume: volume
+      };
+      try {
+        this.state.tracks.push(track);
+        this.audio.addTrack(track);
+        this.selectTrack(track);
+        this.mixer.addTrackFader(track);
+        //console.log("added track model", track)
+      }
+      catch (error) {
+        console.error("error while adding track", error)
+      }
+      return track;
+    }
+  
+    removeTrack(trackId) {
+      for (const clip of this.state.clips.filter((c) => c.trackId === trackId))
+        document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
+        
+      this.audio.removeTrack(trackId);
+      this.mixer.removeTrackFader(this.state.tracks.find((t) => t.id == trackId));
+      this.state.tracks = this.state.tracks.filter((t) => t.id !== trackId);
+      if (this.state.selectedTrackId === trackId) this.selectTrack(this.state.tracks[0]?.id ?? null);
+    }
+  }
+  
+/*
   function deselectTrack() {
     if (!state.selectedTrackId) {
       return;
@@ -909,11 +1007,6 @@
     if (trackElement) {
       trackElement.classList.add("selected");
     }
-
-    /*   let trackElement = document.getElementById(state.selectedTrackId);
-       trackElement.classList.add("selected");
-       console.log("track selected", trackElement)*/
-    //showInstrumentPanel();
   }
 
   function selectTrack(track) {
@@ -922,9 +1015,11 @@
     else
       deselectTrack()
   }
+*/
 
   // ===== Model operations =====
-  function addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
+/*
+function addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
     if (!effects) effects = []
     if (!modulators) modulators = [];
 
@@ -973,7 +1068,62 @@
     state.tracks = state.tracks.filter((t) => t.id !== trackId);
     if (state.selectedTrackId === trackId) selectTrack(state.tracks[0]?.id ?? null);
   }
+*/
 
+class ClipManager {
+  constructor(state, audio, bottomPanelManager, clipEditor, editorClipChangedHandler) {
+    this.state = state;
+    this.audio = audio;
+    this.bottomPanelManager = bottomPanelManager;
+    this.ed = clipEditor;
+    this.editorClipChanged = editorClipChangedHandler;
+    
+    document.addEventListener("RemoveClip", (e) => this.removeClip(e.detail.clipId));
+  }
+  
+  createClip(track, start, length, notes = [], end = null) {
+    const count = this.state.clips.filter((c) => c.trackId === track.id).length + 1;
+
+    if (!end) {
+      end = start + length;
+      console.log("determined clip end, start, length, end", start, length, end)
+    }
+    let loop = end - start > length;
+    const clip = { id: this.state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
+    this.state.clips.push(clip);
+    this.audio.rebuildClip(clip);
+    return clip;
+  }
+
+  removeClip(clipId) {
+    this.audio.removeClip(clipId);
+    this.state.clips = this.state.clips.filter((c) => c.id !== clipId);
+    if (this.state.selectedClipId === clipId) 
+      this.state.selectedClipId = null;
+  }
+
+  deselectClip() {
+    this.state.selectedClipId = null;
+    this.ed.selected.clear();
+    this.editorClipChanged();
+  }
+  
+  selectClip(clip) {
+    console.log("select clip")
+    if (this.state.selectedClipId === clip.id) return;
+    if (clip.trackId !== this.state.selectedTrackId)
+      document.dispatchEvent(new CustomEvent("SelectTrack", { detail: { trackId: clip.trackId } }));
+
+    this.state.selectedClipId = clip.id;
+    console.log("clip selected");
+
+    this.bottomPanelManager.showClipEditorPanel();
+
+    this.ed.selected.clear();
+    this.editorClipChanged();
+  }
+}
+/*
   function createClip(track, start, length, notes = [], end = null) {
     const count = state.clips.filter((c) => c.trackId === track.id).length + 1;
 
@@ -1004,7 +1154,7 @@
     console.log("select clip")
     if (state.selectedClipId === clip.id) return;
     if (clip.trackId !== state.selectedTrackId)
-      selectTrackById(clip.trackId);
+      trackManager.selectTrackById(clip.trackId);
 
     state.selectedClipId = clip.id;
     console.log("clip selected");
@@ -1014,7 +1164,7 @@
     ed.selected.clear();
     editorClipChanged();
   }
-
+*/
   // Everything that must follow a change to clip placement, tracks, or loop length.
   function arrangementChanged() {
     audio.setLoop(state.loop, songEndBeats());
@@ -1230,20 +1380,20 @@
 
   dom.trackHeadersWrap.addEventListener("click", (e) => {
     console.log("click", e.currentTarget, e.target, e.srcElement)
-    if (e.target === dom.trackHeadersWrap) deselectTrack();
+    if (e.target === dom.trackHeadersWrap) trackManager.deselectTrack();
   }
   );
   dom.trackHeaders.addEventListener("click", async (e) => {
     const el = e.target.closest(".track");
     if (!el) return;
     const track = trackById(Number(el.dataset.id));
-    selectTrack(track);
+    trackManager.selectTrack(track);
     if (e.target.classList.contains("mute")) {
       track.mute = !track.mute;
       audio.updateTrack(track);
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
-      removeTrack(track.id);
+      trackManager.removeTrack(track.id);
       if (!currentClip()) editorClipChanged();
       document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
     } else if (e.target.classList.contains("name")) {
@@ -1294,11 +1444,11 @@
     const p = av.point(e);
     const clip = clipAt(p.beat, p.row);
     if (!clip) {
-      deselectClip();
+      clipManager.deselectClip();
       console.log("deselect xlip")
       return;
     }
-    selectClip(clip);
+    clipManager.selectClip(clip);
     if (!state.drawClips) return;
     aDrag = {
       type: onClipRightEdge(clip, p.x) ? "resize" : "move", pointerId: e.pointerId, clip,
@@ -1330,7 +1480,7 @@
       const track = state.tracks[p.row];
       if (track && track.id !== d.clip.trackId) {
         d.clip.trackId = track.id;
-        selectTrack(track);
+        trackManager.selectTrack(track);
         renderTrackHeaders();
       }
     } else {
@@ -1364,7 +1514,7 @@
     if (!track || clipAt(p.beat, p.row)) return;
     const start = snapFloor(p.beat, BEATS_PER_BAR);
     if (!state.drawClips) return;
-    selectClip(createClip(track, start, BEATS_PER_BAR));
+    clipManager.selectClip(clipManager.createClip(track, start, BEATS_PER_BAR));
     arrangementChanged();
   });
 
@@ -1373,7 +1523,7 @@
     const p = av.point(e);
     const clip = clipAt(p.beat, p.row);
     if (!clip) return;
-    removeClip(clip.id);
+    clipManager.removeClip(clip.id);
     arrangementChanged();
     editorClipChanged();
   });
@@ -1817,13 +1967,13 @@
     for (const t of parsed.tracks) {
       
         
-      const track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
+      const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
       const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
-      const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), notes);
+      const clip = clipManager.createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), notes);
       first = first ?? clip;
     }
-    if (first) selectClip(first);
+    if (first) clipManager.selectClip(first);
     arrangementChanged();
     editorClipChanged();
     return parsed.tracks.length;
@@ -1834,14 +1984,14 @@
     const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
     let first = null;
     for (const t of projectData.tracks) {
-      let track = addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
+      let track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
       console.log("added track");
 
       let clips = projectData.clips.filter(c => c.trackId == t.id);
       clips.forEach(c => {
         console.log("adding clip", c)
         const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-        const clip = createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes, c.end);
+        const clip = clipManager.createClip(track, startBeat, Math.max(BEATS_PER_BAR, ceilBars(lastEnd)), c.notes, c.end);
         console.log("added clip")
         first = first ?? clip;
       })
@@ -1849,7 +1999,7 @@
 
     console.log("loadProject parsed " + fileName, projectData)
     state = projectData;
-    if (first) selectClip(first);
+    if (first) clipManager.selectClip(first);
     arrangementChanged();
     editorClipChanged();
     console.log("loaded project", state.tracks.length)
@@ -1959,22 +2109,22 @@
   bindToggle(dom.follow, state, "follow", () => { });
   bindToggle(dom.drawClips, state, "drawClips", () => { });
   dom.addTrack.addEventListener("click", async () => {
-    addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
+    trackManager.addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
     arrangementChanged();
   });
   dom.addClip.addEventListener("click", () => {
     const track = trackById(state.selectedTrackId);
     if (!track) return;
     const start = snapFloor(state.playheadBeat, BEATS_PER_BAR);
-    // selectClip(createClip(track, start, BEATS_PER_BAR));
-    createClip(track, start, BEATS_PER_BAR);
+    // selectClip(clipManager.createClip(track, start, BEATS_PER_BAR));
+    clipManager.createClip(track, start, BEATS_PER_BAR);
     arrangementChanged();
   });
   dom.dupClip.addEventListener("click", duplicateClip);
   dom.delClip.addEventListener("click", () => {
     const clip = currentClip();
     if (!clip) return;
-    removeClip(clip.id);
+    clipManager.removeClip(clip.id);
     arrangementChanged();
     editorClipChanged();
   });
@@ -1982,13 +2132,13 @@
   function duplicateClip() {
     const clip = currentClip();
     if (!clip) return;
-    const copy = createClip(
+    const copy = clipManager.createClip(
       trackById(clip.trackId),
       clipEnd(clip),
       clip.length,
       clip.notes.map((n) => ({ ...n, id: state.nextId++ })),
       clipEnd(clip) + (clip.end - clip.start));
-    selectClip(copy);
+    clipManager.selectClip(copy);
     arrangementChanged();
   }
 
@@ -2064,7 +2214,7 @@
       ev.requestRender();
     } else if (e.key === "Delete" || e.key === "Backspace") {
       if (clip && ed.selected.size) deleteNotes(clip, [...ed.selected]);
-      else if (clip) { removeClip(clip.id); arrangementChanged(); editorClipChanged(); }
+      else if (clip) { clipManager.removeClip(clip.id); arrangementChanged(); editorClipChanged(); }
     }
   });
 
@@ -3155,8 +3305,9 @@
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
   var bottomPanelManager = new BottomPanelManager();
   var mixer = new Mixer(audio, state);
-  var deviceMetadataManager;
-
+  var trackManager = new TrackManager(state, audio, bottomPanelManager, mixer);
+  var clipManager = new ClipManager(state, audio, bottomPanelManager, ed, editorClipChanged);
+  
   async function init() {
     await deviceBrowser.loadDevices();
     //console.log("Metadata test", deviceBrowser.getDeviceMetadata("MonoSynth"));
@@ -3239,11 +3390,11 @@
           "release": 0.25
         }
       };
-      const kick = addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
+      const kick = trackManager.addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
       const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 63);
-      createClip(kick, 64, BEATS_PER_BAR / 4, kickNotes, 95);
+      clipManager.createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 63);
+      clipManager.createClip(kick, 64, BEATS_PER_BAR / 4, kickNotes, 95);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -3261,7 +3412,7 @@
           volume: 0
         }
       };
-      const bass = addTrack("Bass", bassSynth, []);
+      const bass = trackManager.addTrack("Bass", bassSynth, []);
       const bassNotes = mk([
         [25, 0.00, 0.1, 0.4],
         [27, 0.25, 0.2, DEFAULT_VELOCITY],
@@ -3303,10 +3454,10 @@
         [29, 7.50, 0.25, DEFAULT_VELOCITY],
         [34, 7.75, 0.25, DEFAULT_VELOCITY]
       ]);
-      createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
-      createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
-      createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
-      createClip(bass, 64, BEATS_PER_BAR * 2, bassNotes, 95);
+      clipManager.createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
+      clipManager.createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
+      clipManager.createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
+      clipManager.createClip(bass, 64, BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -3333,7 +3484,7 @@
           wet: 0.05
         }
       };
-      const closedHat = addTrack("ClosedHat", closedHatSynth, [hatReverb]);
+      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [hatReverb]);
       let chNotes1 = mk([
         [42, 1.0, 0.125],
       ]);
@@ -3343,9 +3494,9 @@
         [42, 0.5, 0.125],
         [42, 0.75, 0.125]
       ]);
-      createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
-      createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
-      createClip(closedHat, 64, BEATS_PER_BAR / 4, chNotes2, 95);
+      clipManager.createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
+      clipManager.createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
+      clipManager.createClip(closedHat, 64, BEATS_PER_BAR / 4, chNotes2, 95);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -3369,10 +3520,10 @@
           }
         }
       };
-      const openHat = addTrack("OpenHat", openHatSynth, [hatReverb]);
+      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [hatReverb]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 63);
-      createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
+      clipManager.createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 63);
+      clipManager.createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
       console.log("created open hat");
 
       console.log("creating 303");
@@ -3397,7 +3548,7 @@
           wet: 0.25
         }
       }
-      const tb303 = addTrack("303", tb303Synth, [tb303Delay]);
+      const tb303 = trackManager.addTrack("303", tb303Synth, [tb303Delay]);
       const tb303Notes = mk([
         [31, 2.25, 0.25, DEFAULT_VELOCITY, true],
         [37, 3.00, 0.25, DEFAULT_VELOCITY, true],
@@ -3408,14 +3559,14 @@
         [37, 7.25, 0.25, DEFAULT_VELOCITY],
         [34, 7.75, 0.25, ACCENT_VELOCITY, true],
       ]);
-      createClip(tb303, 0, BEATS_PER_BAR * 2, tb303Notes, 96);
+      clipManager.createClip(tb303, 0, BEATS_PER_BAR * 2, tb303Notes, 96);
       console.log("created 303");
       
 
       console.log("created demo song");
 
-      deselectClip();
-      deselectTrack();
+      clipManager.deselectClip();
+      trackManager.deselectTrack();
     }
   }
 
@@ -3567,9 +3718,3 @@
   
   await init();
 })();
-
-class DeviceMetadataManager {
-  deviceList;
-  
-  
-}
