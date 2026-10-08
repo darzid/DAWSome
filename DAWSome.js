@@ -2950,6 +2950,7 @@
     size;
     center;
     track;
+    trackAudioDevices;
     position;
     
     constructor(xypadPanelElement) {
@@ -2992,19 +2993,13 @@
     }
     
     get xDeviceIndex() { return this.xDeviceSelect.value; }
-    get xDevice() { return this.track.devices[this.xDeviceIndex]; }
-    get xAudioDevice() { return audio.getTrackDevices(this.track)[this.xDeviceIndex]; }
+    //get xDevice() { return this.track.devices[this.xDeviceIndex]; }
+    get xDevice() { return this.trackAudioDevices[this.xDeviceIndex]; }
     get xDeviceName() { return this.xDevice.name; }
     get xParameterName() { return this.xParameterSelect.selectedOptions[0].text; }
-    get xParameter() { return this.xDevice.parameters[this.xParameterName]; }
+    get xParameter() { return this.xDevice[this.xParameterName]; }
     get xParameterValue() { return this.xParameter.name ? this.xParameter.value : this.xParameter;  }
-    set xParameterValue(value) { 
-      if (this.xParameter.name)
-        this.xAudioDevice[this.xParameterName].value = value;
-      else
-        this.xAudioDevice[this.xParameterName] = value;
-    }
-    
+    set xParameterValue(value) { this.updateDeviceParameter(this.xDevice, this.xParameterName, value); }
     get xValue() { return parseFloat(this.xValueOutput.dataset.value); }
     set xValue(value) { 
       this.xValueOutput.dataset.value = value; 
@@ -3019,18 +3014,13 @@
       this.xParameterValue = clampedValue;
     } 
     get yDeviceIndex() { return this.yDeviceSelect.value; }
-    get yDevice() { return this.track.devices[this.yDeviceIndex]; }
-    get yAudioDevice() { return audio.getTrackDevices(this.track)[this.yDeviceIndex]; }
+    //get yDevice() { return this.track.devices[this.yDeviceIndex]; }
+    get yDevice() { return this.trackAudioDevices[this.yDeviceIndex]; }
     get yDeviceName() { return this.yDevice.name; }
     get yParameterName() { return this.yParameterSelect.selectedOptions[0].text; }
-    get yParameter() { return this.yDevice.parameters[this.yParameterName]; }
+    get yParameter() { return this.yDevice[this.yParameterName]; }
     get yParameterValue() { return this.yParameter.name ? this.yParameter.value : this.yParameter;  }
-    set yParameterValue(value) { 
-      if (this.yParameter.name)
-        this.yAudioDevice[this.yParameterName].value = value;
-      else
-        this.yAudioDevice[this.yParameterName] = value;
-    }
+    set yParameterValue(value) { this.updateDeviceParameter(this.yDevice, this.yParameterName, value); }
     get yValue() { return parseFloat(this.yValueOutput.dataset.value); }
     set yValue(value) { 
       this.yValueOutput.dataset.value = value; 
@@ -3047,6 +3037,7 @@
     
     init(track) {
       this.track = track;
+      this.trackAudioDevices = audio.getTrackDevices(track);
       //let targetDeviceOptionsHtml = "<option>None</option>";
       let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
       this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
@@ -3145,6 +3136,13 @@
       this.ctx.arc(this.position.x, this.position.y, 10, 0, 2 * Math.PI);
       this.ctx.stroke();
       this.ctx.fill();
+    }
+    
+    updateDeviceParameter(audioDevice, parameterName, value) {
+      if (audioDevice[parameterName].name)
+        audioDevice[parameterName].rampTo(value);
+      else
+        audioDevice[parameterName] = value;
     }
   }
   
