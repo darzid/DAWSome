@@ -1071,12 +1071,11 @@ function addTrack(name, instrument, effects, modulators = null, volume = 0, mute
 */
 
 class ClipManager {
-  constructor(state, audio, bottomPanelManager, clipEditor, editorClipChangedHandler) {
+  constructor(state, audio, bottomPanelManager, clipEditor) {
     this.state = state;
     this.audio = audio;
     this.bottomPanelManager = bottomPanelManager;
     this.ed = clipEditor;
-    this.editorClipChanged = editorClipChangedHandler;
     
     document.addEventListener("RemoveClip", (e) => this.removeClip(e.detail.clipId));
   }
@@ -1105,7 +1104,7 @@ class ClipManager {
   deselectClip() {
     this.state.selectedClipId = null;
     this.ed.selected.clear();
-    this.editorClipChanged();
+    document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
   }
   
   selectClip(clip) {
@@ -1120,7 +1119,7 @@ class ClipManager {
     this.bottomPanelManager.showClipEditorPanel();
 
     this.ed.selected.clear();
-    this.editorClipChanged();
+    document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
   }
 }
 /*
@@ -1165,6 +1164,59 @@ class ClipManager {
     editorClipChanged();
   }
 */
+
+  class UpdateManager {
+    constructor(state, audio, arrangementView, editorView, dom, renderTrackHeadersCallback) {
+      this.state = state;
+      this.audio = audio;
+      this.av = arrangementView;
+      this.ev = editorView;
+      this.dom = dom;
+      this.renderTrackHeaders = renderTrackHeadersCallback;
+      
+      document.addEventListener("ClipChanged", (e) => this.editorClipChanged());
+    }
+    
+      // Everything that must follow a change to clip placement, tracks, or loop length.
+    arrangementChanged() {
+      this.audio.setLoop(this.state.loop, songEndBeats());
+      this.av.updateSpacer();
+      this.renderTrackHeaders();
+      this.av.requestRender();
+      this.updateClipButtons();
+    }
+  
+    // Everything that must follow a change to the selected clip's notes.
+    notesChanged() {
+      const clip = currentClip();
+      if (clip) this.audio.rebuildClip(clip);
+      this.ev.updateSpacer();
+      this.ev.requestRender();
+      this.av.requestRender();
+    }
+  
+    editorClipChanged() {
+    //  console.log("clip changed")
+      const clip = currentClip();
+      this.dom.clipTitle.textContent = clip ? `${clip.name} (${trackById(clip.trackId).name})` : "No clip selected";
+      this.dom.len.value = clip ? clip.length / BEATS_PER_BAR : 1;
+      this.dom.end.value = clip ? clip.end : 1;
+      this.dom.len.disabled = !clip;
+      this.ev.updateSpacer();
+      this.ev.requestRender();
+      this.av.requestRender();
+      this.updateClipButtons();
+    }
+  
+    updateClipButtons() {
+      const hasClip = !!currentClip();
+      this.dom.dupClip.disabled = !hasClip;
+      this.dom.delClip.disabled = !hasClip;
+      this.dom.clear.disabled = !hasClip;
+      this.dom.addClip.disabled = !this.state.selectedTrackId;
+    }
+  }
+  /*
   // Everything that must follow a change to clip placement, tracks, or loop length.
   function arrangementChanged() {
     audio.setLoop(state.loop, songEndBeats());
@@ -1182,8 +1234,6 @@ class ClipManager {
     ev.requestRender();
     av.requestRender();
   }
-
-
 
   function editorClipChanged() {
   //  console.log("clip changed")
@@ -1205,7 +1255,7 @@ class ClipManager {
     dom.clear.disabled = !hasClip;
     dom.addClip.disabled = !state.selectedTrackId;
   }
-
+*/
   // ===== Arrangement view =====
   const av = new TimelineView({
     gridWrap: $("arrGridWrap"), gridCanvas: $("arrGridCanvas"), rulerWrap: $("arrRulerWrap"), rulerCanvas: $("arrRulerCanvas"),
@@ -1394,13 +1444,13 @@ class ClipManager {
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
       trackManager.removeTrack(track.id);
-      if (!currentClip()) editorClipChanged();
+      if (!currentClip()) updateManager.editorClipChanged();
       document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
     } else if (e.target.classList.contains("name")) {
       bottomPanelManager.refreshActivePanel();
       return false;
     }
-    arrangementChanged();
+    updateManager.arrangementChanged();
     e.preventDefault();
     //e.cancelBubble();
   });
@@ -1413,10 +1463,10 @@ class ClipManager {
     if (e.target.classList.contains("name")) {
       track.name = e.target.value.trim() || track.name;
       e.target.value = track.name;
-      editorClipChanged();
+      updateManager.editorClipChanged();
       document.dispatchEvent(new CustomEvent("TrackNameChanged", { detail: { trackId: track.id, trackName: track.name } }));
     }
-    arrangementChanged();
+    updateManager.arrangementChanged();
   });
 
   function fillDevicePresets(el, presets, deviceName) {
@@ -1498,8 +1548,8 @@ class ClipManager {
     aDrag = null;
     if (d.moved) {
       audio.rebuildClip(d.clip);
-      arrangementChanged();
-      editorClipChanged();
+      updateManager.arrangementChanged();
+      updateManager.editorClipChanged();
     }
   }
   av.o.scroller.addEventListener("pointerup", endArrangementPointer);
@@ -1515,7 +1565,7 @@ class ClipManager {
     const start = snapFloor(p.beat, BEATS_PER_BAR);
     if (!state.drawClips) return;
     clipManager.selectClip(clipManager.createClip(track, start, BEATS_PER_BAR));
-    arrangementChanged();
+    updateManager.arrangementChanged();
   });
 
   av.o.scroller.addEventListener("contextmenu", (e) => {
@@ -1524,8 +1574,8 @@ class ClipManager {
     const clip = clipAt(p.beat, p.row);
     if (!clip) return;
     clipManager.removeClip(clip.id);
-    arrangementChanged();
-    editorClipChanged();
+    updateManager.arrangementChanged();
+    updateManager.editorClipChanged();
   });
 
   // ===== Clip editor (piano roll) =====
@@ -1665,7 +1715,7 @@ class ClipManager {
     const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? ACCENT_VELOCITY : DEFAULT_VELOCITY, slide: ed.slide };
     clip.notes.push(note);
     audio.preview(clip.trackId, pitch);
-    notesChanged();
+    updateManager.notesChanged();
     return note;
   }
 
@@ -1678,7 +1728,7 @@ class ClipManager {
 
   function deleteNotes(clip, ids) {
     pruneNotes(clip, ids);
-    notesChanged();
+    updateManager.notesChanged();
   }
 
   function resolveOverlaps(clip, note) {
@@ -1757,7 +1807,7 @@ class ClipManager {
     for (const n of notes) {
       if (clip.notes.includes(n)) resolveOverlaps(clip, n);
     }
-    notesChanged();
+    updateManager.notesChanged();
   }
 
   ev.o.scroller.addEventListener("pointerdown", (e) => {
@@ -1974,8 +2024,8 @@ class ClipManager {
       first = first ?? clip;
     }
     if (first) clipManager.selectClip(first);
-    arrangementChanged();
-    editorClipChanged();
+    updateManager.arrangementChanged();
+    updateManager.editorClipChanged();
     return parsed.tracks.length;
   }
 
@@ -2000,8 +2050,8 @@ class ClipManager {
     console.log("loadProject parsed " + fileName, projectData)
     state = projectData;
     if (first) clipManager.selectClip(first);
-    arrangementChanged();
-    editorClipChanged();
+    updateManager.arrangementChanged();
+    updateManager.editorClipChanged();
     console.log("loaded project", state.tracks.length)
     return projectData.tracks.length;
   }
@@ -2110,7 +2160,7 @@ class ClipManager {
   bindToggle(dom.drawClips, state, "drawClips", () => { });
   dom.addTrack.addEventListener("click", async () => {
     trackManager.addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
-    arrangementChanged();
+    updateManager.arrangementChanged();
   });
   dom.addClip.addEventListener("click", () => {
     const track = trackById(state.selectedTrackId);
@@ -2118,15 +2168,15 @@ class ClipManager {
     const start = snapFloor(state.playheadBeat, BEATS_PER_BAR);
     // selectClip(clipManager.createClip(track, start, BEATS_PER_BAR));
     clipManager.createClip(track, start, BEATS_PER_BAR);
-    arrangementChanged();
+    updateManager.arrangementChanged();
   });
   dom.dupClip.addEventListener("click", duplicateClip);
   dom.delClip.addEventListener("click", () => {
     const clip = currentClip();
     if (!clip) return;
     clipManager.removeClip(clip.id);
-    arrangementChanged();
-    editorClipChanged();
+    updateManager.arrangementChanged();
+    updateManager.editorClipChanged();
   });
 
   function duplicateClip() {
@@ -2139,7 +2189,7 @@ class ClipManager {
       clip.notes.map((n) => ({ ...n, id: state.nextId++ })),
       clipEnd(clip) + (clip.end - clip.start));
     clipManager.selectClip(copy);
-    arrangementChanged();
+    updateManager.arrangementChanged();
   }
 
   dom.len.addEventListener("change", () => {
@@ -2148,7 +2198,7 @@ class ClipManager {
     clip.length = clamp(Number(dom.len.value) || clip.length / BEATS_PER_BAR, 0.25, 256) * BEATS_PER_BAR;
     dom.len.value = clip.length / BEATS_PER_BAR;
     audio.rebuildClip(clip);
-    arrangementChanged();
+    updateManager.arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
   });
@@ -2157,7 +2207,7 @@ class ClipManager {
     if (!clip) return;
     clip.end = parseInt(dom.end.value);
     audio.rebuildClip(clip);
-    arrangementChanged();
+    updateManager.arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
     av.requestRender();
@@ -2186,7 +2236,7 @@ class ClipManager {
     if (!clip) return;
     clip.notes = [];
     ed.selected.clear();
-    notesChanged();
+    updateManager.notesChanged();
   });
 
   $("arrZoomInH").addEventListener("click", () => av.zoomH(ZOOM_BUTTON_FACTOR));
@@ -2214,7 +2264,7 @@ class ClipManager {
       ev.requestRender();
     } else if (e.key === "Delete" || e.key === "Backspace") {
       if (clip && ed.selected.size) deleteNotes(clip, [...ed.selected]);
-      else if (clip) { clipManager.removeClip(clip.id); arrangementChanged(); editorClipChanged(); }
+      else if (clip) { clipManager.removeClip(clip.id); updateManager.arrangementChanged(); updateManager.editorClipChanged(); }
     }
   });
 
@@ -3306,7 +3356,8 @@ class ClipManager {
   var bottomPanelManager = new BottomPanelManager();
   var mixer = new Mixer(audio, state);
   var trackManager = new TrackManager(state, audio, bottomPanelManager, mixer);
-  var clipManager = new ClipManager(state, audio, bottomPanelManager, ed, editorClipChanged);
+  var clipManager = new ClipManager(state, audio, bottomPanelManager, ed);
+  var updateManager = new UpdateManager(state, audio, av, ev, dom, renderTrackHeaders);
   
   async function init() {
     await deviceBrowser.loadDevices();
@@ -3344,8 +3395,8 @@ class ClipManager {
 
     dom.gridReadout.textContent = editorGrid().label;
     updatePosReadout();
-    arrangementChanged();
-    editorClipChanged();
+    updateManager.arrangementChanged();
+    updateManager.editorClipChanged();
     ev.o.scroller.scrollTop = pitchToRow(60) * ev.rowHeight - ev.o.scroller.clientHeight / 2;
 
     const observer = new ResizeObserver(layoutAll);
