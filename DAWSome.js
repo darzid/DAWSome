@@ -750,7 +750,7 @@
       },
       play: async () => {
         await initializeTone();
-        transport.start();
+        transport.start("+0.1");
       },
       stop: () => {
         transport.stop();
@@ -3200,8 +3200,8 @@
     updateDeviceParameter(audioDevice, parameterName, value) {
       if (audioDevice[parameterName].name) {
         audioDevice[parameterName].cancelScheduledValues(Tone.now());
-        //audioDevice[parameterName].rampTo(value, Tone.now());
-        audioDevice[parameterName].value = value;
+        audioDevice[parameterName].setValueAtTime(value, "+0.05");
+       // audioDevice[parameterName].value = value;
       }
       else
         audioDevice[parameterName] = value;
@@ -3396,7 +3396,7 @@
         }
       };
       const hatReverb = {
-        name: "JCReverb",
+        name: "Reverb",
         parameters: {
           roomSize: 0.05,
           wet: 0.05
