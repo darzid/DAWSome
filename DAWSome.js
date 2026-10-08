@@ -884,102 +884,6 @@
     return { format, bpm, tracks };
   }
 
-  class TrackManager {
-    constructor(state, audio, bottomPanelManager, mixer) {
-      this.state = state;
-      this.audio = audio;
-      this.bottomPanelManager = bottomPanelManager;
-      this.mixer = mixer;
-      
-      document.addEventListener("SelectTrack", (e) => this.selectTrackById(e.detail.trackId));
-    }
-    
-    deselectTrack() {
-      if (!this.state.selectedTrackId) {
-        return;
-      }
-      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
-      if (trackElement) {
-        trackElement.classList.remove("selected");
-      }
-      this.state.selectedTrackId = null;
-  
-     // console.log("track cleared")
-      this.bottomPanelManager.refreshActivePanel();
-    }
-  
-    selectTrackById(trackId) {
-      if (trackId === this.state.selectedTrackId) {
-        return;
-      }
-      this.deselectTrack();
-      this.state.selectedTrackId = trackId;
-  
-      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
-      if (trackElement) {
-        trackElement.classList.add("selected");
-      }
-    }
-  
-    selectTrack(track) {
-      if (track)
-        this.selectTrackById(track.id);
-      else
-        this.deselectTrack();
-    }
-    
-    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
-      if (!effects) effects = []
-      if (!modulators) modulators = [];
-  
-     // console.log("addTrack " + name)
-      let devices = [];
-      instrument.presetName = "Default";
-      devices.push(instrument);
-      effects.forEach(fx => {
-        fx.type = "Effect";
-        fx.presetName = "Default";
-        devices.push(fx);
-      });
-      //console.log("addingTrack " + name)
-      modulators.forEach(modulator => devices.push(modulator.modulator));
-      //console.log("add track model", devices)
-      const track = {
-        id: this.state.nextId++,
-        name,
-        color: TRACK_COLORS[this.state.tracks.length % TRACK_COLORS.length],
-        instrumentName: instrument.name,
-        instrumentParameters: instrument.parameters,
-        //device: instrument, 
-        devices: devices,
-        effects: effects,
-        modulators: modulators,
-        mute: mute,
-        volume: volume
-      };
-      try {
-        this.state.tracks.push(track);
-        this.audio.addTrack(track);
-        this.selectTrack(track);
-        this.mixer.addTrackFader(track);
-        //console.log("added track model", track)
-      }
-      catch (error) {
-        console.error("error while adding track", error)
-      }
-      return track;
-    }
-  
-    removeTrack(trackId) {
-      for (const clip of this.state.clips.filter((c) => c.trackId === trackId))
-        document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
-        
-      this.audio.removeTrack(trackId);
-      this.mixer.removeTrackFader(this.state.tracks.find((t) => t.id == trackId));
-      this.state.tracks = this.state.tracks.filter((t) => t.id !== trackId);
-      if (this.state.selectedTrackId === trackId) this.selectTrack(this.state.tracks[0]?.id ?? null);
-    }
-  }
   
 /*
   function deselectTrack() {
@@ -1070,58 +974,7 @@ function addTrack(name, instrument, effects, modulators = null, volume = 0, mute
   }
 */
 
-class ClipManager {
-  constructor(state, audio, bottomPanelManager, clipEditor) {
-    this.state = state;
-    this.audio = audio;
-    this.bottomPanelManager = bottomPanelManager;
-    this.ed = clipEditor;
-    
-    document.addEventListener("RemoveClip", (e) => this.removeClip(e.detail.clipId));
-  }
-  
-  createClip(track, start, length, notes = [], end = null) {
-    const count = this.state.clips.filter((c) => c.trackId === track.id).length + 1;
 
-    if (!end) {
-      end = start + length;
-      console.log("determined clip end, start, length, end", start, length, end)
-    }
-    let loop = end - start > length;
-    const clip = { id: this.state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
-    this.state.clips.push(clip);
-    this.audio.rebuildClip(clip);
-    return clip;
-  }
-
-  removeClip(clipId) {
-    this.audio.removeClip(clipId);
-    this.state.clips = this.state.clips.filter((c) => c.id !== clipId);
-    if (this.state.selectedClipId === clipId) 
-      this.state.selectedClipId = null;
-  }
-
-  deselectClip() {
-    this.state.selectedClipId = null;
-    this.ed.selected.clear();
-    document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
-  }
-  
-  selectClip(clip) {
-    console.log("select clip")
-    if (this.state.selectedClipId === clip.id) return;
-    if (clip.trackId !== this.state.selectedTrackId)
-      document.dispatchEvent(new CustomEvent("SelectTrack", { detail: { trackId: clip.trackId } }));
-
-    this.state.selectedClipId = clip.id;
-    console.log("clip selected");
-
-    this.bottomPanelManager.showClipEditorPanel();
-
-    this.ed.selected.clear();
-    document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
-  }
-}
 /*
   function createClip(track, start, length, notes = [], end = null) {
     const count = state.clips.filter((c) => c.trackId === track.id).length + 1;
@@ -1165,57 +1018,7 @@ class ClipManager {
   }
 */
 
-  class UpdateManager {
-    constructor(state, audio, arrangementView, editorView, dom, renderTrackHeadersCallback) {
-      this.state = state;
-      this.audio = audio;
-      this.av = arrangementView;
-      this.ev = editorView;
-      this.dom = dom;
-      this.renderTrackHeaders = renderTrackHeadersCallback;
-      
-      document.addEventListener("ClipChanged", (e) => this.editorClipChanged());
-    }
-    
-      // Everything that must follow a change to clip placement, tracks, or loop length.
-    arrangementChanged() {
-      this.audio.setLoop(this.state.loop, songEndBeats());
-      this.av.updateSpacer();
-      this.renderTrackHeaders();
-      this.av.requestRender();
-      this.updateClipButtons();
-    }
-  
-    // Everything that must follow a change to the selected clip's notes.
-    notesChanged() {
-      const clip = currentClip();
-      if (clip) this.audio.rebuildClip(clip);
-      this.ev.updateSpacer();
-      this.ev.requestRender();
-      this.av.requestRender();
-    }
-  
-    editorClipChanged() {
-    //  console.log("clip changed")
-      const clip = currentClip();
-      this.dom.clipTitle.textContent = clip ? `${clip.name} (${trackById(clip.trackId).name})` : "No clip selected";
-      this.dom.len.value = clip ? clip.length / BEATS_PER_BAR : 1;
-      this.dom.end.value = clip ? clip.end : 1;
-      this.dom.len.disabled = !clip;
-      this.ev.updateSpacer();
-      this.ev.requestRender();
-      this.av.requestRender();
-      this.updateClipButtons();
-    }
-  
-    updateClipButtons() {
-      const hasClip = !!currentClip();
-      this.dom.dupClip.disabled = !hasClip;
-      this.dom.delClip.disabled = !hasClip;
-      this.dom.clear.disabled = !hasClip;
-      this.dom.addClip.disabled = !this.state.selectedTrackId;
-    }
-  }
+
   /*
   // Everything that must follow a change to clip placement, tracks, or loop length.
   function arrangementChanged() {
@@ -3135,6 +2938,208 @@ class ClipManager {
     }
   }
 
+class TrackManager {
+    constructor(state, audio, bottomPanelManager, mixer) {
+      this.state = state;
+      this.audio = audio;
+      this.bottomPanelManager = bottomPanelManager;
+      this.mixer = mixer;
+      
+      document.addEventListener("SelectTrack", (e) => this.selectTrackById(e.detail.trackId));
+    }
+    
+    deselectTrack() {
+      if (!this.state.selectedTrackId) {
+        return;
+      }
+      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
+      if (trackElement) {
+        trackElement.classList.remove("selected");
+      }
+      this.state.selectedTrackId = null;
+  
+     // console.log("track cleared")
+      this.bottomPanelManager.refreshActivePanel();
+    }
+  
+    selectTrackById(trackId) {
+      if (trackId === this.state.selectedTrackId) {
+        return;
+      }
+      this.deselectTrack();
+      this.state.selectedTrackId = trackId;
+  
+      let trackElement = document.querySelector(`.track[data-id="${state.selectedTrackId}"]`);
+      if (trackElement) {
+        trackElement.classList.add("selected");
+      }
+    }
+  
+    selectTrack(track) {
+      if (track)
+        this.selectTrackById(track.id);
+      else
+        this.deselectTrack();
+    }
+    
+    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
+      if (!effects) effects = []
+      if (!modulators) modulators = [];
+  
+     // console.log("addTrack " + name)
+      let devices = [];
+      instrument.presetName = "Default";
+      devices.push(instrument);
+      effects.forEach(fx => {
+        fx.type = "Effect";
+        fx.presetName = "Default";
+        devices.push(fx);
+      });
+      //console.log("addingTrack " + name)
+      modulators.forEach(modulator => devices.push(modulator.modulator));
+      //console.log("add track model", devices)
+      const track = {
+        id: this.state.nextId++,
+        name,
+        color: TRACK_COLORS[this.state.tracks.length % TRACK_COLORS.length],
+        instrumentName: instrument.name,
+        instrumentParameters: instrument.parameters,
+        //device: instrument, 
+        devices: devices,
+        effects: effects,
+        modulators: modulators,
+        mute: mute,
+        volume: volume
+      };
+      try {
+        this.state.tracks.push(track);
+        this.audio.addTrack(track);
+        this.selectTrack(track);
+        this.mixer.addTrackFader(track);
+        //console.log("added track model", track)
+      }
+      catch (error) {
+        console.error("error while adding track", error)
+      }
+      return track;
+    }
+  
+    removeTrack(trackId) {
+      for (const clip of this.state.clips.filter((c) => c.trackId === trackId))
+        document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
+        
+      this.audio.removeTrack(trackId);
+      this.mixer.removeTrackFader(this.state.tracks.find((t) => t.id == trackId));
+      this.state.tracks = this.state.tracks.filter((t) => t.id !== trackId);
+      if (this.state.selectedTrackId === trackId) this.selectTrack(this.state.tracks[0]?.id ?? null);
+    }
+  }
+  
+class ClipManager {
+  constructor(state, audio, bottomPanelManager, clipEditor) {
+    this.state = state;
+    this.audio = audio;
+    this.bottomPanelManager = bottomPanelManager;
+    this.ed = clipEditor;
+    
+    document.addEventListener("RemoveClip", (e) => this.removeClip(e.detail.clipId));
+  }
+  
+  createClip(track, start, length, notes = [], end = null) {
+    const count = this.state.clips.filter((c) => c.trackId === track.id).length + 1;
+
+    if (!end) {
+      end = start + length;
+      console.log("determined clip end, start, length, end", start, length, end)
+    }
+    let loop = end - start > length;
+    const clip = { id: this.state.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
+    this.state.clips.push(clip);
+    this.audio.rebuildClip(clip);
+    return clip;
+  }
+
+  removeClip(clipId) {
+    this.audio.removeClip(clipId);
+    this.state.clips = this.state.clips.filter((c) => c.id !== clipId);
+    if (this.state.selectedClipId === clipId) 
+      this.state.selectedClipId = null;
+  }
+
+  deselectClip() {
+    this.state.selectedClipId = null;
+    this.ed.selected.clear();
+    document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
+  }
+  
+  selectClip(clip) {
+    console.log("select clip")
+    if (this.state.selectedClipId === clip.id) return;
+    if (clip.trackId !== this.state.selectedTrackId)
+      document.dispatchEvent(new CustomEvent("SelectTrack", { detail: { trackId: clip.trackId } }));
+
+    this.state.selectedClipId = clip.id;
+    console.log("clip selected");
+
+    this.bottomPanelManager.showClipEditorPanel();
+
+    this.ed.selected.clear();
+    document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
+  }
+}
+
+  class UpdateManager {
+    constructor(state, audio, arrangementView, editorView, dom, renderTrackHeadersCallback) {
+      this.state = state;
+      this.audio = audio;
+      this.av = arrangementView;
+      this.ev = editorView;
+      this.dom = dom;
+      this.renderTrackHeaders = renderTrackHeadersCallback;
+      
+      document.addEventListener("ClipChanged", (e) => this.editorClipChanged());
+    }
+    
+      // Everything that must follow a change to clip placement, tracks, or loop length.
+    arrangementChanged() {
+      this.audio.setLoop(this.state.loop, songEndBeats());
+      this.av.updateSpacer();
+      this.renderTrackHeaders();
+      this.av.requestRender();
+      this.updateClipButtons();
+    }
+  
+    // Everything that must follow a change to the selected clip's notes.
+    notesChanged() {
+      const clip = currentClip();
+      if (clip) this.audio.rebuildClip(clip);
+      this.ev.updateSpacer();
+      this.ev.requestRender();
+      this.av.requestRender();
+    }
+  
+    editorClipChanged() {
+    //  console.log("clip changed")
+      const clip = currentClip();
+      this.dom.clipTitle.textContent = clip ? `${clip.name} (${trackById(clip.trackId).name})` : "No clip selected";
+      this.dom.len.value = clip ? clip.length / BEATS_PER_BAR : 1;
+      this.dom.end.value = clip ? clip.end : 1;
+      this.dom.len.disabled = !clip;
+      this.ev.updateSpacer();
+      this.ev.requestRender();
+      this.av.requestRender();
+      this.updateClipButtons();
+    }
+  
+    updateClipButtons() {
+      const hasClip = !!currentClip();
+      this.dom.dupClip.disabled = !hasClip;
+      this.dom.delClip.disabled = !hasClip;
+      this.dom.clear.disabled = !hasClip;
+      this.dom.addClip.disabled = !this.state.selectedTrackId;
+    }
+  }
+  
   class XypadPanel {
     mouseDown = false;
     xDeviceSelect;
