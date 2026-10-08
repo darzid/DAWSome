@@ -132,6 +132,7 @@
     flex-direction: row; 
     border-top: 0.5vw solid black; 
     background: var(--panel); }
+    
   .instrument-panel, .effects-panel, .modulation-panel { overflow-x: hidden; }
   @media (orientation: portrait) {
     .instrument-panel, .effects-panel, .modulation-panel { min-height: 25vh; max-height: 25vh; }
@@ -183,9 +184,25 @@
     }
     button { margin: 1px; padding: 1px; padding-left: 4px; padding-right: 4px; font-size: x-small; height: min-content; width: min-content; }
   }
-  
-  
+
   .device .device-parameters .parameter.hidden { display: none; }
+  
+  .xypad-panel { display: flex; background: var(--panel); padding: 3pt;  }
+  .xypad-panel canvas {
+    background: var(--bg);
+    margin: 5pt;
+    border: 0pt solid var(--panel);
+    width: 30vh;
+    height: 30vh;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+  }
+  .xypad-panel output[name="x-value"] { display: flex; justify-content: center; width: stretch; overflow: hidden; text-overflow: ellipsis; }
+  .xypad-panel output[name="x-param-value"] { display: flex; justify-content: center; width: stretch; overflow: hidden; text-overflow: ellipsis; }
+  .xypad-panel output[name="y-value"] { display: inline-block; float: left; margin-top: -17vh; overflow: hidden; text-overflow: ellipsis; }
+  .xypad-panel output[name="y-param-value"] { display: inline-block; float: left; margin-top: -15vh; overflow: hidden; text-overflow: ellipsis; }
+  
   .mixer::-webkit-scrollbar { width: 10px; height: 10px; }
   .mixer::-webkit-scrollbar-track { background: #1c1c1c; }
   .mixer::-webkit-scrollbar-thumb { background: #555; border-radius: 1.25vw; }
@@ -224,12 +241,7 @@
   .bottom-panel .tab-strip { border-top: 1pt solid black; }
   .bottom-panel .tab-strip button { height: auto; margin: 0pt; }
   
-  .xypad-panel canvas {
-    background: black;
-    width: 100%;
-    height: 100%;
-    position: relative;
-  }
+
   #projectFile, #midiFile { display: none; }
   
   number-input {

@@ -2070,7 +2070,9 @@
 
 
   class DeviceBrowser {
-
+    metadata;
+    deviceParameters = {};
+    
     async loadDevices() {
       if (devicesJson) {
         this.parseDevices(devicesJson);
@@ -2094,8 +2096,9 @@
     }
 
     parseDevices(data) {
-      console.log("parsing devices")
+      console.log("parsing devices");
       deviceList = data;
+      this.metadata = data;
       Object.keys(data.devices).forEach(deviceName => {
         if (data.devices[deviceName].type == "Instrument") {
           instrumentNames.push(deviceName);
@@ -2104,15 +2107,132 @@
         }
       });
     }
+    
+    getDeviceMetadata(deviceName) {
+      console.log("getDeviceMetadata for " + deviceName)
+      if (!this.deviceParameters[deviceName]) {
+        let componentMetadata = this.metadata.devices[deviceName] ? this.metadata.devices[deviceName] : this.metadata.modules[deviceName];
+        if (!componentMetadata.parameters) console.warn("No params", componentMetadata)
+        this._traverseParams(deviceName, componentMetadata.parameters, "");
+      }
+      return this.deviceParameters[deviceName];
+    }
+    
+    getDeviceNumberParameters(deviceName) {
+      //console.log("getDeviceNumberParameters for " + deviceName)
+      let deviceMetadata = this.getDeviceMetadata(deviceName);
+      
+      let results = [];
+      Object.entries(deviceMetadata).forEach(item => {
+        if (item[1].type == "Number") results.push({ name: item[0], metadata: item[1].metadata}) });
+        
+      //console.log("number params ", results);
+      return results;
+    }
+    
+    buildDeviceState(device, deviceState) {
+      let deviceMetadata = this.getDeviceMetadata(device.name);
+      let deviceContext = device;
+      let deviceStateContext = deviceState.parameters;
+      Object.keys(deviceMetadata).forEach(paramNamespace => {
+        let parts = paramNamespace.split(".");
+        let deviceContext = device;
+        let deviceStateContext = deviceState.parameters;
+        for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+          let part = parts[partIndex];
+          deviceContext = deviceContext[part];
+          if (!deviceStateContext[part]) deviceStateContext[part] = {};
+          deviceStateContext = deviceStateContext[part];
+        }
+        let paramName = parts[parts.length - 1];
+        if (!deviceStateContext[paramName]) {
+          let paramValue = deviceContext[paramName].name ? deviceContext[paramName].value : deviceContext[paramName];
+          deviceStateContext[paramName] = paramValue;
+        }
+      })
+    }
+    
+    _traverseParams(deviceName, metadataContext, paramPath) {
+      console.log("traverseParams for " + deviceName + "." + paramPath)
+      Object.keys(metadataContext).forEach(parameterName => {
+        if (!parameterName) throw "empty param name"
+        let paramMetadataPath = metadataContext[parameterName];
+        //console.log("Param metadata of " + deviceName + "." + parameterName, metadataContext)
+        if (!paramMetadataPath) throw `missing param metadata for "${paramPath}.${parameterName}"`;
+        
+        if (paramMetadataPath.startsWith("unitTypes") || paramMetadataPath.startsWith("enumTypes")) {
+          let currentParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+          let parts = paramMetadataPath.split("/");
+          let metadataContainer = this.metadata[parts[0]];
+          //console.log("Looking up " + parts[1] + " in " + parts[0], metadataContainer);
+          let paramMetadata = metadataContainer[parts[1]];
+          let paramType = paramMetadataPath.startsWith("unitTypes") ? "Number" : "Option";
+          this._addParameterMetadata(deviceName, currentParamPath, paramType, paramMetadata);
+        }
+        else if (paramMetadataPath.startsWith("device") || paramMetadataPath.startsWith("module")) {
+          let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+          let parts = paramMetadataPath.split("/");
+          let componentName = parts[1];
+          let componentMetadata = parts[0] == "devices" ? this.metadata.devices[componentName] : this.metadata.modules[componentName];
+          this._traverseParams(deviceName, componentMetadata.parameters, childParamPath);
+        }
+      });
+    }
+    
+    _addParameterMetadata(deviceName, parameterPath, parameterType, parameterMetadata) {
+      if (!this.deviceParameters[deviceName]) this.deviceParameters[deviceName] = {};
+      this.deviceParameters[deviceName][parameterPath] = { type: parameterType, metadata: parameterMetadata };
+      console.log("added parameter metadata for " + deviceName + "." + parameterPath, parameterMetadata);
+    }
   }
 
+  const fillTargetParameters = (track, targetDeviceSelect, targetParameterSelect) => {
+        targetParameterSelect.innerHTML = "";
+        let trackDevice = track.devices[targetDeviceSelect.value];
+        let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
+
+        let targetParameters = [];
+        let paramContext = trackDevice.parameters;
+        let paramPath = "";
+        
+        
+        traverseParams(paramContext, paramPath, trackDeviceMetadata);
+
+        targetParameters.sort().forEach(parameterName => {
+          targetParameterSelect.innerHTML += `<option value="${parameterName}">${parameterName}</option>`;
+        })
+
+        function traverseParams(paramContext, paramPath, deviceMetadata) {
+          Object.keys(paramContext).forEach(parameterName => {
+            if (!parameterName) {
+              throw "empty param name"
+            }
+            let paramMetadata = deviceMetadata[parameterName];
+            if (!paramMetadata) {
+              throw `missing param metadata for "${paramPath}.${parameterName}"`;
+            }
+
+            if (paramMetadata.startsWith("unitTypes")) {
+              if (paramPath)
+                targetParameters.push(paramPath + "." + parameterName)
+              else
+                targetParameters.push(parameterName)
+            }
+            else if (paramMetadata.startsWith("device") || paramMetadata.startsWith("module")) {
+              let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+              let parts = paramMetadata.split("/");
+              let deviceName = parts[1];
+              console.log("device nane", deviceName)
+              let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
+              console.log("device metadata", deviceMetadata)
+              traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
+            }
+          });
+        }
+      }
+      
   class BottomPanelManager {
-    _xypadPointerDown = false;
-    _xDeviceSelect;
-    _yDeviceSelect;
-    _xyCanvas;
-    _xyCanvasContext;
-    
+    _xyPad;
     constructor() {
       this.editor = document.querySelector(".editor");
       this.instrumentPanel = document.querySelector(".instrument-panel");
@@ -2120,8 +2240,9 @@
       this.modulationPanel = document.querySelector(".modulation-panel");
       this.xypadPanel = document.querySelector(".xypad-panel");
       this.mixerPanel = document.querySelector(".mixer");
-
-      this.initXyPad();
+      
+      this._xyPad = new XypadPanel(this.xypadPanel);
+      this.xypadPanel.style.display = "none";
       
       dom.clipEditorTabBtn.addEventListener("click", () => {
         dom.clipEditorTabBtn.classList.toggle("on");
@@ -2312,6 +2433,25 @@
       this.renderDevice(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
     }
 
+    renderXypadPanel() {
+      console.log("xypad render")
+      this.xypadPanel.style.display = "flex";
+      let track = state.tracks.find(track => track.id === state.selectedTrackId);
+      if (!track) {
+        console.log("no track")
+        this.xypadPanel.style.display = "none";
+        return;
+      }
+      else {
+        if (!dom.xypadTabBtn.classList.contains("on")) {
+          dom.xypadTabBtn.classList.add("on");
+        }
+      }
+      
+      this._xyPad.init(track);
+    }
+    
+
     renderDevice(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
       let devicePanel = document.createElement("div");
       devicePanel.className = "device";
@@ -2436,12 +2576,12 @@
 
           let targetParameterSelect = devicePanel.querySelector(".targetParameter");
 
-          fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
+          fillTargetParameters(track, targetDeviceSelect, targetParameterSelect);
           targetParameterSelect.value = modulation.targetParameter;
           let targetDevice = track.devices[targetDeviceSelect.value];
           targetParamMetadata = deviceList.devices[targetDevice.name].parameters[modulation.targetParameter];
 
-          targetDeviceSelect.oninput = (e) => fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect);
+          targetDeviceSelect.oninput = (e) => fillTargetParameters(track, targetDeviceSelect, targetParameterSelect);
           targetParameterSelect.oninput = (e) => {
             console.log("param selected")
             modulation.targetParameter = targetParameterSelect.value;
@@ -2460,49 +2600,6 @@
       renderDeviceParameters(targetParamMetadata);
       renderDeviceLists();
 
-      function fillLfoTargetParameters(targetDeviceSelect, targetParameterSelect) {
-        targetParameterSelect.innerHTML = "";
-        let trackDevice = track.devices[targetDeviceSelect.value];
-        let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
-
-        let targetParameters = [];
-        let paramContext = trackDevice.parameters;
-        let paramPath = "";
-
-        traverseParams(paramContext, paramPath, trackDeviceMetadata);
-
-        targetParameters.sort().forEach(parameterName => {
-          targetParameterSelect.innerHTML += `<option value="${parameterName}">${parameterName}</option>`;
-        })
-
-        function traverseParams(paramContext, paramPath, deviceMetadata) {
-          Object.keys(paramContext).forEach(parameterName => {
-            if (!parameterName) {
-              throw "empty param name"
-            }
-            let paramMetadata = deviceMetadata[parameterName];
-            if (!paramMetadata) {
-              throw `missing param metadata for "${paramPath}.${parameterName}"`;
-            }
-
-            if (paramMetadata.startsWith("unitTypes")) {
-              if (paramPath)
-                targetParameters.push(paramPath + "." + parameterName)
-              else
-                targetParameters.push(parameterName)
-            }
-            else if (paramMetadata.startsWith("device") || paramMetadata.startsWith("module")) {
-              let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
-              let parts = paramMetadata.split("/");
-              let deviceName = parts[1];
-              console.log("device nane", deviceName)
-              let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
-              console.log("device metadata", deviceMetadata)
-              traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
-            }
-          });
-        }
-      }
       
       function renderDeviceParameters(targetParamMetadata = null) {
         console.log("renderDeviceParameters", targetParamMetadata)
@@ -2836,44 +2933,138 @@
       }
       
     }
-    
-    initXyPad() {
-      this._xDeviceSelect = this.xypadPanel.querySelector("select[name='x-device-select']");
-      this._yDeviceSelect = this.xypadPanel.querySelector("select[name='y-device-select']");
-      
-      this._xDeviceSelect.addEventListener("change", () => {
-        
-      })
-      this._xyCanvas = this.xypadPanel.querySelector("canvas");
-      this._xyCanvasContext = sizeCanvas(this._xyCanvas, this._xyCanvas.clientWidth, this._xyCanvas.clientHeight);
-      const lineWidth = 10;
-      const shadowBlur = lineWidth / 2;
-      const radius = 10;
-      const strokeStyle = "rgba(255,255,255,0.5)";
-      const shadowColor = "rgba(255,255,0,0.5)";
-      
-      this._xyCanvasContext.shadowColor = shadowColor;
-      this._xyCanvasContext.shadowBlur = shadowBlur;
-      this._xyCanvasContext.strokeStyle = strokeStyle;
-      this._xyCanvasContext.fillStyle = shadowColor;
-      this._xyCanvasContext.lineWidth = lineWidth;
-        
-      let canvasCenter = { x: this._xyCanvas.clientWidth / 2, y: this._xyCanvas.clientHeight / 2 };
-    
-      this.drawCircle(canvasCenter, radius)
+  }
 
-      this._xyCanvas.ontouchstart = (e) => {
-        this._xypadPointerDown = true;
-        this.drawCircle(this.getMousePositionOnCanvas(e), radius);
+  class XypadPanel {
+    mouseDown = false;
+    xDeviceSelect;
+    xParameterSelect;
+    xParameterMetadata;
+    xValueOutput;
+    yDeviceSelect;
+    yParameterSelect;
+    yParameterMetadata;
+    yValueOutput;
+    canvas;
+    ctx;
+    size;
+    center;
+    track;
+    position;
+    
+    constructor(xypadPanelElement) {
+      this.xDeviceSelect = xypadPanelElement.querySelector("select[name='x-device-select']");
+      this.xParameterSelect = xypadPanelElement.querySelector("select[name='x-parameter-select']");
+      this.xValueOutput = xypadPanelElement.querySelector("output[name='x-value']");
+      this.xParamValueOutput = xypadPanelElement.querySelector("output[name='x-param-value']");
+      this.yDeviceSelect = xypadPanelElement.querySelector("select[name='y-device-select']");
+      this.yParameterSelect = xypadPanelElement.querySelector("select[name='y-parameter-select']");
+      this.yValueOutput = xypadPanelElement.querySelector("output[name='y-value']");
+      this.yParamValueOutput = xypadPanelElement.querySelector("output[name='y-param-value']");
+      this.canvas = xypadPanelElement.querySelector("canvas");
+      
+      this.xDeviceSelect.addEventListener("change", () => this.xDeviceSelected());
+      this.yDeviceSelect.addEventListener("change", () => this.yDeviceSelected());
+      
+      this.ctx = sizeCanvas(this.canvas, this.canvas.clientWidth, this.canvas.clientHeight);
+      
+      this.ctx.strokeStyle = "rgba(255,255,255,0.5)";;
+      this.ctx.fillStyle = "rgba(255,255,100,0.5)";
+      this.ctx.shadowColor = this.ctx.fillStyle;
+      this.ctx.shadowBlur = 5;
+      
+      this.size = { width: this.canvas.clientWidth, height: this.canvas.clientHeight };
+      this.center = { x: this.canvas.clientWidth / 2, y: this.canvas.clientHeight / 2 };
+    
+      this.updatePosition(this.center)
+
+      this.canvas.ontouchstart = (e) => {
+        this.mouseDown = true;
+        this.updatePosition(this.getMousePositionOnCanvas(e));
       }
-      this._xyCanvas.ontouchend = () => {
-        this._xypadPointerDown = false;
+      this.canvas.ontouchend = () => {
+        this.mouseDown = false;
       }
-      this._xyCanvas.ontouchmove = (e) => {
-        if (!this._xypadPointerDown) return;
-        this._xyCanvasContext.clearRect(0,0,this._xyCanvas.clientWidth,this._xyCanvas.clientHeight)
-        this.drawCircle(this.getMousePositionOnCanvas(e), radius);
+      this.canvas.ontouchmove = (e) => {
+        if (!this.mouseDown) return;
+        this.updatePosition(this.getMousePositionOnCanvas(e));
       }
+    }
+    
+    get xDeviceIndex() { return this.xDeviceSelect.value; }
+    get xDevice() { return this.track.devices[this.xDeviceIndex]; }
+    get xDeviceName() { return this.xDevice.name; }
+    get xParameterName() { return this.xParameterSelect.selectedOptions[0].text; }
+    get xParameter() { return this.xDevice.parameters[this.xParameterName]; }
+    get xParameterValue() { return this.xParameter.name ? this.xParameter.value : this.xParameter;  }
+    get xValue() { return parseFloat(this.xValueOutput.dataset.value); }
+    set xValue(value) { 
+      this.xValueOutput.dataset.value = value; 
+      this.xValueOutput.innerText = value.toFixed(5); 
+    }
+    get xParamModValue() { return parseFloat(this.xParamValueOutput.dataset.value); }
+    set xParamModValue(value) {
+      this.xParamValueOutput.dataset.value = value;
+      let clampedValue = clamp(this.xParameterValue + value, this.xParameterMetadata.min, this.xParameterMetadata.max);
+      //this.xParamValueOutput.innerText = `${this.xParameterValue} + ${value.toFixed(5)} = ${clampedValue}`;
+      this.xParamValueOutput.innerText = clampedValue.toFixed(3);
+    } 
+    get yDeviceIndex() { return this.yDeviceSelect.value; }
+    get yDevice() { return this.track.devices[this.yDeviceIndex]; }
+    get yDeviceName() { return this.yDevice.name; }
+    get yParameterName() { return this.yParameterSelect.selectedOptions[0].text; }
+    get yParameter() { return this.yDevice.parameters[this.yParameterName]; }
+    get yParameterValue() { return this.yParameter.name ? this.yParameter.value : this.yParameter;  }
+    get yValue() { return parseFloat(this.yValueOutput.dataset.value); }
+    set yValue(value) { 
+      this.yValueOutput.dataset.value = value; 
+      this.yValueOutput.innerText = value.toFixed(5); 
+    }
+    get yParamModValue() { return parseFloat(this.yParamValueOutput.dataset.value); }
+    set yParamModValue(value) {
+      this.yParamValueOutput.dataset.value = value;
+      let clampedValue = clamp(this.yParameterValue + value, this.yParameterMetadata.min, this.yParameterMetadata.max);
+      //this.yParamValueOutput.innerText = `${this.yParameterValue} + ${value.toFixed(5)} = ${clampedValue}`;
+      this.yParamValueOutput.innerText = clampedValue.toFixed(3);
+    } 
+    
+    init(track) {
+      this.track = track;
+      //let targetDeviceOptionsHtml = "<option>None</option>";
+      let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+      this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
+      this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
+      this.xDeviceSelected();
+      this.yDeviceSelected();
+    }
+    
+    xDeviceSelected() {
+      if (!this.track) return;
+      console.log("Device selected ", this.xDeviceName)
+      this.xParameterSelect.innerHTML = "";
+      let deviceNumberParameters = deviceBrowser.getDeviceNumberParameters(this.xDeviceName);
+      deviceNumberParameters.forEach(param => this.xParameterSelect.innerHTML += `<option value="${deviceNumberParameters.indexOf(param)}">${param.name}</option>`);
+      this.xParameterSelect.onchange = (e) => this.xParameterSelected(deviceNumberParameters);
+      this.xParameterSelected(deviceNumberParameters);
+    }
+    
+    xParameterSelected(deviceNumberParameters) {
+      this.xParameterMetadata = deviceNumberParameters[this.xParameterSelect.value].metadata;
+      this.updatePosition(this.position);
+    }
+    
+    yDeviceSelected() {
+      if (!this.track) return;
+      this.yParameterSelect.innerHTML = "";
+      let deviceNumberParameters = deviceBrowser.getDeviceNumberParameters(this.yDeviceName);
+      deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${deviceNumberParameters.indexOf(param)}">${param.name}</option>`);
+      this.yParameterSelect.onchange = (e) => this.yParameterSelected(deviceNumberParameters);
+      this.yParameterSelected(deviceNumberParameters);
+    }
+    
+    yParameterSelected(deviceNumberParameters) {
+      this.yParameterMetadata = deviceNumberParameters[this.yParameterSelect.value].metadata;
+      this.updatePosition(this.position);
     }
     
     getMousePositionOnCanvas(event) {
@@ -2885,36 +3076,61 @@
       
       return { x: canvasX, y: canvasY };
     }
+    
+    updatePosition(position) {
+      position.x = clamp(position.x, 0, this.size.width);
+      position.y = clamp(position.y, 0, this.size.height);
+      this.position = position;
       
-    drawCircle(position, radius) {
-        this._xyCanvasContext.beginPath();
-        this._xyCanvasContext.arc(position.x, position.y, radius, 0, 2 * Math.PI);
-        this._xyCanvasContext.stroke();
-        this._xyCanvasContext.fill();
-      }
-
-    renderXypadPanel() {
-      console.log("xypad render")
-      this.xypadPanel.style.display = "flex";
-      let track = state.tracks.find(track => track.id === state.selectedTrackId);
-      if (!track) {
-        console.log("no track")
-        this.xypadPanel.style.display = "none";
-        return;
-      }
-      else {
-        if (!dom.xypadTabBtn.classList.contains("on")) {
-          dom.xypadTabBtn.classList.add("on");
-        }
-      }
+      let xOffset = position.x - this.center.x;
+      let yOffset = position.y - this.center.y;
+      let xNormalizedOffset = xOffset / this.center.x;
+      let yNormalizedOffset = -(yOffset / this.center.y);
+      this.xValue = xNormalizedOffset;
+      this.yValue = yNormalizedOffset;
       
-      let targetDeviceOptionsHtml = "<option>None</option>";
-      //targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
-      this._xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
-      this._yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
+      
+      if (this.xParameterMetadata) {
+        let xParameterRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
+        let xParameterModulation = xParameterRange * xNormalizedOffset;
+        this.xParamModValue = xParameterModulation;
+      } 
+      
+      if (this.yParameterMetadata) {
+        let yParameterRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
+        let yParameterModulation = yParameterRange * yNormalizedOffset;
+        this.yParamModValue = yParameterModulation;
+      } 
+      //console.log(`x: ${this.xParameterModulatedValue}, y: ${this.yParameterModulatedValue}`);
+      this.draw();
+    }
+    
+    draw() {
+      this.ctx.clearRect(0,0,this.size.width,this.size.height);
+      this.drawAxis();
+      this.drawCircle();
+    }
+    
+    drawAxis() {
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.center.x, 0);
+      this.ctx.lineTo(this.center.x, this.size.height);
+      this.ctx.stroke();
+      this.ctx.moveTo(0, this.center.y);
+      this.ctx.lineTo(this.size.width, this.center.y);
+      this.ctx.stroke();
+    }
+    
+    drawCircle() {
+      this.ctx.lineWidth = 10;
+      this.ctx.beginPath();
+      this.ctx.arc(this.position.x, this.position.y, 10, 0, 2 * Math.PI);
+      this.ctx.stroke();
+      this.ctx.fill();
     }
   }
-
+  
   // ===== Init =====
   function layoutAll() {
     av.layout();
@@ -2928,9 +3144,18 @@
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
   var bottomPanelManager = new BottomPanelManager();
   var mixer = new Mixer(audio, state);
+  var deviceMetadataManager;
 
   async function init() {
     await deviceBrowser.loadDevices();
+    //console.log("Metadata test", deviceBrowser.getDeviceMetadata("MonoSynth"));
+    //console.log("Metadata number test", deviceBrowser.getDeviceNumberParameters("MonoSynth"));
+    
+    let deviceState = { name: "MonoSynth", parameters: { volume: -10 }};
+    let device = new Tone.MonoSynth();
+    deviceBrowser.buildDeviceState(device, deviceState);
+    console.log("Device state", deviceState);
+    
     await presetBrowser.loadPresets();
 
     const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -3331,3 +3556,9 @@
   
   await init();
 })();
+
+class DeviceMetadataManager {
+  deviceList;
+  
+  
+}
