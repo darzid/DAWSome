@@ -809,7 +809,7 @@
     "AttackNoise": { "min": 0.1, "max": 20, "step": 0.01 },
     "MaxPolyphony": { "min": 1, "max": 20, "step": 1 },
     "PitchDecay": { "min": 0, "max": "2", "step": 0.001, unit: "sec" },
-    "Tb303Cutoff": { "min": 100, "max": 8000, "step": 1, unit: "hz" },
+    "Tb303Cutoff": { "min": 100, "max": 8000, "step": 0.1, unit: "hz" },
     "Tb303Resonance": { "min": 1, "max": 20, "step": 0.01 },
     "Tb303Decay": { "min": 0.1, "max": 1.2, "step": 0.01, unit: "sec" },
     "Tb303Drive": { "min": 0.1, "max": 1.2, "step": 0.01, unit: "db" }
