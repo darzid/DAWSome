@@ -181,8 +181,8 @@
       if (this.queued) return;
       this.queued = true;
       requestAnimationFrame(() => {
-        this.queued = false;
         if (this.grid) this.o.render();
+        this.queued = false;
       });
     }
 
