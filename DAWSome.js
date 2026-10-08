@@ -2993,10 +2993,18 @@
     
     get xDeviceIndex() { return this.xDeviceSelect.value; }
     get xDevice() { return this.track.devices[this.xDeviceIndex]; }
+    get xAudioDevice() { return audio.getTrackDevices(this.track)[this.xDeviceIndex]; }
     get xDeviceName() { return this.xDevice.name; }
     get xParameterName() { return this.xParameterSelect.selectedOptions[0].text; }
     get xParameter() { return this.xDevice.parameters[this.xParameterName]; }
     get xParameterValue() { return this.xParameter.name ? this.xParameter.value : this.xParameter;  }
+    set xParameterValue(value) { 
+      if (this.xParameter.name)
+        this.xAudioDevice[this.xParameterName].value = value;
+      else
+        this.xAudioDevice[this.xParameterName] = value;
+    }
+    
     get xValue() { return parseFloat(this.xValueOutput.dataset.value); }
     set xValue(value) { 
       this.xValueOutput.dataset.value = value; 
@@ -3008,13 +3016,21 @@
       let clampedValue = clamp(this.xParameterValue + value, this.xParameterMetadata.min, this.xParameterMetadata.max);
       //this.xParamValueOutput.innerText = `${this.xParameterValue} + ${value.toFixed(5)} = ${clampedValue}`;
       this.xParamValueOutput.innerText = clampedValue.toFixed(3);
+      this.xParameterValue = clampedValue;
     } 
     get yDeviceIndex() { return this.yDeviceSelect.value; }
     get yDevice() { return this.track.devices[this.yDeviceIndex]; }
+    get yAudioDevice() { return audio.getTrackDevices(this.track)[this.yDeviceIndex]; }
     get yDeviceName() { return this.yDevice.name; }
     get yParameterName() { return this.yParameterSelect.selectedOptions[0].text; }
     get yParameter() { return this.yDevice.parameters[this.yParameterName]; }
     get yParameterValue() { return this.yParameter.name ? this.yParameter.value : this.yParameter;  }
+    set yParameterValue(value) { 
+      if (this.yParameter.name)
+        this.yAudioDevice[this.yParameterName].value = value;
+      else
+        this.yAudioDevice[this.yParameterName] = value;
+    }
     get yValue() { return parseFloat(this.yValueOutput.dataset.value); }
     set yValue(value) { 
       this.yValueOutput.dataset.value = value; 
@@ -3026,6 +3042,7 @@
       let clampedValue = clamp(this.yParameterValue + value, this.yParameterMetadata.min, this.yParameterMetadata.max);
       //this.yParamValueOutput.innerText = `${this.yParameterValue} + ${value.toFixed(5)} = ${clampedValue}`;
       this.yParamValueOutput.innerText = clampedValue.toFixed(3);
+      this.yParameterValue = clampedValue;
     } 
     
     init(track) {
