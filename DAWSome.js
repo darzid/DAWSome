@@ -15,53 +15,54 @@
   }
 
   // ===== Constants =====
-  const PITCH_COUNT = 128;
-  const TOP_PITCH = PITCH_COUNT - 1;
-  const BEATS_PER_BAR = 4;                 // fixed 4/4
-  const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-  const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
-  const DEFAULT_VELOCITY = 0.75;
-  const ACCENT_VELOCITY = 1.0;
-  const MIN_FREE_DURATION = 1 / 16;
-  const EPS = 1e-6;
-  const DRAG_THRESHOLD = 4;
-  const TAP_SLOP = 8;
-  const ZOOM_BUTTON_FACTOR = 1.25;
-  const MIN_SONG_BEATS = 16;
-  const SONG_TAIL_BEATS = 16;              // empty space kept after the last clip
+  const Constants = {
+    PITCH_COUNT: 128,
+    TOP_PITCH: 127,
+    BEATS_PER_BAR: 4,                 // fixed 4/4
+    NOTE_NAMES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
+    BLACK_KEYS: new Set([1, 3, 6, 8, 10]),
+    DEFAULT_VELOCITY: 0.75,
+    ACCENT_VELOCITY: 1.0,
+    MIN_FREE_DURATION: 1 / 16,
+    EPS: 1e-6,
+    DRAG_THRESHOLD: 4,
+    TAP_SLOP: 8,
+    ZOOM_BUTTON_FACTOR: 1.25,
+    MIN_SONG_BEATS: 16,
+    SONG_TAIL_BEATS: 16,              // empty space kept after the last clip
 
-  const FIXED_GRIDS = { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 };
-  const ADAPTIVE_MIN_PX = { widest: 96, wide: 48, medium: 24, narrow: 12, narrowest: 6 };
-  const ADAPTIVE_STEPS = [4, 2, 1, 0.5, 0.25, 0.125, 0.0625];
-  const STEP_LABELS = new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]);
-  const TRACK_COLORS = ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"];
+    FIXED_GRIDS: { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 },
+    ADAPTIVE_MIN_PX: { widest: 96, wide: 48, medium: 24, narrow: 12, narrowest: 6 },
+    ADAPTIVE_STEPS: [4, 2, 1, 0.5, 0.25, 0.125, 0.0625],
+    STEP_LABELS: new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]),
+    TRACK_COLORS: ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"],
 
-  const DEFAULT_INSTRUMENT = {
-    name: "MonoSynth",
-    type: "Instrument",
-    parameters: {
-      "volume": 0,
-      "portamento": 0,
-      "oscillator": {
-        "type": "sawtooth"
+    DEFAULT_INSTRUMENT: {
+      name: "MonoSynth",
+      type: "Instrument",
+      parameters: {
+        "volume": 0,
+        "portamento": 0,
+        "oscillator": {
+          "type": "sawtooth"
+        }
       }
+    },
+    COLORS: {
+      void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
+      laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
+      lineSub: "#2e2e2e", lineBeat: "#3d3d3d", lineBar: "#5a5a5a",
+      regionShade: "rgba(0, 0, 0, 0.4)", regionEdge: "#707070",
+      note: "#f2b544", noteBorder: "#7a5312", noteSelected: "#fff1c9",
+      accentNote: "#f244b5", accentNoteSelected: "#ffc9f1",
+      slideNoteBorder: "#0000ff",
+      playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
+      keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
+      keyTextDark: "#333333", keyTextLight: "#b0b0b0",
+      clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
     }
-  };
+  }
   
-  const COLORS = {
-    void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
-    laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
-    lineSub: "#2e2e2e", lineBeat: "#3d3d3d", lineBar: "#5a5a5a",
-    regionShade: "rgba(0, 0, 0, 0.4)", regionEdge: "#707070",
-    note: "#f2b544", noteBorder: "#7a5312", noteSelected: "#fff1c9",
-    accentNote: "#f244b5", accentNoteSelected: "#ffc9f1",
-    slideNoteBorder: "#0000ff",
-    playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
-    keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
-    keyTextDark: "#333333", keyTextLight: "#b0b0b0",
-    clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
-  };
-
   // ===== State =====
   var state = {
     name: "DemoProject",
@@ -83,6 +84,7 @@
     gridMode: "medium", triplet: false, accent: false, slide: false, snap: true, loop: true, drawMode: true,
     lastDuration: 0.25, selected: new Set(), activeKey: null,
   };
+  
   var deviceList = null;
   var instrumentNames = [];
   var effectNames = [];
@@ -115,53 +117,19 @@
     mixerTabBtn: $("mixer-tab-button"),
   };
 
-
-  // ===== Helpers =====
-  
-  
-  /*
-  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const midiName = (pitch) => NOTE_NAMES[pitch % 12] + (Math.floor(pitch / 12) - 2);   // Ableton: C3 = MIDI 60
-  const snapFloor = (beat, step) => (step ? Math.floor(beat / step + EPS) * step : beat);
-  const snapRound = (beat, step) => (step ? Math.round(beat / step) * step : beat);
-  const ceilBars = (beats) => Math.ceil(beats / BEATS_PER_BAR - EPS) * BEATS_PER_BAR;
-  const trackById = (id) => state.tracks.find((t) => t.id === id);
-  const clipById = (id) => state.clips.find((c) => c.id === id);
-  const currentClip = () => clipById(state.selectedClipId) ?? null;
-  const clipEnd = (clip) => clip.end ? clip.end : clip.start + clip.length;
-  */
-  /*const songEndBeats = () => {
-    let endBeats = Math.max(MIN_SONG_BEATS, helpers.ceilBars(state.clips.reduce((m, c) => Math.max(m, clipEnd(c)), 0)));
-    if (endBeats > state.loopLength)
-      state.loopLength = endBeats;
-    return endBeats;
-  };
-  const beatsToTime = (beats) => {
-    let remainingBeats = beats;
-    let bars = Math.floor(beats / 4);
-    remainingBeats -= (bars * 4);
-    let barBeats = Math.floor(beats % 4);
-    remainingBeats -= barBeats;
-    if (remainingBeats > 1) throw "eeror";
-    let beatSixteenths = remainingBeats * 4;
-    return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
-  }
-  const isObject = (value) => { typeof value === 'object' && !Array.isArray(value) && value !== null; }
-*/
-
   function gridStep(mode, triplet, pxPerBeat) {
     if (mode === "off") return { step: null, label: "Off" };
-    let base = FIXED_GRIDS[mode];
+    let base = Constants.FIXED_GRIDS[mode];
     if (base === undefined) {
-      const minPx = ADAPTIVE_MIN_PX[mode];
+      const minPx = Constants.ADAPTIVE_MIN_PX[mode];
       const scale = triplet ? 2 / 3 : 1;
-      base = ADAPTIVE_STEPS[0];
-      for (const step of ADAPTIVE_STEPS) {
+      base = Constants.ADAPTIVE_STEPS[0];
+      for (const step of Constants.ADAPTIVE_STEPS) {
         if (step * scale * pxPerBeat >= minPx) base = step;
         else break;
       }
     }
-    const label = STEP_LABELS.get(base) + (triplet ? (base === 4 ? " T" : "T") : "");
+    const label = Constants.STEP_LABELS.get(base) + (triplet ? (base === 4 ? " T" : "T") : "");
     return { step: triplet ? (base * 2) / 3 : base, label };
   }
 
@@ -334,7 +302,7 @@
         const d = this.rulerDrag;
         if (!d || d.pointerId !== e.pointerId) return;
         const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
-        if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        if (!d.moved && Math.hypot(dx, dy) < Constants.DRAG_THRESHOLD) return;
         d.moved = true;
         this.setPxPerBeat(d.ppb0 * Math.exp(dy * 0.01), d.vx0 + dx, d.beat0);
       });
@@ -359,18 +327,18 @@
       const { sx, beat0, beat1 } = this.viewport();
       const ppb = this.pxPerBeat;
       if (subStep && subStep * ppb >= 3) {
-        c.fillStyle = COLORS.lineSub;
-        for (let k = Math.ceil(beat0 / subStep - EPS); k * subStep <= beat1 + EPS; k++) {
+        c.fillStyle = Constants.COLORS.lineSub;
+        for (let k = Math.ceil(beat0 / subStep - Constants.EPS); k * subStep <= beat1 + Constants.EPS; k++) {
           const beat = k * subStep;
-          if (Math.abs(beat - Math.round(beat)) < EPS) continue;
+          if (Math.abs(beat - Math.round(beat)) < Constants.EPS) continue;
           c.fillRect(Math.round(this.beatToX(beat) - sx), 0, 1, H);
         }
       }
-      for (let beat = Math.ceil(beat0 - EPS); beat <= beat1 + EPS; beat++) {
-        const isBar = beat % BEATS_PER_BAR === 0;
+      for (let beat = Math.ceil(beat0 - Constants.EPS); beat <= beat1 + Constants.EPS; beat++) {
+        const isBar = beat % Constants.BEATS_PER_BAR === 0;
         if (!isBar && ppb < 3) continue;
-        if (isBar && ppb * BEATS_PER_BAR < 3) continue;
-        c.fillStyle = isBar ? COLORS.lineBar : COLORS.lineBeat;
+        if (isBar && ppb * Constants.BEATS_PER_BAR < 3) continue;
+        c.fillStyle = isBar ? Constants.COLORS.lineBar : Constants.COLORS.lineBeat;
         c.fillRect(Math.round(this.beatToX(beat) - sx), 0, 1, H);
       }
       void drawW;
@@ -379,11 +347,11 @@
     drawRegion(c, H, regionEnd, drawW) {
       const x = this.beatToX(regionEnd) - this.o.scroller.scrollLeft;
       if (x < drawW) {
-        c.fillStyle = COLORS.regionShade;
+        c.fillStyle = Constants.COLORS.regionShade;
         c.fillRect(Math.max(0, x), 0, drawW - Math.max(0, x), H);
       }
       if (x >= 0 && x <= drawW) {
-        c.fillStyle = COLORS.regionEdge;
+        c.fillStyle = Constants.COLORS.regionEdge;
         c.fillRect(Math.round(x), 0, 1, H);
       }
     }
@@ -391,7 +359,7 @@
     drawPlayhead(c, H, beat) {
       const px = Math.round(this.beatToX(beat) - this.o.scroller.scrollLeft);
       if (px < 0 || px > this.o.gridCanvas.clientWidth) return;
-      c.fillStyle = COLORS.playhead;
+      c.fillStyle = Constants.COLORS.playhead;
       c.fillRect(px, 0, 1, H);
     }
 
@@ -400,52 +368,52 @@
       const W = this.o.rulerCanvas.clientWidth, H = this.o.rulerCanvas.clientHeight;
       const { sx, beat0, beat1, drawW } = this.viewport();
       const ppb = this.pxPerBeat;
-      c.fillStyle = COLORS.ruler;
+      c.fillStyle = Constants.COLORS.ruler;
       c.fillRect(0, 0, W, H);
-      c.fillStyle = COLORS.rulerRegion;
+      c.fillStyle = Constants.COLORS.rulerRegion;
       c.fillRect(0, 0, Math.min(drawW, this.beatToX(regionEnd) - sx), H);
 
-      c.fillStyle = COLORS.rulerTick;
+      c.fillStyle = Constants.COLORS.rulerTick;
       if (subStep && subStep * ppb >= 6) {
-        for (let k = Math.ceil(beat0 / subStep - EPS); k * subStep <= beat1 + EPS; k++) {
+        for (let k = Math.ceil(beat0 / subStep - Constants.EPS); k * subStep <= beat1 + Constants.EPS; k++) {
           const beat = k * subStep;
-          if (Math.abs(beat - Math.round(beat)) < EPS) continue;
+          if (Math.abs(beat - Math.round(beat)) < Constants.EPS) continue;
           c.fillRect(Math.round(this.beatToX(beat) - sx), H - 4, 1, 4);
         }
       }
-      const barPx = ppb * BEATS_PER_BAR;
+      const barPx = ppb * Constants.BEATS_PER_BAR;
       const labelEvery = Math.max(1, Math.ceil(28 / barPx));
       const showBeats = ppb >= 40;
       c.font = "10px system-ui, sans-serif";
       c.textBaseline = "top";
       c.textAlign = "left";
-      for (let beat = Math.ceil(beat0 - EPS); beat <= beat1 + EPS; beat++) {
+      for (let beat = Math.ceil(beat0 - Constants.EPS); beat <= beat1 + Constants.EPS; beat++) {
         const x = Math.round(this.beatToX(beat) - sx);
-        const bar = Math.floor(beat / BEATS_PER_BAR);
-        const beatInBar = beat % BEATS_PER_BAR;
+        const bar = Math.floor(beat / Constants.BEATS_PER_BAR);
+        const beatInBar = beat % Constants.BEATS_PER_BAR;
         if (beatInBar === 0) {
           const labelled = bar % labelEvery === 0;
           if (!labelled && barPx < 6) continue;
-          c.fillStyle = COLORS.rulerTick;
+          c.fillStyle = Constants.COLORS.rulerTick;
           c.fillRect(x, labelled ? 0 : H - 8, 1, labelled ? H : 8);
           if (labelled) {
-            c.fillStyle = COLORS.rulerText;
+            c.fillStyle = Constants.COLORS.rulerText;
             c.fillText(String(bar + 1), x + 3, 2);
           }
         } else if (showBeats) {
-          c.fillStyle = COLORS.rulerTick;
+          c.fillStyle = Constants.COLORS.rulerTick;
           c.fillRect(x, H - 8, 1, 8);
-          c.fillStyle = COLORS.rulerText;
+          c.fillStyle = Constants.COLORS.rulerText;
           c.fillText(`${bar + 1}.${beatInBar + 1}`, x + 3, 2);
         } else if (ppb >= 6) {
-          c.fillStyle = COLORS.rulerTick;
+          c.fillStyle = Constants.COLORS.rulerTick;
           c.fillRect(x, H - 5, 1, 5);
         }
       }
       if (playheadBeat === null) return;
       const px = Math.round(this.beatToX(playheadBeat) - sx);
       if (px < 0 || px > W) return;
-      c.fillStyle = COLORS.playhead;
+      c.fillStyle = Constants.COLORS.playhead;
       c.fillRect(px, 0, 1, H);
       c.beginPath();
       c.moveTo(px - 5, 0);
@@ -741,7 +709,7 @@
           if (!ch) throw "No chain found for track " + clip.trackId;
           //console.log("rebuildClip, create events", clip)
           const events = clip.notes
-            .filter((n) => n.start < clip.length - EPS)
+            .filter((n) => n.start < clip.length - Constants.EPS)
             .map((n) => ({
               //time: toTicks(clip.start + n.start),
               time: toTicks(n.start),
@@ -792,9 +760,9 @@
       },
       seek: (beat) => { transport.ticks = Math.round(beat * PPQ); },
       positionBeat: () => transport.getTicksAtTime(Tone.immediate()) / PPQ,
-      keyOn: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2: DEFAULT_VELOCITY / 2, ed.slide),
+      keyOn: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? Constants.ACCENT_VELOCITY / 2: Constants.DEFAULT_VELOCITY / 2, ed.slide),
       keyOff: (trackId, pitch) => chain(trackId)?.instrument.triggerRelease(hz(pitch), Tone.now()),
-      preview: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? ACCENT_VELOCITY / 2 : DEFAULT_VELOCITY / 2),
+      preview: (trackId, pitch) => chain(trackId)?.instrument.triggerAttackRelease(hz(pitch), ed.slide ? 0.50 : 0.15, Tone.now(), ed.accent ? Constants.ACCENT_VELOCITY / 2 : Constants.DEFAULT_VELOCITY / 2),
     };
 
     async function initializeTone() {
@@ -898,7 +866,7 @@
     vZoom: { min: 40, max: 120 },
     rowHeight: 52,
     rowCount: () => state.tracks.length,
-    contentBeats: () => stateHelper.songEndBeats() + SONG_TAIL_BEATS,
+    contentBeats: () => stateHelper.songEndBeats() + Constants.SONG_TAIL_BEATS,
     render: renderArrangement,
     onLocate: (beat) => setPlayhead(helpers.clamp(snapRound(beat, arrangementStep()), 0, stateHelper.songEndBeats())),
     onZoom: () => renderTrackHeaders(),
@@ -920,14 +888,14 @@
     const c = av.grid;
     const { W, H, sx, sy, drawW, firstRow, lastRow } = av.viewport();
     const rh = av.rowHeight;
-    c.fillStyle = COLORS.void;
+    c.fillStyle = Constants.COLORS.void;
     c.fillRect(0, 0, W, H);
 
     for (let row = firstRow; row <= lastRow; row++) {
       const y = row * rh - sy;
-      c.fillStyle = row % 2 ? COLORS.laneB : COLORS.laneA;
+      c.fillStyle = row % 2 ? Constants.COLORS.laneB : Constants.COLORS.laneA;
       c.fillRect(0, y, drawW, rh);
-      c.fillStyle = COLORS.laneLine;
+      c.fillStyle = Constants.COLORS.laneLine;
       c.fillRect(0, y + rh - 1, drawW, 1);
     }
     av.drawVerticalLines(c, H, arrangementStep(), drawW);
@@ -955,7 +923,7 @@
         c.beginPath();
         c.rect(Math.round(x0), y, w, 24);
         c.clip();
-        c.fillStyle = COLORS.clipText;
+        c.fillStyle = Constants.COLORS.clipText;
         c.fillText(clip.name, Math.round(x0) + 4, y + 2);
         c.restore();
       }
@@ -976,7 +944,7 @@
         c.strokeStyle = "rgba(100,100,100,0.2)";
         c.lineWidth = "5px";
         for (let clipRepeatIndex = 0; clipRepeatIndex < clipRepeats; clipRepeatIndex++) {
-          c.fillStyle = clipRepeatIndex == 0 ? COLORS.clipNote : COLORS.clipRepeatNote;
+          c.fillStyle = clipRepeatIndex == 0 ? Constants.COLORS.clipNote : Constants.COLORS.clipRepeatNote;
           for (const n of clip.notes) {
             if (n.start >= clip.length) continue;
             const nx = clipStartX + av.beatToX(n.start);
@@ -995,7 +963,7 @@
         }
         /* let clipStartX = x0;
          while (clipRepeatStart <= clip.end) {
-           c.fillStyle = clipRepeatStart == clip.start ? COLORS.clipNote : COLORS.clipRepeatNote;
+           c.fillStyle = clipRepeatStart == clip.start ? Constants.COLORS.clipNote : Constants.COLORS.clipRepeatNote;
            
            
            for (const n of clip.notes) {
@@ -1012,7 +980,7 @@
       }
 
       if (selected) {
-        c.strokeStyle = COLORS.clipSelected;
+        c.strokeStyle = Constants.COLORS.clipSelected;
         c.lineWidth = 2;
         c.strokeRect(Math.round(x0) + 1, y + 1, w - 2, h - 2);
       }
@@ -1155,7 +1123,7 @@
     const p = av.point(e);
     const d = aDrag;
     if (!d.moved) {
-      if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < DRAG_THRESHOLD) return;
+      if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < Constants.DRAG_THRESHOLD) return;
       d.moved = true;
     }
     const step = arrangementStep();
@@ -1195,9 +1163,9 @@
     const p = av.point(e);
     const track = state.tracks[p.row];
     if (!track || clipAt(p.beat, p.row)) return;
-    const start = snapFloor(p.beat, BEATS_PER_BAR);
+    const start = snapFloor(p.beat, Constants.BEATS_PER_BAR);
     if (!state.drawClips) return;
-    clipManager.selectClip(clipManager.createClip(track, start, BEATS_PER_BAR));
+    clipManager.selectClip(clipManager.createClip(track, start, Constants.BEATS_PER_BAR));
     updateManager.arrangementChanged();
   });
   av.o.scroller.addEventListener("contextmenu", (e) => {
@@ -1215,10 +1183,10 @@
     gridWrap: $("edGridWrap"), gridCanvas: $("edGridCanvas"), rulerWrap: $("edRulerWrap"), rulerCanvas: $("edRulerCanvas"),
     scroller: $("edScroller"), spacer: $("edSpacer"),
     hZoom: { min: 8, max: 400 }, vZoom: { min: 6, max: 40 }, rowHeight: 18,
-    rowCount: () => PITCH_COUNT,
+    rowCount: () => Constants.PITCH_COUNT,
     contentBeats: () => {
       const clip = stateHelper.currentClip();
-      if (!clip) return BEATS_PER_BAR;
+      if (!clip) return Constants.BEATS_PER_BAR;
       const lastEnd = clip.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       return Math.max(helpers.ceilBars(clip.length), helpers.ceilBars(lastEnd));
     },
@@ -1233,8 +1201,8 @@
 
   const editorGrid = () => gridStep(ed.gridMode, ed.triplet, ev.pxPerBeat);
   const editorStep = () => editorGrid().step;
-  const pitchToRow = (pitch) => TOP_PITCH - pitch;
-  const rowToPitch = (row) => TOP_PITCH - row;
+  const pitchToRow = (pitch) => Constants.TOP_PITCH - pitch;
+  const rowToPitch = (row) => Constants.TOP_PITCH - row;
   const editorPlayhead = () => {
     const clip = stateHelper.currentClip();
     if (!clip) return null;
@@ -1247,12 +1215,12 @@
     const { W, H, sx, sy, drawW, firstRow, lastRow } = ev.viewport();
     const rh = ev.rowHeight;
     const clip = stateHelper.currentClip();
-    c.fillStyle = COLORS.void;
+    c.fillStyle = Constants.COLORS.void;
     c.fillRect(0, 0, W, H);
     renderKeys();
     if (!clip) {
       ev.drawRuler({ subStep: null, regionEnd: 0, playheadBeat: null });
-      c.fillStyle = COLORS.message;
+      c.fillStyle = Constants.COLORS.message;
       c.font = "13px system-ui, sans-serif";
       c.textAlign = "center";
       c.textBaseline = "middle";
@@ -1262,10 +1230,10 @@
     for (let row = firstRow; row <= lastRow; row++) {
       const pitch = rowToPitch(row);
       const y = row * rh - sy;
-      c.fillStyle = BLACK_KEYS.has(pitch % 12) ? COLORS.rowBlack : COLORS.rowWhite;
+      c.fillStyle = Constants.BLACK_KEYS.has(pitch % 12) ? Constants.COLORS.rowBlack : Constants.COLORS.rowWhite;
       c.fillRect(0, y, drawW, rh);
       if (pitch % 12 === 0) {
-        c.fillStyle = COLORS.octaveLine;
+        c.fillStyle = Constants.COLORS.octaveLine;
         c.fillRect(0, y + rh - 1, drawW, 1);
       }
     }
@@ -1278,9 +1246,9 @@
       const y = pitchToRow(n.pitch) * rh - sy;
       if (x1 < 0 || x0 > W || y + rh < 0 || y > H) continue;
       const w = Math.max(2, x1 - x0 - 1), h = Math.max(2, rh - 2);
-      c.fillStyle = ed.selected.has(n.id) ? n.velocity == ACCENT_VELOCITY ? COLORS.accentNoteSelected : COLORS.noteSelected : n.velocity == ACCENT_VELOCITY ? COLORS.accentNote : COLORS.note;
+      c.fillStyle = ed.selected.has(n.id) ? n.velocity == Constants.ACCENT_VELOCITY ? Constants.COLORS.accentNoteSelected : Constants.COLORS.noteSelected : n.velocity == Constants.ACCENT_VELOCITY ? Constants.COLORS.accentNote : Constants.COLORS.note;
       c.fillRect(Math.round(x0), y + 1, w, h);
-      c.strokeStyle = n.slide ? COLORS.slideNoteBorder : COLORS.noteBorder;
+      c.strokeStyle = n.slide ? Constants.COLORS.slideNoteBorder : Constants.COLORS.noteBorder;
       c.lineWidth = 1;
       c.strokeRect(Math.round(x0) + 0.5, y + 1.5, w - 1, h - 1);
     }
@@ -1298,7 +1266,7 @@
     const rh = ev.rowHeight;
     const blackW = Math.round(W * 0.62);
     const showAll = rh >= 16;
-    c.fillStyle = COLORS.void;
+    c.fillStyle = Constants.COLORS.void;
     c.fillRect(0, 0, W, H);
     c.font = `${helpers.clamp(rh - 5, 8, 11)}px system-ui, sans-serif`;
     c.textBaseline = "middle";
@@ -1306,20 +1274,20 @@
     for (let row = firstRow; row <= lastRow; row++) {
       const pitch = rowToPitch(row);
       const y = row * rh - sy;
-      const black = BLACK_KEYS.has(pitch % 12);
+      const black = Constants.BLACK_KEYS.has(pitch % 12);
       const active = ed.activeKey === pitch;
-      c.fillStyle = active ? COLORS.keyActive : COLORS.keyWhite;
+      c.fillStyle = active ? Constants.COLORS.keyActive : Constants.COLORS.keyWhite;
       c.fillRect(0, y, W, rh);
       if (black) {
-        c.fillStyle = active ? COLORS.keyActive : COLORS.keyBlack;
+        c.fillStyle = active ? Constants.COLORS.keyActive : Constants.COLORS.keyBlack;
         c.fillRect(0, y, blackW, rh);
       }
       if (pitch % 12 === 0 || pitch % 12 === 5) {
-        c.fillStyle = COLORS.keyBorder;
+        c.fillStyle = Constants.COLORS.keyBorder;
         c.fillRect(0, y + rh - 1, W, 1);
       }
       if (rh >= 8 && (pitch % 12 === 0 || showAll)) {
-        c.fillStyle = black ? COLORS.keyTextLight : COLORS.keyTextDark;
+        c.fillStyle = black ? Constants.COLORS.keyTextLight : Constants.COLORS.keyTextDark;
         c.fillText(helpers.midiName(pitch), (black ? blackW : W) - 3, y + rh / 2 + 0.5);
       }
     }
@@ -1338,13 +1306,13 @@
   function addNoteAt(clip, beat, pitch) {
     const step = editorStep();
     const start = Math.max(0, ed.snap ? snapFloor(beat, step) : beat);
-    if (noteAt(clip, start + EPS, pitch)) return null;
+    if (noteAt(clip, start + Constants.EPS, pitch)) return null;
     let duration = step ?? ed.lastDuration;
     for (const o of clip.notes) {
-      if (o.pitch === pitch && o.start > start + EPS) duration = Math.min(duration, o.start - start);
+      if (o.pitch === pitch && o.start > start + Constants.EPS) duration = Math.min(duration, o.start - start);
     }
-    if (duration < EPS) return null;
-    const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? ACCENT_VELOCITY : DEFAULT_VELOCITY, slide: ed.slide };
+    if (duration < Constants.EPS) return null;
+    const note = { id: state.nextId++, pitch, start, duration, velocity: ed.accent ? Constants.ACCENT_VELOCITY : Constants.DEFAULT_VELOCITY, slide: ed.slide };
     clip.notes.push(note);
     audio.preview(clip.trackId, pitch);
     updateManager.notesChanged();
@@ -1369,9 +1337,9 @@
     for (const other of clip.notes) {
       if (other === note || other.pitch !== note.pitch) continue;
       const otherEnd = other.start + other.duration;
-      if (otherEnd <= note.start + EPS || other.start >= end - EPS) continue;
-      if (other.start < note.start - EPS) other.duration = note.start - other.start;
-      else if (otherEnd > end + EPS) { other.duration = otherEnd - end; other.start = end; }
+      if (otherEnd <= note.start + Constants.EPS || other.start >= end - Constants.EPS) continue;
+      if (other.start < note.start - Constants.EPS) other.duration = note.start - other.start;
+      else if (otherEnd > end + Constants.EPS) { other.duration = otherEnd - end; other.start = end; }
       else doomed.push(other.id);
     }
     pruneNotes(clip, doomed);
@@ -1391,7 +1359,7 @@
   function updateNoteMove(clip, p) {
     const d = nDrag;
     if (!d.moved) {
-      if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < DRAG_THRESHOLD) return;
+      if (Math.hypot(p.vx - d.vx0, p.vy - d.vy0) < Constants.DRAG_THRESHOLD) return;
       d.moved = true;
     }
     const step = editorStep();
@@ -1401,7 +1369,7 @@
     const minPitch = Math.min(...d.items.map((it) => it.pitch));
     const maxPitch = Math.max(...d.items.map((it) => it.pitch));
     const dBeat = Math.max((ed.snap ? snapRound(target, step) : target) - anchor.start, -minStart);
-    const dPitch = helpers.clamp(rowToPitch(p.row) - d.pitch0, -minPitch, TOP_PITCH - maxPitch);
+    const dPitch = helpers.clamp(rowToPitch(p.row) - d.pitch0, -minPitch, Constants.TOP_PITCH - maxPitch);
     for (const it of d.items) {
       it.note.start = it.start + dBeat;
       it.note.pitch = it.pitch + dPitch;
@@ -1419,7 +1387,7 @@
     const step = editorStep();
     const rawEnd = d.note.start + d.duration0 + (p.x - d.x0) / ev.pxPerBeat;
     const end = ed.snap ? snapRound(rawEnd, step) : rawEnd;
-    d.note.duration = Math.max(step ?? MIN_FREE_DURATION, end - d.note.start);
+    d.note.duration = Math.max(step ?? Constants.MIN_FREE_DURATION, end - d.note.start);
     ed.lastDuration = d.note.duration;
     ev.updateSpacer();
     ev.requestRender();
@@ -1493,7 +1461,7 @@
     }
     const p = ev.point(e);
     switch (nDrag.type) {
-      case "tap": if (Math.hypot(p.vx - nDrag.vx0, p.vy - nDrag.vy0) > TAP_SLOP) nDrag = null; break;
+      case "tap": if (Math.hypot(p.vx - nDrag.vx0, p.vy - nDrag.vy0) > Constants.TAP_SLOP) nDrag = null; break;
       case "paint": updatePaint(clip, p); break;
       case "move": updateNoteMove(clip, p); break;
       case "resize": updateNoteResize(p); break;
@@ -1540,7 +1508,7 @@
 
   // --- piano keys: tap plays, drag ↕ scrolls, drag ↔ zooms ---
   let keyDrag = null;
-  const keyPitchAt = (e) => rowToPitch(helpers.clamp(Math.floor((e.clientY - dom.edKeysCanvas.getBoundingClientRect().top + ev.o.scroller.scrollTop) / ev.rowHeight), 0, TOP_PITCH));
+  const keyPitchAt = (e) => rowToPitch(helpers.clamp(Math.floor((e.clientY - dom.edKeysCanvas.getBoundingClientRect().top + ev.o.scroller.scrollTop) / ev.rowHeight), 0, Constants.TOP_PITCH));
 
   function keyOff() {
     if (ed.activeKey === null) return;
@@ -1588,7 +1556,7 @@
   // ===== Transport =====
   function updatePosReadout() {
     const b = state.playheadBeat;
-    dom.pos.textContent = `${Math.floor(b / BEATS_PER_BAR) + 1}.${Math.floor(b % BEATS_PER_BAR) + 1}.${Math.floor((b % 1) * 4) + 1}`;
+    dom.pos.textContent = `${Math.floor(b / Constants.BEATS_PER_BAR) + 1}.${Math.floor(b % Constants.BEATS_PER_BAR) + 1}.${Math.floor((b % 1) * 4) + 1}`;
   }
 
   function setPlayhead(beat) {
@@ -1640,15 +1608,15 @@
   // ===== MIDI import =====
   function importMidi(parsed, fileName) {
     if (parsed.bpm) setBpm(helpers.clamp(Math.round(parsed.bpm), 20, 300));
-    const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
+    const startBeat = snapFloor(state.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of parsed.tracks) {
       
         
-      const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, DEFAULT_INSTRUMENT);
+      const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, Constants.DEFAULT_INSTRUMENT);
       const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       const notes = t.notes.map((n) => ({ id: state.nextId++, ...n }));
-      const clip = clipManager.createClip(track, startBeat, Math.max(BEATS_PER_BAR, helpers.ceilBars(lastEnd)), notes);
+      const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), notes);
       first = first ?? clip;
     }
     if (first) clipManager.selectClip(first);
@@ -1659,7 +1627,7 @@
 
   function loadProject(projectData, fileName) {
     console.log("loadProject " + fileName, projectData)
-    const startBeat = snapFloor(state.playheadBeat, BEATS_PER_BAR);
+    const startBeat = snapFloor(state.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of projectData.tracks) {
       let track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
@@ -1669,7 +1637,7 @@
       clips.forEach(c => {
         console.log("adding clip", c)
         const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-        const clip = clipManager.createClip(track, startBeat, Math.max(BEATS_PER_BAR, helpers.ceilBars(lastEnd)), c.notes, c.end);
+        const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), c.notes, c.end);
         console.log("added clip")
         first = first ?? clip;
       })
@@ -1785,15 +1753,15 @@
   bindToggle(dom.follow, state, "follow", () => { });
   bindToggle(dom.drawClips, state, "drawClips", () => { });
   dom.addTrack.addEventListener("click", async () => {
-    trackManager.addTrack(`Track ${state.tracks.length + 1}`, DEFAULT_INSTRUMENT);
+    trackManager.addTrack(`Track ${state.tracks.length + 1}`, Constants.DEFAULT_INSTRUMENT);
     updateManager.arrangementChanged();
   });
   dom.addClip.addEventListener("click", () => {
     const track = stateHelper.trackById(state.selectedTrackId);
     if (!track) return;
-    const start = snapFloor(state.playheadBeat, BEATS_PER_BAR);
-    // selectClip(clipManager.createClip(track, start, BEATS_PER_BAR));
-    clipManager.createClip(track, start, BEATS_PER_BAR);
+    const start = snapFloor(state.playheadBeat, Constants.BEATS_PER_BAR);
+    // selectClip(clipManager.createClip(track, start, Constants.BEATS_PER_BAR));
+    clipManager.createClip(track, start, Constants.BEATS_PER_BAR);
     updateManager.arrangementChanged();
   });
   dom.dupClip.addEventListener("click", duplicateClip);
@@ -1821,8 +1789,8 @@
   dom.len.addEventListener("change", () => {
     const clip = stateHelper.currentClip();
     if (!clip) return;
-    clip.length = helpers.clamp(Number(dom.len.value) || clip.length / BEATS_PER_BAR, 0.25, 256) * BEATS_PER_BAR;
-    dom.len.value = clip.length / BEATS_PER_BAR;
+    clip.length = helpers.clamp(Number(dom.len.value) || clip.length / Constants.BEATS_PER_BAR, 0.25, 256) * Constants.BEATS_PER_BAR;
+    dom.len.value = clip.length / Constants.BEATS_PER_BAR;
     audio.rebuildClip(clip);
     updateManager.arrangementChanged();
     ev.updateSpacer();
@@ -1865,14 +1833,14 @@
     updateManager.notesChanged();
   });
 
-  $("arrZoomInH").addEventListener("click", () => av.zoomH(ZOOM_BUTTON_FACTOR));
-  $("arrZoomOutH").addEventListener("click", () => av.zoomH(1 / ZOOM_BUTTON_FACTOR));
-  $("arrZoomInV").addEventListener("click", () => av.zoomV(ZOOM_BUTTON_FACTOR));
-  $("arrZoomOutV").addEventListener("click", () => av.zoomV(1 / ZOOM_BUTTON_FACTOR));
-  $("edZoomInH").addEventListener("click", () => ev.zoomH(ZOOM_BUTTON_FACTOR));
-  $("edZoomOutH").addEventListener("click", () => ev.zoomH(1 / ZOOM_BUTTON_FACTOR));
-  $("edZoomInV").addEventListener("click", () => ev.zoomV(ZOOM_BUTTON_FACTOR));
-  $("edZoomOutV").addEventListener("click", () => ev.zoomV(1 / ZOOM_BUTTON_FACTOR));
+  $("arrZoomInH").addEventListener("click", () => av.zoomH(Constants.ZOOM_BUTTON_FACTOR));
+  $("arrZoomOutH").addEventListener("click", () => av.zoomH(1 / Constants.ZOOM_BUTTON_FACTOR));
+  $("arrZoomInV").addEventListener("click", () => av.zoomV(Constants.ZOOM_BUTTON_FACTOR));
+  $("arrZoomOutV").addEventListener("click", () => av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR));
+  $("edZoomInH").addEventListener("click", () => ev.zoomH(Constants.ZOOM_BUTTON_FACTOR));
+  $("edZoomOutH").addEventListener("click", () => ev.zoomH(1 / Constants.ZOOM_BUTTON_FACTOR));
+  $("edZoomInV").addEventListener("click", () => ev.zoomV(Constants.ZOOM_BUTTON_FACTOR));
+  $("edZoomOutV").addEventListener("click", () => ev.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR));
 
   for (const b of document.querySelectorAll(".toolbar .btn")) b.addEventListener("click", () => b.blur());
 
@@ -1896,10 +1864,10 @@
 
   const helpers = {
     clamp: (v, lo, hi) => Math.min(hi, Math.max(lo, v)),
-    midiName: (pitch) => NOTE_NAMES[pitch % 12] + (Math.floor(pitch / 12) - 2),  // Ableton: C3 = MIDI 60
-    snapFloor: (beat, step) => (step ? Math.floor(beat / step + EPS) * step : beat),
+    midiName: (pitch) => Constants.NOTE_NAMES[pitch % 12] + (Math.floor(pitch / 12) - 2),  // Ableton: C3 = MIDI 60
+    snapFloor: (beat, step) => (step ? Math.floor(beat / step + Constants.EPS) * step : beat),
     snapRound: (beat, step) => (step ? Math.round(beat / step) * step : beat),
-    ceilBars: (beats) => Math.ceil(beats / BEATS_PER_BAR - EPS) * BEATS_PER_BAR,
+    ceilBars: (beats) => Math.ceil(beats / Constants.BEATS_PER_BAR - Constants.EPS) * Constants.BEATS_PER_BAR,
     clipEnd: (clip) => clip.end ? clip.end : clip.start + clip.length,
     beatsToTime: (beats) => {
       let remainingBeats = beats;
@@ -1924,7 +1892,7 @@
     clipById(id) { return this.state.clips.find((c) => c.id === id); }
     currentClip() { return this.clipById(this.state.selectedClipId) ?? null; }
     songEndBeats() {
-      let endBeats = Math.max(MIN_SONG_BEATS, this.helpers.ceilBars(this.state.clips.reduce((m, c) => Math.max(m, this.helpers.clipEnd(c)), 0)));
+      let endBeats = Math.max(Constants.MIN_SONG_BEATS, this.helpers.ceilBars(this.state.clips.reduce((m, c) => Math.max(m, this.helpers.clipEnd(c)), 0)));
       if (endBeats > this.state.loopLength)
         state.loopLength = endBeats;
       return endBeats;
@@ -2860,7 +2828,7 @@
       const track = {
         id: this.state.nextId++,
         name,
-        color: TRACK_COLORS[this.state.tracks.length % TRACK_COLORS.length],
+        color: Constants.TRACK_COLORS[this.state.tracks.length % Constants.TRACK_COLORS.length],
         instrumentName: instrument.name,
         instrumentParameters: instrument.parameters,
         //device: instrument, 
@@ -2981,7 +2949,7 @@
     //  console.log("clip changed")
       const clip = stateHelper.currentClip();
       this.dom.clipTitle.textContent = clip ? `${clip.name} (${stateHelper.trackById(clip.trackId).name})` : "No clip selected";
-      this.dom.len.value = clip ? clip.length / BEATS_PER_BAR : 1;
+      this.dom.len.value = clip ? clip.length / Constants.BEATS_PER_BAR : 1;
       this.dom.end.value = clip ? clip.end : 1;
       this.dom.len.disabled = !clip;
       this.ev.updateSpacer();
@@ -3211,8 +3179,8 @@
     av.layout();
     ev.layout();
     keysCtx = sizeCanvas(dom.edKeysCanvas, dom.edKeysWrap.clientWidth, dom.edKeysWrap.clientHeight);
-    av.zoomV(1 / ZOOM_BUTTON_FACTOR);
-    av.zoomV(1 / ZOOM_BUTTON_FACTOR);
+    av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
+    av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
   }
 
   var stateHelper = new StateHelper(state, helpers);
@@ -3248,9 +3216,9 @@
     av.rowHeight = coarse ? 60 : 52;
     layoutAll();
     const aw = av.o.scroller.clientWidth || 800;
-    av.pxPerBeat = helpers.clamp(aw / (8 * BEATS_PER_BAR), av.o.hZoom.min, av.o.hZoom.max);
+    av.pxPerBeat = helpers.clamp(aw / (8 * Constants.BEATS_PER_BAR), av.o.hZoom.min, av.o.hZoom.max);
     const ew = ev.o.scroller.clientWidth || 800;
-    ev.pxPerBeat = helpers.clamp(ew / (ew < 600 ? BEATS_PER_BAR : 2 * BEATS_PER_BAR), 30, 160);
+    ev.pxPerBeat = helpers.clamp(ew / (ew < 600 ? Constants.BEATS_PER_BAR : 2 * Constants.BEATS_PER_BAR), 30, 160);
 
     createDemoSong();
 
@@ -3308,9 +3276,9 @@
       };
       const kick = trackManager.addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
-      const kickNotes = mk([[36, 0, 0.25, DEFAULT_VELOCITY]]);
-      clipManager.createClip(kick, 16, BEATS_PER_BAR / 4, kickNotes, 63);
-      clipManager.createClip(kick, 64, BEATS_PER_BAR / 4, kickNotes, 95);
+      const kickNotes = mk([[36, 0, 0.25, Constants.DEFAULT_VELOCITY]]);
+      clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR / 4, kickNotes, 63);
+      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR / 4, kickNotes, 95);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -3331,49 +3299,49 @@
       const bass = trackManager.addTrack("Bass", bassSynth, []);
       const bassNotes = mk([
         [25, 0.00, 0.1, 0.4],
-        [27, 0.25, 0.2, DEFAULT_VELOCITY],
-        [32, 0.5, 0.25, DEFAULT_VELOCITY],
-        [34, 0.75, 0.2, ACCENT_VELOCITY],
+        [27, 0.25, 0.2, Constants.DEFAULT_VELOCITY],
+        [32, 0.5, 0.25, Constants.DEFAULT_VELOCITY],
+        [34, 0.75, 0.2, Constants.ACCENT_VELOCITY],
 
         [27, 1.00, 0.1, 0.4],
-        [29, 1.25, 0.25, DEFAULT_VELOCITY],
-        [34, 1.5, 0.25, DEFAULT_VELOCITY],
-        [32, 1.75, 0.25, DEFAULT_VELOCITY],
+        [29, 1.25, 0.25, Constants.DEFAULT_VELOCITY],
+        [34, 1.5, 0.25, Constants.DEFAULT_VELOCITY],
+        [32, 1.75, 0.25, Constants.DEFAULT_VELOCITY],
 
         [30, 2.00, 0.2, 0.4],
-        [32, 2.25, 0.2, DEFAULT_VELOCITY],
-        [27, 2.5, 0.25, DEFAULT_VELOCITY],
-        [27, 2.75, 0.2, ACCENT_VELOCITY],
+        [32, 2.25, 0.2, Constants.DEFAULT_VELOCITY],
+        [27, 2.5, 0.25, Constants.DEFAULT_VELOCITY],
+        [27, 2.75, 0.2, Constants.ACCENT_VELOCITY],
 
         [32, 3.00, 0.2, 0.4],
-        [34, 3.25, 0.25, DEFAULT_VELOCITY],
-        [37, 3.50, 0.25, DEFAULT_VELOCITY, true],
-        [32, 3.75, 0.25, DEFAULT_VELOCITY],
+        [34, 3.25, 0.25, Constants.DEFAULT_VELOCITY],
+        [37, 3.50, 0.25, Constants.DEFAULT_VELOCITY, true],
+        [32, 3.75, 0.25, Constants.DEFAULT_VELOCITY],
 
         [27, 4.00, 0.2, 0.4],
-        [29, 4.25, 0.2, DEFAULT_VELOCITY],
-        [32, 4.50, 0.25, DEFAULT_VELOCITY],
-        [34, 4.75, 0.2, DEFAULT_VELOCITY, true],
+        [29, 4.25, 0.2, Constants.DEFAULT_VELOCITY],
+        [32, 4.50, 0.25, Constants.DEFAULT_VELOCITY],
+        [34, 4.75, 0.2, Constants.DEFAULT_VELOCITY, true],
 
         [27, 5.00, 0.2, 0.4],
-        [29, 5.25, 0.25, DEFAULT_VELOCITY],
-        [34, 5.50, 0.25, DEFAULT_VELOCITY],
-        [32, 5.75, 0.25, DEFAULT_VELOCITY],
+        [29, 5.25, 0.25, Constants.DEFAULT_VELOCITY],
+        [34, 5.50, 0.25, Constants.DEFAULT_VELOCITY],
+        [32, 5.75, 0.25, Constants.DEFAULT_VELOCITY],
 
         [30, 6.00, 0.2, 0.4],
-        [32, 6.25, 0.2, DEFAULT_VELOCITY, true],
-        [29, 6.5, 0.25, DEFAULT_VELOCITY],
-        [27, 6.75, 0.2, ACCENT_VELOCITY],
+        [32, 6.25, 0.2, Constants.DEFAULT_VELOCITY, true],
+        [29, 6.5, 0.25, Constants.DEFAULT_VELOCITY],
+        [27, 6.75, 0.2, Constants.ACCENT_VELOCITY],
         
         [30, 7.00, 0.2, 0.4],
-        [32, 7.25, 0.25, DEFAULT_VELOCITY],
-        [29, 7.50, 0.25, DEFAULT_VELOCITY],
-        [34, 7.75, 0.25, DEFAULT_VELOCITY]
+        [32, 7.25, 0.25, Constants.DEFAULT_VELOCITY],
+        [29, 7.50, 0.25, Constants.DEFAULT_VELOCITY],
+        [34, 7.75, 0.25, Constants.DEFAULT_VELOCITY]
       ]);
-      clipManager.createClip(bass, 0, BEATS_PER_BAR * 2, bassNotes, 15);
-      clipManager.createClip(bass, 16, BEATS_PER_BAR * 2, bassNotes, 31);
-      clipManager.createClip(bass, 32, BEATS_PER_BAR * 2, bassNotes, 63);
-      clipManager.createClip(bass, 64, BEATS_PER_BAR * 2, bassNotes, 95);
+      clipManager.createClip(bass, 0, Constants.BEATS_PER_BAR * 2, bassNotes, 15);
+      clipManager.createClip(bass, 16, Constants.BEATS_PER_BAR * 2, bassNotes, 31);
+      clipManager.createClip(bass, 32, Constants.BEATS_PER_BAR * 2, bassNotes, 63);
+      clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
       console.log("creating closedhat");
@@ -3410,9 +3378,9 @@
         [42, 0.5, 0.125],
         [42, 0.75, 0.125]
       ]);
-      clipManager.createClip(closedHat, 0, BEATS_PER_BAR / 2, chNotes1, 31);
-      clipManager.createClip(closedHat, 32, BEATS_PER_BAR / 4, chNotes2, 63);
-      clipManager.createClip(closedHat, 64, BEATS_PER_BAR / 4, chNotes2, 95);
+      clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR / 2, chNotes1, 31);
+      clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR / 4, chNotes2, 63);
+      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR / 4, chNotes2, 95);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -3438,8 +3406,8 @@
       };
       const openHat = trackManager.addTrack("OpenHat", openHatSynth, [hatReverb]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
-      clipManager.createClip(openHat, 48, BEATS_PER_BAR / 4, ohNotes, 63);
-      clipManager.createClip(openHat, 64, BEATS_PER_BAR / 4, ohNotes, 95);
+      clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
+      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 95);
       console.log("created open hat");
 
       console.log("creating 303");
@@ -3466,16 +3434,16 @@
       }
       const tb303 = trackManager.addTrack("303", tb303Synth, [tb303Delay]);
       const tb303Notes = mk([
-        [31, 2.25, 0.25, DEFAULT_VELOCITY, true],
-        [37, 3.00, 0.25, DEFAULT_VELOCITY, true],
-        [34, 3.75, 0.25, DEFAULT_VELOCITY, true],
+        [31, 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        [37, 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
+        [34, 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
         
-        [31, 6.25, 0.25, DEFAULT_VELOCITY, true],
-        [35, 7.00, 0.125, ACCENT_VELOCITY, true],
-        [37, 7.25, 0.25, DEFAULT_VELOCITY],
-        [34, 7.75, 0.25, ACCENT_VELOCITY, true],
+        [31, 6.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        [35, 7.00, 0.125, Constants.ACCENT_VELOCITY, true],
+        [37, 7.25, 0.25, Constants.DEFAULT_VELOCITY],
+        [34, 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 0, BEATS_PER_BAR * 2, tb303Notes, 96);
+      clipManager.createClip(tb303, 0, Constants.BEATS_PER_BAR * 2, tb303Notes, 96);
       console.log("created 303");
       
 
@@ -3607,7 +3575,7 @@
     }
     
     _prepareNote(time, velocity, slide) {
-      if (velocity == ACCENT_VELOCITY) {
+      if (velocity == Constants.ACCENT_VELOCITY) {
        // console.log("Accent")
         this._monoSynth.volume.setValueAtTime(this.volume, time);
         this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
