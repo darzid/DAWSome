@@ -2950,6 +2950,7 @@
     track;
     trackAudioDevices;
     position;
+    paramUpdateQueue = {};
     
     constructor(xypadPanelElement) {
       this.xDeviceSelect = xypadPanelElement.querySelector("select[name='x-device-select']");
@@ -2996,10 +2997,10 @@
     get xParameter() { return this.xDevice[this.xParameterName]; }
     get xParameterValue() { return this.xParameter.name ? this.xParameter.value : this.xParameter;  }
     set xParameterValue(value) { 
-      //if (value == this.xParameterValue) return;
-      this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
       this.xDeviceState.parameters[this.xParameterName] = value;
       this.xParamValueOutput.innerText = value;
+      if (this.xParameterValue != value)
+        this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
     }
     
     get yDeviceIndex() { return this.yDeviceSelect.value; }
@@ -3010,16 +3011,16 @@
     get yParameter() { return this.yDevice[this.yParameterName]; }
     get yParameterValue() { return this.yParameter.name ? this.yParameter.value : this.yParameter;  }
     set yParameterValue(value) { 
-      //if (value == this.yParameterValue) return;
-      this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
       this.yDeviceState.parameters[this.yParameterName] = value;
       this.yParamValueOutput.innerText = value;
+      if (this.yParameterValue != value)
+        this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
     }
     
     init(track) {
+      if (this.track == track) return;
       this.track = track;
       this.trackAudioDevices = audio.getTrackDevices(track);
-      //let targetDeviceOptionsHtml = "<option>None</option>";
       let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
       this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
@@ -3093,7 +3094,6 @@
         let snapMultiplier = 1 / this.yParameterMetadata.step;
         this.yParameterValue = this.yParameterMetadata.min + (Math.round(yParameterModulation * snapMultiplier) / snapMultiplier);
       } 
-      //console.log(`x: ${this.xParameterModulatedValue}, y: ${this.yParameterModulatedValue}`);
       this.draw();
     }
     
@@ -3122,18 +3122,24 @@
       this.ctx.fill();
     }
     
+    
     updateDeviceParameter(audioDevice, parameterName, value) {
+      /*let timestamp = new Date().getTime();
+      if (this.paramUpdateQueue[parameterName].lastUpdate) {
+        let delta = timestamp - this.paramUpdateQueue[parameterName].lastUpdate;
+        if (delta < 100) {
+          this.paramUpdateQueue[parameterName].value = value;
+          return;
+        } else {
+          this.paramUpdateQueue[parameterName].lastUpdate = timestamp;
+          this.paramUpdateQueue[parameterName].value = value;
+        }
+      }*/
       if (audioDevice[parameterName].name)
         audioDevice[parameterName].rampTo(value);
       else
         audioDevice[parameterName] = value;
     }
-    
-    countDecimals(number) {
-      if(Math.floor(number.valueOf()) === number.valueOf()) return 0;
-      return number.toString().split(".")[1].length || 0; 
-    }
-
   }
   
   // ===== Init =====
@@ -3487,7 +3493,7 @@
            
     get decay() { return this._decay; }
     set decay(value) { 
-      if (value < 0 || value > 1) throw "Decay must be between 0 and 1";
+      if (value < 0 || value > 1) throw "Decay must be between 0 and 1.2";
       this._decay = value; 
     }
         
