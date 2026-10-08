@@ -76,6 +76,7 @@
     playheadBeat: 0,
     tracks: [],          // { id, name, color, instrument, mute }
     clips: [],           // { id, trackId, name, start, length (beats), notes: [{ id, pitch, start, duration, velocity }] }
+    sends: [],
     nextId: 1,
     selectedTrackId: null,
     selectedClipId: null,
@@ -435,7 +436,7 @@
     chains.set(0, {
       channel: masterChannel
     });
-    
+    const sendChannels = new Map();
     const parts = new Map();    // clipId → Tone.Part
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
@@ -586,7 +587,7 @@
       console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
     });
     document.addEventListener("VolumeChanged", (e) => {
-      const ch = chain(e.detail.channel);
+      const ch = chain(e.detail.channelId);
       ch.channel.volume.value = e.detail.volume;
       console.log(`audio.VolumeChanged: ${e.detail.channelId}, volume changed to ${ch.channel.volume}`);
     });
@@ -604,6 +605,21 @@
         transport.loopStart = 0;
         transport.loopEnd = toTicks(endBeats);
       },
+      addSendChannel: (send) => {
+        const channel = new Tone.Channel(send.volume);
+        channel.receive(send.name);
+        const effectNode = makeToneNode(send.sendEffect);
+        const chain = {
+          name: send.name,
+          channel: channel,
+          effect: effectNode
+        };
+        sendChannels.set(send.id, chain);
+        chains.set(send.id, chain);
+        channel.connect(effectNode);
+        effectNode.connect(masterChannel);
+      },
+      getSendChannel: (send) => { return sendChannels(send.id) },
       addTrack: (track) => {
         //console.log("adding track")
         const channel = new Tone.Channel(track.volume).connect(masterChannel);
@@ -620,7 +636,8 @@
             modulators: makeToneNodes(track.modulators.map(m => m.modulator))
           });
         //console.log("made chain");
-
+        
+        track.sends.forEach(send => channel.send(send.name, send.volume));
         const ch = chain(track.id);
         if (ch.instrument == null) throw "instrument null"
         connectDevices(ch);
@@ -2809,7 +2826,14 @@
         this.deselectTrack();
     }
     
-    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false) {
+    addSend(name, volume, sendEffect) {
+      const send = { id: this.projectState.nextId++, name: name, volume: volume, mute: false, sendEffect: sendEffect };
+      this.projectState.sends.push(send);
+      this.audio.addSendChannel(send);
+      this.mixer.addSendFader(send);
+    }
+    
+    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false, sends = []) {
       if (!effects) effects = []
       if (!modulators) modulators = [];
   
@@ -2836,7 +2860,8 @@
         effects: effects,
         modulators: modulators,
         mute: mute,
-        volume: volume
+        volume: volume,
+        sends: sends
       };
       try {
         this.projectState.tracks.push(track);
@@ -3378,6 +3403,16 @@
       clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
+      const hatReverb = {
+        name: "Reverb",
+        parameters: {
+          roomSize: 0.25,
+          wet: 1
+        }
+      };
+      trackManager.addSend("1-Reverb", 10, hatReverb);
+      const hatSend = { name: "1-Reverb", volume: 0  };
+      
       console.log("creating closedhat");
       const closedHatSynth = {
         name: "MetalSynth",
@@ -3395,14 +3430,8 @@
           }
         }
       };
-      const hatReverb = {
-        name: "Reverb",
-        parameters: {
-          roomSize: 0.05,
-          wet: 0.05
-        }
-      };
-      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [hatReverb]);
+      
+      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [hatSend]);
       let chNotes1 = mk([
         [42, 1.0, 0.125],
       ]);
@@ -3438,7 +3467,7 @@
           }
         }
       };
-      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [hatReverb]);
+      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [hatSend]);
       let ohNotes = mk([[42, 0.5, 0.125]]);
       clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
       clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 95);
