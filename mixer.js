@@ -185,7 +185,7 @@ class Mixer {
         this.mixer.appendChild(faderMeterCanvas);
         
       let chain = this.audio.getChain(channel.id);
-      levelMeterManager.register(chain.channel.output, faderMeterCanvas);
+      levelMeterManager.register(chain.channel.output, faderMeterCanvas, this.mixer);
     }
     
     removeTrackFader() {}

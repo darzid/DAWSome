@@ -1,6 +1,6 @@
 (async () => {
   let toneInitialized = false;
-  let toneLookAhead = 0.05;
+  let toneLookAhead = 0.15;
 
   let swRegistration = null;
 
@@ -2972,9 +2972,11 @@
     xDeviceSelect;
     xParameterSelect;
     xParameterMetadata;
+    xParameterUpdateTimestamp;
     yDeviceSelect;
     yParameterSelect;
     yParameterMetadata;
+    yParameterUpdateTimestamp;
     canvas;
     ctx;
     size;
@@ -2982,7 +2984,7 @@
     track;
     trackAudioDevices;
     position;
-    paramUpdateQueue = {};
+    updateDelayInSecs = 0.1;
     
     constructor(xypadPanelElement) {
       this.xDeviceSelect = xypadPanelElement.querySelector("select[name='x-device-select']");
@@ -3037,9 +3039,18 @@
     set xParameterValue(value) { 
       this.xDeviceState.parameters[this.xParameterName] = value;
       this.xParamValueOutput.innerText = value;
-      console.log("set x value", value)
-      if (this.xParameterValue != value)
-        this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
+      if (this.xParameterValue == value) return;
+      
+      let timestamp = Tone.now();
+      if (this.xParameterUpdateTimestamp && timestamp - this.xParameterUpdateTimestamp < this.updateDelayInSecs) {
+       // console.log("skipping x update", timestamp - this.xParameterUpdateTimestamp);
+        return;
+      }
+      else {
+     //   console.log("updating x")
+      }
+      this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
+      this.xParameterUpdateTimestamp = timestamp;
     }
     
     get yDeviceIndex() { return this.yDeviceSelect.value; }
@@ -3052,9 +3063,19 @@
     set yParameterValue(value) { 
       this.yDeviceState.parameters[this.yParameterName] = value;
       this.yParamValueOutput.innerText = value;
-      console.log("set y value", value)
-      if (this.yParameterValue != value)
-        this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
+    
+      if (this.yParameterValue == value) return;
+      
+      let timestamp = Tone.now();
+      if (this.yParameterUpdateTimestamp && timestamp - this.yParameterUpdateTimestamp < this.updateDelayInSecs) {
+       // console.log("skipping y update", timestamp - this.yParameterUpdateTimestamp);
+        return;
+      }
+      else {
+        //console.log("updating y")
+      }
+      this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
+      this.yParameterUpdateTimestamp = timestamp;
     }
     
     init(track) {
@@ -3132,7 +3153,6 @@
       position.x = helpers.clamp(position.x, 0, this.size.width);
       position.y = helpers.clamp(position.y, 0, this.size.height);
       this.position = position;
-      
       let xNormalizedOffset = position.x / this.size.width;
       let yNormalizedOffset = (this.size.height - position.y) / this.size.height;
       
@@ -3141,9 +3161,7 @@
         let xParameterModulation = xParameterRange * xNormalizedOffset;
         let snapMultiplier = 1 / this.xParameterMetadata.step;
         this.xParameterValue = this.xParameterMetadata.min + (Math.round(xParameterModulation * snapMultiplier) / snapMultiplier);
-        console.log("set x value", this.xParameterValue)
       } 
-      else {}
       
       if (this.yParameterMetadata) {
         let yParameterRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
@@ -3151,7 +3169,7 @@
         let snapMultiplier = 1 / this.yParameterMetadata.step;
         this.yParameterValue = this.yParameterMetadata.min + (Math.round(yParameterModulation * snapMultiplier) / snapMultiplier);
       } 
-      this.draw();
+      window.requestAnimationFrame(() => this.draw());
     }
     
     draw() {
@@ -3179,25 +3197,15 @@
       this.ctx.fill();
     }
     
-    
     updateDeviceParameter(audioDevice, parameterName, value) {
-      /*let timestamp = new Date().getTime();
-      if (this.paramUpdateQueue[parameterName].lastUpdate) {
-        let delta = timestamp - this.paramUpdateQueue[parameterName].lastUpdate;
-        if (delta < 100) {
-          this.paramUpdateQueue[parameterName].value = value;
-          return;
-        } else {
-          this.paramUpdateQueue[parameterName].lastUpdate = timestamp;
-          this.paramUpdateQueue[parameterName].value = value;
-        }
-      }*/
-      if (audioDevice[parameterName].name)
-        audioDevice[parameterName].rampTo(value);
+      if (audioDevice[parameterName].name) {
+        audioDevice[parameterName].cancelScheduledValues(Tone.now());
+        //audioDevice[parameterName].rampTo(value, Tone.now());
+        audioDevice[parameterName].value = value;
+      }
       else
         audioDevice[parameterName] = value;
     }
-
   }
   
   // ===== Init =====

@@ -1,7 +1,7 @@
 class LevelMeterManager {
   meters = [];
 
-  register(audioNode, meterCanvasElement) {
+  register(audioNode, meterCanvasElement, containerElement) {
     console.log("Register " + meterCanvasElement.getAttribute("name"), meterCanvasElement.parentElement.parentElement);
     if (!meterCanvasElement.width) {
       console.error("Element doesnt have width");
@@ -12,7 +12,7 @@ class LevelMeterManager {
       "boxGapFraction": 0.1,
       "max": 100,
     });
-    let levelMeter = new LevelMeter(audioNode, meterCanvasElement, vuMeter);
+    let levelMeter = new LevelMeter(audioNode, meterCanvasElement, vuMeter, containerElement);
     this.meters.push(levelMeter);
     
     if (this.meters.length == 1) {
@@ -32,17 +32,20 @@ const levelMeterManager = new LevelMeterManager();
 
 class LevelMeter {
   _maxValue = null;
-  constructor(audioNode, meterCanvasElement, vuMeter) {
+  constructor(audioNode, meterCanvasElement, vuMeter, containerElement) {
     this.audioNode = audioNode;
     this.meterCanvasElement = meterCanvasElement;
     this.vuMeter = vuMeter;
     this.meter = new Tone.Meter();
+    this.containerElement = containerElement;
     audioNode.connect(this.meter);
   }
 
   update() {
     if (!this.isVisible()) {
-      console.log("Skipping collapsed meter", this.meterCanvasElement);
+      this.meterCanvasElement.setAttribute("data-val", 0);
+      this.vuMeter.draw();
+      //console.log("Skipping collapsed meter", this.meterCanvasElement);
       return;
     }
     
@@ -97,6 +100,7 @@ class LevelMeter {
   }
 
   isVisible() {
+    return (Tone.Transport.state == "started" && this.containerElement.style.display != "none");
     /*if (this.meterCanvasElement.offsetParent != null)
       return true;
     else {
