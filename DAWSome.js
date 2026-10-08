@@ -3314,7 +3314,7 @@
         }
       };
       trackManager.addReturn("Reverb", 10, returnReverb);
-      
+      /*
       const returnDelay = {
         name: "PingPongDelay",
         parameters: {
@@ -3324,7 +3324,7 @@
         }
       }
       trackManager.addReturn("Delay", 10, returnDelay);
-      
+      */
       const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch, start, duration, velocity, slide }));
 
       console.log("creating kick");
