@@ -2940,11 +2940,9 @@
     xDeviceSelect;
     xParameterSelect;
     xParameterMetadata;
-    xValueOutput;
     yDeviceSelect;
     yParameterSelect;
     yParameterMetadata;
-    yValueOutput;
     canvas;
     ctx;
     size;
@@ -2956,11 +2954,9 @@
     constructor(xypadPanelElement) {
       this.xDeviceSelect = xypadPanelElement.querySelector("select[name='x-device-select']");
       this.xParameterSelect = xypadPanelElement.querySelector("select[name='x-parameter-select']");
-      this.xValueOutput = xypadPanelElement.querySelector("output[name='x-value']");
       this.xParamValueOutput = xypadPanelElement.querySelector("output[name='x-param-value']");
       this.yDeviceSelect = xypadPanelElement.querySelector("select[name='y-device-select']");
       this.yParameterSelect = xypadPanelElement.querySelector("select[name='y-parameter-select']");
-      this.yValueOutput = xypadPanelElement.querySelector("output[name='y-value']");
       this.yParamValueOutput = xypadPanelElement.querySelector("output[name='y-param-value']");
       this.canvas = xypadPanelElement.querySelector("canvas");
       
@@ -2993,47 +2989,32 @@
     }
     
     get xDeviceIndex() { return this.xDeviceSelect.value; }
-    //get xDevice() { return this.track.devices[this.xDeviceIndex]; }
+    get xDeviceState() { return this.track.devices[this.xDeviceIndex]; }
     get xDevice() { return this.trackAudioDevices[this.xDeviceIndex]; }
     get xDeviceName() { return this.xDevice.name; }
     get xParameterName() { return this.xParameterSelect.selectedOptions[0].text; }
     get xParameter() { return this.xDevice[this.xParameterName]; }
     get xParameterValue() { return this.xParameter.name ? this.xParameter.value : this.xParameter;  }
-    set xParameterValue(value) { this.updateDeviceParameter(this.xDevice, this.xParameterName, value); }
-    get xValue() { return parseFloat(this.xValueOutput.dataset.value); }
-    set xValue(value) { 
-      this.xValueOutput.dataset.value = value; 
-      this.xValueOutput.innerText = value.toFixed(5); 
+    set xParameterValue(value) { 
+      //if (value == this.xParameterValue) return;
+      this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
+      this.xDeviceState.parameters[this.xParameterName] = value;
+      this.xParamValueOutput.innerText = value;
     }
-    get xParamModValue() { return parseFloat(this.xParamValueOutput.dataset.value); }
-    set xParamModValue(value) {
-      this.xParamValueOutput.dataset.value = value;
-      let clampedValue = clamp(this.xParameterValue + value, this.xParameterMetadata.min, this.xParameterMetadata.max);
-      //this.xParamValueOutput.innerText = `${this.xParameterValue} + ${value.toFixed(5)} = ${clampedValue}`;
-      this.xParamValueOutput.innerText = clampedValue.toFixed(3);
-      this.xParameterValue = clampedValue;
-    } 
+    
     get yDeviceIndex() { return this.yDeviceSelect.value; }
-    //get yDevice() { return this.track.devices[this.yDeviceIndex]; }
+    get yDeviceState() { return this.track.devices[this.yDeviceIndex]; }
     get yDevice() { return this.trackAudioDevices[this.yDeviceIndex]; }
     get yDeviceName() { return this.yDevice.name; }
     get yParameterName() { return this.yParameterSelect.selectedOptions[0].text; }
     get yParameter() { return this.yDevice[this.yParameterName]; }
     get yParameterValue() { return this.yParameter.name ? this.yParameter.value : this.yParameter;  }
-    set yParameterValue(value) { this.updateDeviceParameter(this.yDevice, this.yParameterName, value); }
-    get yValue() { return parseFloat(this.yValueOutput.dataset.value); }
-    set yValue(value) { 
-      this.yValueOutput.dataset.value = value; 
-      this.yValueOutput.innerText = value.toFixed(5); 
+    set yParameterValue(value) { 
+      //if (value == this.yParameterValue) return;
+      this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
+      this.yDeviceState.parameters[this.yParameterName] = value;
+      this.yParamValueOutput.innerText = value;
     }
-    get yParamModValue() { return parseFloat(this.yParamValueOutput.dataset.value); }
-    set yParamModValue(value) {
-      this.yParamValueOutput.dataset.value = value;
-      let clampedValue = clamp(this.yParameterValue + value, this.yParameterMetadata.min, this.yParameterMetadata.max);
-      //this.yParamValueOutput.innerText = `${this.yParameterValue} + ${value.toFixed(5)} = ${clampedValue}`;
-      this.yParamValueOutput.innerText = clampedValue.toFixed(3);
-      this.yParameterValue = clampedValue;
-    } 
     
     init(track) {
       this.track = track;
@@ -3058,6 +3039,9 @@
     
     xParameterSelected(deviceNumberParameters) {
       this.xParameterMetadata = deviceNumberParameters[this.xParameterSelect.value].metadata;
+      let xRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
+      let xOffset = (this.xParameterValue - this.xParameterMetadata.min) / xRange;
+      this.position.x = xOffset * this.size.width;
       this.updatePosition(this.position);
     }
     
@@ -3072,6 +3056,9 @@
     
     yParameterSelected(deviceNumberParameters) {
       this.yParameterMetadata = deviceNumberParameters[this.yParameterSelect.value].metadata;
+      let yRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
+      let yOffset = (this.yParameterValue - this.yParameterMetadata.min) / yRange;
+      this.position.y = this.size.height - (yOffset * this.size.height);
       this.updatePosition(this.position);
     }
     
@@ -3090,24 +3077,21 @@
       position.y = clamp(position.y, 0, this.size.height);
       this.position = position;
       
-      let xOffset = position.x - this.center.x;
-      let yOffset = position.y - this.center.y;
-      let xNormalizedOffset = xOffset / this.center.x;
-      let yNormalizedOffset = -(yOffset / this.center.y);
-      this.xValue = xNormalizedOffset;
-      this.yValue = yNormalizedOffset;
-      
+      let xNormalizedOffset = position.x / this.size.width;
+      let yNormalizedOffset = (this.size.height - position.y) / this.size.height;
       
       if (this.xParameterMetadata) {
         let xParameterRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
         let xParameterModulation = xParameterRange * xNormalizedOffset;
-        this.xParamModValue = xParameterModulation;
+        let snapMultiplier = 1 / this.xParameterMetadata.step;
+        this.xParameterValue = this.xParameterMetadata.min + (Math.round(xParameterModulation * snapMultiplier) / snapMultiplier);
       } 
       
       if (this.yParameterMetadata) {
         let yParameterRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
         let yParameterModulation = yParameterRange * yNormalizedOffset;
-        this.yParamModValue = yParameterModulation;
+        let snapMultiplier = 1 / this.yParameterMetadata.step;
+        this.yParameterValue = this.yParameterMetadata.min + (Math.round(yParameterModulation * snapMultiplier) / snapMultiplier);
       } 
       //console.log(`x: ${this.xParameterModulatedValue}, y: ${this.yParameterModulatedValue}`);
       this.draw();
@@ -3115,7 +3099,7 @@
     
     draw() {
       this.ctx.clearRect(0,0,this.size.width,this.size.height);
-      this.drawAxis();
+      //this.drawAxis();
       this.drawCircle();
     }
     
@@ -3144,6 +3128,12 @@
       else
         audioDevice[parameterName] = value;
     }
+    
+    countDecimals(number) {
+      if(Math.floor(number.valueOf()) === number.valueOf()) return 0;
+      return number.toString().split(".")[1].length || 0; 
+    }
+
   }
   
   // ===== Init =====
