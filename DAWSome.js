@@ -608,9 +608,9 @@
     };
     const chain = (trackId) => chains.get(trackId);
     document.addEventListener("MuteChanged", (e) => {
-      const ch = chain(e.detail.channelId);
+      const ch = chain(e.detail.trackId);
       ch.channel.mute = e.detail.muted;
-      console.log(`audio.MuteChanged: ${e.detail.channelId}, mute changed to ${ch.channel.mute}`);
+      console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
     });
     document.addEventListener("VolumeChanged", (e) => {
       const ch = chain(e.detail.channel);
