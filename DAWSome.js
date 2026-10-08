@@ -3031,12 +3031,13 @@
     get xDeviceState() { return this.track.devices[this.xDeviceIndex]; }
     get xDevice() { return this.trackAudioDevices[this.xDeviceIndex]; }
     get xDeviceName() { return this.xDevice.name; }
-    get xParameterName() { return this.xParameterSelect.selectedOptions[0].text; }
-    get xParameter() { return this.xDevice[this.xParameterName]; }
-    get xParameterValue() { return this.xParameter.name ? this.xParameter.value : this.xParameter;  }
+    get xParameterName() { return this.xParameterSelect.value ? this.xParameterSelect.selectedOptions[0].text : ""; }
+    get xParameter() { return this.xParameterName ? this.xDevice[this.xParameterName] : null; }
+    get xParameterValue() { return this.xParameter?.name ? this.xParameter.value : this.xParameter;  }
     set xParameterValue(value) { 
       this.xDeviceState.parameters[this.xParameterName] = value;
       this.xParamValueOutput.innerText = value;
+      console.log("set x value", value)
       if (this.xParameterValue != value)
         this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
     }
@@ -3045,12 +3046,13 @@
     get yDeviceState() { return this.track.devices[this.yDeviceIndex]; }
     get yDevice() { return this.trackAudioDevices[this.yDeviceIndex]; }
     get yDeviceName() { return this.yDevice.name; }
-    get yParameterName() { return this.yParameterSelect.selectedOptions[0].text; }
-    get yParameter() { return this.yDevice[this.yParameterName]; }
-    get yParameterValue() { return this.yParameter.name ? this.yParameter.value : this.yParameter;  }
+    get yParameterName() { return this.yParameterSelect.value ? this.yParameterSelect.selectedOptions[0].text : ""; }
+    get yParameter() { return this.yParameterName ? this.yDevice[this.yParameterName] : null; }
+    get yParameterValue() { return this.yParameter?.name ? this.yParameter.value : this.yParameter;  }
     set yParameterValue(value) { 
       this.yDeviceState.parameters[this.yParameterName] = value;
       this.yParamValueOutput.innerText = value;
+      console.log("set y value", value)
       if (this.yParameterValue != value)
         this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
     }
@@ -3081,8 +3083,8 @@
     }
     
     xParameterSelected(deviceNumberParameters) {
-      if (!this.xParameterSelect.value) {
-        this.yParameterMetadata = null;
+     if (!this.xParameterSelect.value) {
+        this.xParameterMetadata = null;
         this.position = this.center;
       } else {
         this.xParameterMetadata = deviceNumberParameters[this.xParameterSelect.value].metadata;
@@ -3104,7 +3106,7 @@
     }
     
     yParameterSelected(deviceNumberParameters) {
-      if (!this.xParameterSelect.value) {
+      if (!this.yParameterSelect.value) {
         this.yParameterMetadata = null;
         this.position = this.center;
       } else {
@@ -3139,7 +3141,9 @@
         let xParameterModulation = xParameterRange * xNormalizedOffset;
         let snapMultiplier = 1 / this.xParameterMetadata.step;
         this.xParameterValue = this.xParameterMetadata.min + (Math.round(xParameterModulation * snapMultiplier) / snapMultiplier);
+        console.log("set x value", this.xParameterValue)
       } 
+      else {}
       
       if (this.yParameterMetadata) {
         let yParameterRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
