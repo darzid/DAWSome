@@ -1,7 +1,5 @@
 (async () => {
   let toneInitialized = false;
-  let toneLookAhead = 0.15;
-
   let swRegistration = null;
 
   if (location.origin !== "file://") {
@@ -31,6 +29,11 @@
     MIN_SONG_BEATS: 16,
     SONG_TAIL_BEATS: 16,              // empty space kept after the last clip
 
+    TONE_LOOKAHEAD: 0.15,
+    TONE_STARTAHEAD: "+0.5",
+    TONE_PARAM_SCHEDULEAHEAD: "+0.05",
+    TONE_NOTE_TRIGGERAHEAD: 0.05,
+    
     FIXED_GRIDS: { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 },
     ADAPTIVE_MIN_PX: { widest: 96, wide: 48, medium: 24, narrow: 12, narrowest: 6 },
     ADAPTIVE_STEPS: [4, 2, 1, 0.5, 0.25, 0.125, 0.0625],
@@ -742,7 +745,7 @@
               slide: n.slide
             }));
 
-          const part = new Tone.Part((time, ev) => ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide), events);
+          const part = new Tone.Part((time, ev) => ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide), events);
           part.start(helpers.beatsToTime(clip.start));
           //console.log("part started", audio.helpers.beatsToTime(clip.start));
 
@@ -773,7 +776,7 @@
       },
       play: async () => {
         await initializeTone();
-        transport.start("+0.1");
+        transport.start(Constants.TONE_STARTAHEAD);
       },
       stop: () => {
         transport.stop();
@@ -792,7 +795,7 @@
       if (!toneInitialized) {
         console.log('initializing Tone.js context, context state: ' + Tone.getContext().state);
         //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
-        Tone.getContext().lookAhead = toneLookAhead;
+        Tone.getContext().lookAhead = Constants.TONE_LOOKAHEAD;
         console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
         toneInitialized = true;
         console.log('Starting Tone, context state: ' + Tone.getContext().state);
@@ -1889,7 +1892,11 @@
       let beatSixteenths = remainingBeats * 4;
       return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
     },
-    isObject: (value) => { typeof value === 'object' && !Array.isArray(value) && value !== null; }
+    isObject: (value) => { typeof value === 'object' && !Array.isArray(value) && value !== null; },
+    toShortDeviceName: (deviceName) => {
+      let parts = deviceName.split(".");
+      return parts[parts.length - 1];
+    }
   }
   
   class Model {
@@ -2212,6 +2219,12 @@
       return results;
     }
     
+    getParameter(deviceName, parameterName) {
+      //console.log("getDeviceNumberParameters for " + deviceName)
+      let deviceMetadata = this.getDeviceMetadata(deviceName);
+      return deviceMetadata[parameterName].metadata;
+    }
+    
     buildDeviceState(device, deviceState) {
       let deviceMetadata = this.getDeviceMetadata(device.name);
       let deviceContext = device;
@@ -2315,7 +2328,8 @@
       
   class BottomPanelManager {
     _xyPad;
-    constructor() {
+    constructor(helpers) {
+      this.helpers = helpers;
       this.editor = document.querySelector(".editor");
       this.instrumentPanel = document.querySelector(".instrument-panel");
       this.effectsPanel = document.querySelector(".effects-panel");
@@ -2323,7 +2337,7 @@
       this.xypadPanel = document.querySelector(".xypad-panel");
       this.mixerPanel = document.querySelector(".mixer");
       
-      this._xyPad = new XypadPanel(this.xypadPanel);
+      this._xyPad = new XypadPanel(this.xypadPanel, this.helpers);
       this.xypadPanel.style.display = "none";
       
       dom.clipEditorTabBtn.addEventListener("click", () => {
@@ -2546,14 +2560,14 @@
 
       let isMultiDevicePanel = panelType != "Instrument";
       if (isLFO) {
-        let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+        let targetDeviceOptionsHtml = track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${helpers.toShortDeviceName(d.name)}</option>`).join("");
         devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
           To: <select class="targetDevice" title="Target device">${targetDeviceOptionsHtml}</select>
           <select class="targetParameter" title="Target parameter"></select><button class="next">⏩️</button>
         </div>
         <div class="device-parameters"></div>`;
       } else {
-        let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${i}</option>`).join("");
+        let deviceOptionsHtml = deviceNames.map((i) => `<option value="${i}">${helpers.toShortDeviceName(i)}</option>`).join("");
         devicePanel.innerHTML += `<div class="device-header"><button class="prev">⏪️</button>
           <select class="inst" title="Instrument">${deviceOptionsHtml}</select>
           <select class="instPreset" title="Preset"></select><button class="next">⏩️</button>
@@ -3069,10 +3083,15 @@
       this.mixer.addReturnFader(send);
     }
     
-    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false, sends = []) {
+    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false, sends = [], xyPad = null) {
       if (!effects) effects = []
       if (!modulators) modulators = [];
-  
+      if (!xyPad) {
+        xyPad = {
+          xDevice: "", xParameter: "",
+          yDevice: "", yParameter: ""
+        }
+      }
      // console.log("addTrack " + name)
       let devices = [];
       instrument.presetName = "Default";
@@ -3097,7 +3116,8 @@
         modulators: modulators,
         mute: mute,
         volume: volume,
-        sends: sends
+        sends: sends,
+        xyPad: xyPad
       };
       try {
         this.projectState.tracks.push(track);
@@ -3251,9 +3271,10 @@
     track;
     trackAudioDevices;
     position;
-    updateDelayInSecs = 0.1;
+    updateDelayInSecs = 0;
     
-    constructor(xypadPanelElement) {
+    constructor(xypadPanelElement, helpers) {
+      this.helpers = helpers;
       this.xDeviceSelect = xypadPanelElement.querySelector("select[name='x-device-select']");
       this.xParameterSelect = xypadPanelElement.querySelector("select[name='x-parameter-select']");
       this.xParamValueOutput = xypadPanelElement.querySelector("output[name='x-param-value']");
@@ -3300,7 +3321,7 @@
     get xDeviceState() { return this.track.devices[this.xDeviceIndex]; }
     get xDevice() { return this.trackAudioDevices[this.xDeviceIndex]; }
     get xDeviceName() { return this.xDevice.name; }
-    get xParameterName() { return this.xParameterSelect.value ? this.xParameterSelect.selectedOptions[0].text : ""; }
+    get xParameterName() { return this.xParameterSelect.value; }
     get xParameter() { return this.xParameterName ? this.xDevice[this.xParameterName] : null; }
     get xParameterValue() { return this.xParameter?.name ? this.xParameter.value : this.xParameter;  }
     set xParameterValue(value) { 
@@ -3308,23 +3329,25 @@
       this.xParamValueOutput.innerText = value;
       if (this.xParameterValue == value) return;
       
-      let timestamp = Tone.now();
-      if (this.xParameterUpdateTimestamp && timestamp - this.xParameterUpdateTimestamp < this.updateDelayInSecs) {
-       // console.log("skipping x update", timestamp - this.xParameterUpdateTimestamp);
-        return;
+      if (this.updateDelayInSecs > 0) {
+        let timestamp = Tone.now();
+        if (this.xParameterUpdateTimestamp && timestamp - this.xParameterUpdateTimestamp < this.updateDelayInSecs) {
+         // console.log("skipping x update", timestamp - this.xParameterUpdateTimestamp);
+          return;
+        }
+        else {
+          this.xParameterUpdateTimestamp = timestamp;
+        }
       }
-      else {
-     //   console.log("updating x")
-      }
+      
       this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
-      this.xParameterUpdateTimestamp = timestamp;
     }
     
     get yDeviceIndex() { return this.yDeviceSelect.value; }
     get yDeviceState() { return this.track.devices[this.yDeviceIndex]; }
     get yDevice() { return this.trackAudioDevices[this.yDeviceIndex]; }
     get yDeviceName() { return this.yDevice.name; }
-    get yParameterName() { return this.yParameterSelect.value ? this.yParameterSelect.selectedOptions[0].text : ""; }
+    get yParameterName() { return this.yParameterSelect.value; }
     get yParameter() { return this.yParameterName ? this.yDevice[this.yParameterName] : null; }
     get yParameterValue() { return this.yParameter?.name ? this.yParameter.value : this.yParameter;  }
     set yParameterValue(value) { 
@@ -3333,49 +3356,64 @@
     
       if (this.yParameterValue == value) return;
       
-      let timestamp = Tone.now();
-      if (this.yParameterUpdateTimestamp && timestamp - this.yParameterUpdateTimestamp < this.updateDelayInSecs) {
-       // console.log("skipping y update", timestamp - this.yParameterUpdateTimestamp);
-        return;
-      }
-      else {
-        //console.log("updating y")
+      if (this.updateDelayInSecs > 0) {
+        let timestamp = Tone.now();
+        if (this.yParameterUpdateTimestamp && timestamp - this.yParameterUpdateTimestamp < this.updateDelayInSecs) {
+         // console.log("skipping y update", timestamp - this.yParameterUpdateTimestamp);
+          return;
+        } 
+        else {
+          this.yParameterUpdateTimestamp = timestamp;
+        }
       }
       this.updateDeviceParameter(this.yDevice, this.yParameterName, value); 
-      this.yParameterUpdateTimestamp = timestamp;
     }
     
     init(track) {
       if (this.track == track) return;
+
       this.track = track;
       this.trackAudioDevices = audio.getTrackDevices(track);
       
+      
       let targetDeviceOptionsHtml = '<option>-Select device-</option>';
-      targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${d.name}</option>`).join("");
+      targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${this.helpers.toShortDeviceName(d.name)}</option>`).join("");
       this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.xDeviceSelect.disabled = false;
       this.yDeviceSelect.disabled = false;
+      
+      this.xDeviceSelect.value = track.xyPad.xDevice;
+      this.xDeviceSelected();
+      this.xParameterSelect.value = track.xyPad.xParameter;
+      this.xParameterSelected();
+      this.yDeviceSelect.value = track.xyPad.yDevice;
+      this.yDeviceSelected();
+      this.yParameterSelect.value = track.xyPad.yParameter;
+      this.yParameterSelected();
+      console.log("XyPad", this);
     }
     
     xDeviceSelected() {
-      if (!this.track) return;
+      this.track.xDevice = this.xDeviceSelect.value;
       if (!this.xDeviceSelect.value) return;
       
       console.log("Device selected ", this.xDeviceName)
       this.xParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.xDeviceName);
-      deviceNumberParameters.forEach(param => this.xParameterSelect.innerHTML += `<option value="${deviceNumberParameters.indexOf(param)}">${param.name}</option>`);
-      this.xParameterSelect.onchange = (e) => this.xParameterSelected(deviceNumberParameters);
+      deviceNumberParameters.forEach(param => this.xParameterSelect.innerHTML += `<option value="${param.name}">${param.name}</option>`);
+      this.xParameterSelect.onchange = (e) => this.xParameterSelected();
       this.xParameterSelect.disabled = false;
     }
     
-    xParameterSelected(deviceNumberParameters) {
-     if (!this.xParameterSelect.value) {
+    xParameterSelected() {
+      console.log("Param selected ", this.xParameterSelect.value)
+      this.track.xParameter = this.xParameterSelect.value;
+      if (!this.xParameterSelect.value) {
         this.xParameterMetadata = null;
         this.position = this.center;
       } else {
-        this.xParameterMetadata = deviceNumberParameters[this.xParameterSelect.value].metadata;
+        this.xParameterMetadata = metadataManager.getParameter(this.xDeviceName, this.xParameterName);
         let xRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
         let xOffset = (this.xParameterValue - this.xParameterMetadata.min) / xRange;
         this.position.x = xOffset * this.size.width;
@@ -3384,21 +3422,22 @@
     }
     
     yDeviceSelected() {
-      if (!this.track) return;
+      this.track.yDevice = this.yDeviceSelect.value;
       if (!this.yDeviceSelect.value) return;
       this.yParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.yDeviceName);
-      deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${deviceNumberParameters.indexOf(param)}">${param.name}</option>`);
+      deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${param.name}">${param.name}</option>`);
       this.yParameterSelect.onchange = (e) => this.yParameterSelected(deviceNumberParameters);
       this.yParameterSelect.disabled = false;
     }
     
-    yParameterSelected(deviceNumberParameters) {
+    yParameterSelected() {
+      this.track.yParameter = this.yParameterSelect.value;
       if (!this.yParameterSelect.value) {
         this.yParameterMetadata = null;
         this.position = this.center;
       } else {
-        this.yParameterMetadata = deviceNumberParameters[this.yParameterSelect.value].metadata;
+        this.yParameterMetadata = metadataManager.getParameter(this.yDeviceName, this.yParameterName);
         let yRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
         let yOffset = (this.yParameterValue - this.yParameterMetadata.min) / yRange;
         this.position.y = this.size.height - (yOffset * this.size.height);
@@ -3467,7 +3506,7 @@
     updateDeviceParameter(audioDevice, parameterName, value) {
       if (audioDevice[parameterName].name) {
         audioDevice[parameterName].cancelScheduledValues(Tone.now());
-        audioDevice[parameterName].setValueAtTime(value, "+0.05");
+        audioDevice[parameterName].setValueAtTime(value, Constants.TONE_PARAM_SCHEDULEAHEAD);
        // audioDevice[parameterName].value = value;
       }
       else
@@ -3504,7 +3543,7 @@
   var stateHelper = new StateHelper(projectState, helpers);
   var metadataManager = new MetadataManager();
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
-  var bottomPanelManager = new BottomPanelManager();
+  var bottomPanelManager = new BottomPanelManager(helpers);
   var mixer = new Mixer(audio, projectState);
   var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
   var clipManager = new ClipManager(projectState, audio, bottomPanelManager, ed);
@@ -3777,6 +3816,11 @@
       }
   
       const tb303 = trackManager.addTrack("303", tb303Synth, [tb303Delay], [], 0, false, []);
+      tb303.xyPad.xDevice = 0;
+      tb303.xyPad.xParameter = "envelopeModulation";
+      tb303.xyPad.yDevice = 0;
+      tb303.xyPad.yParameter = "decay";
+      
       const tb303Notes = mk([
         ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
         ["C#2", 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
@@ -3802,6 +3846,7 @@
     constructor(parameters) {
       
       console.log("Tb303 create")
+      if (!parameters) parameters = {};
       if (parameters.cutoff == undefined) parameters.cutoff = 400;
       if (parameters.resonance == undefined) parameters.resonance = 7;
       if (parameters.envelopeModulation == undefined) parameters.envelopeModulation = 0.6;
@@ -3872,7 +3917,7 @@
            
     get decay() { return this._decay; }
     set decay(value) { 
-      if (value < 0 || value > 1) throw "Decay must be between 0 and 1.2";
+      if (value < 0 || value > 1.2) throw "Decay must be between 0 and 1.2";
       this._decay = value; 
     }
         
