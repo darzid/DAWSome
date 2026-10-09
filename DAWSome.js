@@ -74,8 +74,8 @@
     drawClips: false,
     playing: false,
     playheadBeat: 0,
-    tracks: [],          // { id, name, color, instrument, mute }
-    clips: [],           // { id, trackId, name, start, length (beats), notes: [{ id, pitch, start, duration, velocity }] }
+    tracks: [],         
+    clips: [],         
     sends: [],
     nextId: 1,
     selectedTrackId: null,
@@ -599,7 +599,11 @@
     return {
       available: true,
       unlock: async () => await initializeTone(),
-      setBpm: (bpm) => { transport.bpm.value = bpm; },
+      setBpm: (bpm) => { 
+        if (bpm == transport.bpm.value) return;
+        transport.bpm.value = bpm; 
+        console.log("Updated audio bpm to " + bpm);
+      },
       setLoop: (on, endBeats) => {
         transport.loop = on;
         transport.loopStart = 0;
@@ -836,7 +840,7 @@
         if (!o) return;
         open.delete(key);
         byChannel.get(key >> 7).push({
-          pitch: key & 127, start: o.tick / ppq, duration: Math.max(at - o.tick, 1) / ppq, velocity: o.vel,
+          noteNumber: key & 127, start: o.tick / ppq, duration: Math.max(at - o.tick, 1) / ppq, velocity: o.vel,
         });
       };
       while (pos < end) {
@@ -887,7 +891,7 @@
     rowCount: () => projectState.tracks.length,
     contentBeats: () => stateHelper.songEndBeats() + Constants.SONG_TAIL_BEATS,
     render: renderArrangement,
-    onLocate: (beat) => setPlayhead(helpers.clamp(snapRound(beat, arrangementStep()), 0, stateHelper.songEndBeats())),
+    onLocate: (beat) => setPlayhead(helpers.clamp(helpers.snapRound(beat, arrangementStep()), 0, stateHelper.songEndBeats())),
     onZoom: () => renderTrackHeaders(),
   });
 
@@ -980,22 +984,6 @@
           c.closePath();
           c.stroke();
         }
-        /* let clipStartX = x0;
-         while (clipRepeatStart <= clip.end) {
-           c.fillStyle = clipRepeatStart == clip.start ? Constants.COLORS.clipNote : Constants.COLORS.clipRepeatNote;
-           
-           
-           for (const n of clip.notes) {
-             let noteStart = clipRepeatStart + n.start;
-             if (noteStart >= clip.end) continue;
-             const nx = clipStartX + av.beatToX(noteStart);
-             const nw = Math.max(1, av.beatToX(Math.min(n.duration, clip.end - noteStart)) - 1);
-             const ny = y + 15 + (hi - n.pitch) * rowPx;
-             c.fillRect(Math.round(nx), ny, nw, Math.max(1, rowPx - 1));
-           }
-           clipStartX += 
-           clipRepeatStart += clip.length;
-         }*/
       }
 
       if (selected) {
@@ -1147,7 +1135,7 @@
     }
     const step = arrangementStep();
     if (d.type === "move") {
-      d.clip.start = Math.max(0, snapRound(d.start0 + (p.beat - d.beat0), step));
+      d.clip.start = Math.max(0, helpers.snapRound(d.start0 + (p.beat - d.beat0), step));
       const track = projectState.tracks[p.row];
       if (track && track.id !== d.clip.trackId) {
         d.clip.trackId = track.id;
@@ -1155,7 +1143,7 @@
         renderTrackHeaders();
       }
     } else {
-      const end = snapRound(d.start0 + d.length0 + (p.x - d.x0) / av.pxPerBeat, step);
+      const end = helpers.snapRound(d.start0 + d.length0 + (p.x - d.x0) / av.pxPerBeat, step);
       d.clip.length = Math.max(step, end - d.clip.start);
     }
     av.updateSpacer();
@@ -1182,7 +1170,7 @@
     const p = av.point(e);
     const track = projectState.tracks[p.row];
     if (!track || clipAt(p.beat, p.row)) return;
-    const start = snapFloor(p.beat, Constants.BEATS_PER_BAR);
+    const start = helpers.snapFloor(p.beat, Constants.BEATS_PER_BAR);
     if (!projectState.drawClips) return;
     clipManager.selectClip(clipManager.createClip(track, start, Constants.BEATS_PER_BAR));
     updateManager.arrangementChanged();
@@ -1213,7 +1201,7 @@
     onLocate: (beat) => {
       const clip = stateHelper.currentClip();
       if (!clip) return;
-      setPlayhead(clip.start + helpers.clamp(ed.snap ? snapRound(beat, editorStep()) : beat, 0, clip.length));
+      setPlayhead(clip.start + helpers.clamp(ed.snap ? helpers.snapRound(beat, editorStep()) : beat, 0, clip.length));
     },
     onZoom: () => { dom.gridReadout.textContent = editorGrid().label; },
   });
@@ -1405,7 +1393,7 @@
     const d = nDrag;
     const step = editorStep();
     const rawEnd = d.note.start + d.duration0 + (p.x - d.x0) / ev.pxPerBeat;
-    const end = ed.snap ? snapRound(rawEnd, step) : rawEnd;
+    const end = ed.snap ? helpers.snapRound(rawEnd, step) : rawEnd;
     d.note.duration = Math.max(step ?? Constants.MIN_FREE_DURATION, end - d.note.start);
     ed.lastDuration = d.note.duration;
     ev.updateSpacer();
@@ -1415,7 +1403,7 @@
   function updatePaint(clip, p) {
     const step = editorStep();
     if (!step || !ed.snap) return;
-    const cell = snapFloor(p.beat, step);
+    const cell = helpers.snapFloor(p.beat, step);
     if (cell === nDrag.lastCell) return;
     nDrag.lastCell = cell;
     addNoteAt(clip, cell, nDrag.pitch);
@@ -1627,7 +1615,7 @@
   // ===== MIDI import =====
   function importMidi(parsed, fileName) {
     if (parsed.bpm) setBpm(helpers.clamp(Math.round(parsed.bpm), 20, 300));
-    const startBeat = snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
+    const startBeat = helpers.snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of parsed.tracks) {
       
@@ -1646,7 +1634,7 @@
 
   function loadProject(projectData, fileName) {
     console.log("loadProject " + fileName, projectData)
-    const startBeat = snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
+    const startBeat = helpers.snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of projectData.tracks) {
       let track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
@@ -1686,8 +1674,8 @@
   }
 
   function updateSongSettingsUI() {
-    dom.projectName.value = projectState.name;
-    dom.bpm.value = projectState.bpm;
+    //dom.projectName.value = projectState.name;
+    //dom.bpm.value = projectState.bpm;
     dom.songLoopLength.value = stateHelper.songEndBeats();
     dom.follow.classList.toggle("on", projectState.follow);
     dom.loop.classList.toggle("on", projectState.loop);
@@ -1739,9 +1727,9 @@
 
   // ===== Controls =====
   function setBpm(bpm) {
-    projectState.bpm = bpm;
-    dom.bpm.value = bpm;
-    audio.setBpm(bpm);
+    //projectState.bpm = bpm;
+    //dom.bpm.value = bpm;
+    //audio.setBpm(bpm);
   }
 
   function setDrawMode(on) {
@@ -1760,14 +1748,17 @@
   }
 
 
-  dom.projectName.addEventListener("change", () => projectState.name = dom.projectName.value);
+ // dom.projectName.addEventListener("change", () => projectState.name = dom.projectName.value);
 
   dom.play.addEventListener("click", togglePlay);
-  dom.bpm.addEventListener("input", () => {
+  
+  /*dom.bpm.addEventListener("input", () => {
     const v = Number(dom.bpm.value);
     if (v >= 20 && v <= 300) { projectState.bpm = v; audio.setBpm(v); }
   });
   dom.bpm.addEventListener("change", () => setBpm(helpers.clamp(Number(dom.bpm.value) || projectState.bpm, 20, 300)));
+  */
+  
   bindToggle(dom.loop, projectState, "loop", () => audio.setLoop(projectState.loop, stateHelper.songEndBeats()));
   bindToggle(dom.follow, projectState, "follow", () => { });
   bindToggle(dom.drawClips, projectState, "drawClips", () => { });
@@ -1778,7 +1769,7 @@
   dom.addClip.addEventListener("click", () => {
     const track = stateHelper.trackById(projectState.selectedTrackId);
     if (!track) return;
-    const start = snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
+    const start = helpers.snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     // selectClip(clipManager.createClip(track, start, Constants.BEATS_PER_BAR));
     clipManager.createClip(track, start, Constants.BEATS_PER_BAR);
     updateManager.arrangementChanged();
@@ -1899,6 +1890,248 @@
       return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
     },
     isObject: (value) => { typeof value === 'object' && !Array.isArray(value) && value !== null; }
+  }
+  
+  class Model {
+    _numberValidations = {};
+    constructor(projectState, objectState, objectType) {
+      this._projectState = projectState;
+      this._state = objectState;
+      this._objectType = objectType;
+    }
+    
+    get id() { return this._state.id; }
+    
+    addIntValidation(name, min, max) {
+      this._numberValidations[name] = { type: "int", min: min, max: max };
+    }
+    addFloatValidation(name, min, max) {
+      this._numberValidations[name] = { type: "float", min: min, max: max };
+    }
+    
+    isValid(name, value) {
+      if (this._numberValidations[name]) {
+        if (this._numberValidations[name].type == "int") value = Math.round(value);
+        if (value < this._numberValidations[name].min) {
+          console.warn(`${this._objectType}.${name} may not be lower than ${this._numberValidations[name].min}`);
+          return false;
+        }
+        if (value > this._numberValidations[name].max) {
+          console.warn(`${this._objectType}.${name} may not be higher than ${this._numberValidations[name].max}`);
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    updating(name, value) {
+      if (this._state[name] == value) return;
+      if (!this.isValid(name, value)) return;
+      console.log(`Updating ${this._objectType}.${name} from ${this._state[name]} to ${value}`);
+      this._state[name] = value;
+      document.dispatchEvent(
+        new CustomEvent(`${this._objectType}Changing`, 
+        { detail: { id: this.id, name: name, value: value } })
+      );
+    }
+    
+    update(name, value) {
+      if (!this.isValid(name, value)) return;
+      this._state[name] = value;
+      console.log(`Updated ${this._objectType}.${name} to ${value}`);
+      document.dispatchEvent(
+        new CustomEvent(`${this._objectType}Changed`, 
+        { detail: { id: this.id, name: name, value: value } })
+      );
+    }
+    
+    bind(element, name) {
+      if (element.nodeName == "INPUT") {
+        element.dataset.objectid = this.id;
+        element.value = this._state[name];
+        element.addEventListener("input", () => this.updating(name, element.value));
+        element.addEventListener("change", () => this.update(name, element.value));
+        document.addEventListener(`${this._objectType}Changed`, (e) => {
+          if (e.detail.id != element.dataset.objectid) return;
+          if (e.detail.name != name) return;
+          if (e.detail.value == element.value) return;
+          element.value = e.detail.value;
+        });
+        console.log(`Bound ${element.nodeName} to ${name}`, element.value);
+      }
+    }
+    
+    onchanging(name, callback) {
+      document.addEventListener(`${this._objectType}Changing`, (e) => {
+        if (e.detail.name != name) return;
+        callback(e.detail.value);
+      });
+    }
+    
+    onchanged(name, callback) {
+      document.addEventListener(`${this._objectType}Changed`, (e) => {
+        if (e.detail.name != name) return;
+        callback(e.detail.value);
+      });
+    }
+  }
+  
+  class Project extends Model {
+    constructor(projectState) {
+      super(projectState, projectState, "project");
+      this.playing = false;
+      this.playheadBeat = 0;
+      
+      this.addFloatValidation("masterVolume", -500, 10);
+      this.addIntValidation("bpm", 20, 300);
+      this.addIntValidation("loopLength", 1, 256);
+    }
+    
+    get id() { return this.name; }
+    
+    get nextId() { return this._state.nextId; }
+    
+    get name() { return this._state.name; }
+    set name(value) { this.update("name", value); }
+    
+    get masterVolume() { return this._state.masterVolume; }
+    set masterVolume(value) { this.update("masterVolume", value); }
+    
+    get bpm() { return this._state.bpm; }
+    set bpm(value) { this.update("bpm", helpers.clamp(Math.round(value), 20, 300)); }
+    
+    get loop() { return this._state.loop; }
+    set loop(value) { this.update("loop", value); }
+    
+    get loopLength() { return this._state.loopLength; }
+    set loopLength(value) { this.update("loopLength", value); }
+    
+    get follow() { return this._state.follow; }
+    set follow(value) { this.update("follow", value); }
+    
+    get drawClips() { return this._state.drawClips; }
+    set drawClips(value) { this.update("drawClips", value); }
+    
+    get tracks() { return this._state.tracks.map(trackState => new Track(this._projectState, trackState)); }
+    get clips() { return this._state.clips.map(clipState => new Clip(this._projectState, clipState)); }
+    get sends() { return this._state.sends.map(sendState => new Send(this._projectState, sendState)); }
+    
+    get selectedTrackId() { return this._state.selectedTrackId; }
+    set selectedTrackId(value) { this.update("selectedTrackId", value); }
+    
+    get selectedClipId() { return this._state.selectedClipId; }
+    set selectedClipId(value) { this.update("selectedClipId", value); }
+    
+    addTrack(name, devices, volume) {
+      const track = new Track(this._projectState, { id: this._projectState.nextId++, name: name, color: Constants.TRACK_COLORS[this.tracks.length % Constants.TRACK_COLORS.length], volume: volume, mute: false, solo: false, devices: devices});
+      this._projectState.tracks.push(track);
+      console.log("Added track", track )
+      return track;
+    }
+  }
+  
+  class Track extends Model {
+    constructor(projectState, trackState, nextId) {
+      super(projectState, trackState, "track");
+    }
+    
+    get name() { return this._state.name; }
+    set name(value) { this.update("name", value); }
+    
+    get color() { return this._state.color; }
+    set color(value) { this.update("color", value); }
+    
+    get volume() { return this._state.volume; }
+    set volume(value) { this.update("volume", value); }
+    
+    get mute() { return this._state.mute; }
+    set mute(value) { this.update("mute", value); }
+    
+    get solo() { return this._state.solo; }
+    set solo(value) { this.update("solo", value); }
+    
+    get devices() { return this._state.devices; }
+    
+    get instrument() { return this.devices.filter(device => device.type == "Instrument")[0]; }
+    set instrument(value) { 
+      if (this.devices.length == 0) 
+        this.devices.push(value);
+      else
+        this.devices[0] = value; 
+    }
+    get effects() { return this.devices.filter(device => device.type == "Effect"); }
+    get modulators() { return this.devices.filter(device => device.type == "Modulator"); }
+    
+    get instrumentName() { return this.instrument.name; }
+    get instrumentParameters() { return this.instrument.parameters; }
+    
+    get sends() { return this._state.sends.map(sendState => new Send(sendState)); }
+    
+    addClip(name, start, length, end, loop, notes = []) {
+      
+      const count = this._projectState.clips.filter((c) => c.trackId === this.id).length + 1;
+  
+      if (!end) {
+        end = start + length;
+        console.log("determined clip end, start, length, end", start, length, end)
+      }
+      //let loop = end - start > length;
+      const clipState = { id: this._projectState.nextId++, trackId: this.id, name: `${this.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
+      const clip = new Clip(this._projectState, clipState);
+      //this.projectState.clips.push(clip);
+      this._projectState.clips.push(clip);
+      audio.rebuildClip(clip);
+      
+      return clip;
+    }
+  }
+  
+  class Clip extends Model {
+    constructor(projectState, clipState) {
+      super(projectState, clipState, "clip");
+    }
+    get trackId() { return this._state.trackId; }
+    
+    get name() { return this._state.name; }
+    set name(value) { this.update("name", value); }
+    
+    get start() { return this._state.start; }
+    set start(value) { this.update("start", value); }
+    
+    get length() { return this._state.length; }
+    set length(value) { this.update("length", value); }
+    
+    get end() { return this._state.end; }
+    set end(value) { this.update("end", value); }
+    
+    get loop() { return this._state.loop; }
+    set loop(value) { this.update("loop", value); }
+
+    get notes() { return this._state.notes.map(noteState => new Note(this._projectState, noteState)); }
+    
+    addNote(noteName, start, duration, velocity) {
+      const note = new Note(this._projectState, { id: this._projectState.nextId++, noteName: noteName, start: start, duration: duration, velocity: velocity});
+      this.notes.push(note);
+      return note;
+    }
+  }
+  
+  class Note extends Model {
+    constructor(projectState, noteState) {
+      super(projectState, noteState, "note");
+    }
+    
+    get noteName() { return this._state.noteName; }
+    set noteName(value) { this.update("noteName", value); }
+  
+    get start() { return this._state.start; }
+    set start(value) { this.update("start", value); }
+    
+    get duration() { return this._state.duration; }
+    set duration(value) { this.update("duration", value); }
+    
+    get velocity() { return this._state.velocity; }
+    set velocity(value) { this.update("velocity", value); }
   }
   
   class StateHelper {
@@ -3251,6 +3484,23 @@
     av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
   }
 
+  var project = new Project(projectState);
+  project.bind(dom.projectName, "name");
+  project.bind(dom.bpm, "bpm");
+  project.onchanged("bpm", audio.setBpm);
+  
+  console.log("Project", project);
+  console.log("Clips", project.clips);
+  console.log("NextId 1 = " + project.nextId);
+  
+  /*let track = project.addTrack("Bla", "#ff9900", 0, []);
+  let clip = track.addClip("Clip 1", 0, 1, 2, true);
+  console.log("NextId 2 = " + project.nextId);*/
+  
+  //project.clips[0].addNote(30, 0, 1, 1);
+  //console.log("NextId after = " + project._nextId);
+  console.log("Project", project);
+  
   var stateHelper = new StateHelper(projectState, helpers);
   var metadataManager = new MetadataManager();
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
@@ -3325,8 +3575,14 @@
       }
       trackManager.addReturn("Delay", 10, returnDelay);
       */
-      const mk = (list) => list.map(([pitch, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch, start, duration, velocity, slide }));
-
+      const noteNameToPitch = (noteName) => {
+        let pitch = Tone.Frequency(noteName).toMidi();
+        console.log(`Converted notename ${noteName} to pitch ${pitch}`);
+        return pitch;
+      }
+      
+      const mk = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: noteNameToPitch(noteName), start, duration, velocity, slide }));
+      
       console.log("creating kick");
       const kickSynth = {
         name: "MembraneSynth",
@@ -3362,9 +3618,12 @@
           "release": 0.25
         }
       };
+      //const kickTrack = project.addTrack("Kick", [kickSynth, kickDistortion, kickCompressor], -3);
+      //kickTrack.addClip()
+      
       const kick = trackManager.addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
-      const kickNotes = mk([[36, 0, 0.25, Constants.DEFAULT_VELOCITY]]);
+      const kickNotes = mk([["C2", 0, 0.25, Constants.DEFAULT_VELOCITY]]);
       clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR / 4, kickNotes, 63);
       clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR / 4, kickNotes, 95);
       console.log("created kick clip");
@@ -3386,45 +3645,45 @@
       };
       const bass = trackManager.addTrack("Bass", bassSynth, []);
       const bassNotes = mk([
-        [25, 0.00, 0.1, 0.4],
-        [27, 0.25, 0.2, Constants.DEFAULT_VELOCITY],
-        [32, 0.5, 0.25, Constants.DEFAULT_VELOCITY],
-        [34, 0.75, 0.2, Constants.ACCENT_VELOCITY],
+        ["C#1", 0.00, 0.1, 0.4],
+        ["D#1", 0.25, 0.2, Constants.DEFAULT_VELOCITY],
+        ["G#1", 0.5, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 0.75, 0.2, Constants.ACCENT_VELOCITY],
 
-        [27, 1.00, 0.1, 0.4],
-        [29, 1.25, 0.25, Constants.DEFAULT_VELOCITY],
-        [34, 1.5, 0.25, Constants.DEFAULT_VELOCITY],
-        [32, 1.75, 0.25, Constants.DEFAULT_VELOCITY],
+        ["D#1", 1.00, 0.1, 0.4],
+        ["F1", 1.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 1.5, 0.25, Constants.DEFAULT_VELOCITY],
+        ["G#1", 1.75, 0.25, Constants.DEFAULT_VELOCITY],
 
-        [30, 2.00, 0.2, 0.4],
-        [32, 2.25, 0.2, Constants.DEFAULT_VELOCITY],
-        [27, 2.5, 0.25, Constants.DEFAULT_VELOCITY],
-        [27, 2.75, 0.2, Constants.ACCENT_VELOCITY],
+        ["F#1", 2.00, 0.2, 0.4],
+        ["G#1", 2.25, 0.2, Constants.DEFAULT_VELOCITY],
+        ["D#1", 2.5, 0.25, Constants.DEFAULT_VELOCITY],
+        ["D#1", 2.75, 0.2, Constants.ACCENT_VELOCITY],
 
-        [32, 3.00, 0.2, 0.4],
-        [34, 3.25, 0.25, Constants.DEFAULT_VELOCITY],
-        [37, 3.50, 0.25, Constants.DEFAULT_VELOCITY, true],
-        [32, 3.75, 0.25, Constants.DEFAULT_VELOCITY],
+        ["G#1", 3.00, 0.2, 0.4],
+        ["A#1", 3.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["C#2", 3.50, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["G#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY],
 
-        [27, 4.00, 0.2, 0.4],
-        [29, 4.25, 0.2, Constants.DEFAULT_VELOCITY],
-        [32, 4.50, 0.25, Constants.DEFAULT_VELOCITY],
-        [34, 4.75, 0.2, Constants.DEFAULT_VELOCITY, true],
+        ["D#1", 4.00, 0.2, 0.4],
+        ["F1", 4.25, 0.2, Constants.DEFAULT_VELOCITY],
+        ["G#1", 4.50, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 4.75, 0.2, Constants.DEFAULT_VELOCITY, true],
 
-        [27, 5.00, 0.2, 0.4],
-        [29, 5.25, 0.25, Constants.DEFAULT_VELOCITY],
-        [34, 5.50, 0.25, Constants.DEFAULT_VELOCITY],
-        [32, 5.75, 0.25, Constants.DEFAULT_VELOCITY],
+        ["D#1", 5.00, 0.2, 0.4],
+        ["F1", 5.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 5.50, 0.25, Constants.DEFAULT_VELOCITY],
+        ["G#1", 5.75, 0.25, Constants.DEFAULT_VELOCITY],
 
-        [30, 6.00, 0.2, 0.4],
-        [32, 6.25, 0.2, Constants.DEFAULT_VELOCITY, true],
-        [29, 6.5, 0.25, Constants.DEFAULT_VELOCITY],
-        [27, 6.75, 0.2, Constants.ACCENT_VELOCITY],
+        ["F#1", 6.00, 0.2, 0.4],
+        ["G#1", 6.25, 0.2, Constants.DEFAULT_VELOCITY, true],
+        ["F1", 6.5, 0.25, Constants.DEFAULT_VELOCITY],
+        ["D#1", 6.75, 0.2, Constants.ACCENT_VELOCITY],
         
-        [30, 7.00, 0.2, 0.4],
-        [32, 7.25, 0.25, Constants.DEFAULT_VELOCITY],
-        [29, 7.50, 0.25, Constants.DEFAULT_VELOCITY],
-        [34, 7.75, 0.25, Constants.DEFAULT_VELOCITY]
+        ["F#1", 7.00, 0.2, 0.4],
+        ["G#1", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["F1", 7.50, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 7.75, 0.25, Constants.DEFAULT_VELOCITY]
       ]);
       clipManager.createClip(bass, 0, Constants.BEATS_PER_BAR * 2, bassNotes, 15);
       clipManager.createClip(bass, 16, Constants.BEATS_PER_BAR * 2, bassNotes, 31);
@@ -3454,13 +3713,13 @@
       
       const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [hatReverbSend]);
       let chNotes1 = mk([
-        [42, 1.0, 0.125],
+        ["F#2", 1.0, 0.125],
       ]);
       let chNotes2 = mk([
-        [42, 0.0, 0.125],
-        [42, 0.25, 0.125],
-        [42, 0.5, 0.125],
-        [42, 0.75, 0.125]
+        ["F#2", 0.0, 0.125],
+        ["F#2", 0.25, 0.125],
+        ["F#2", 0.5, 0.125],
+        ["F#2", 0.75, 0.125]
       ]);
       clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR / 2, chNotes1, 31);
       clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR / 4, chNotes2, 63);
@@ -3489,7 +3748,7 @@
         }
       };
       const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [hatReverbSend]);
-      let ohNotes = mk([[42, 0.5, 0.125]]);
+      let ohNotes = mk([["F#2", 0.5, 0.125]]);
       clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
       clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 95);
       console.log("created open hat");
@@ -3519,14 +3778,14 @@
   
       const tb303 = trackManager.addTrack("303", tb303Synth, [tb303Delay], [], 0, false, []);
       const tb303Notes = mk([
-        [31, 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        [37, 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
-        [34, 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["C#2", 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["A#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
         
-        [31, 6.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        [35, 7.00, 0.125, Constants.ACCENT_VELOCITY, true],
-        [37, 7.25, 0.25, Constants.DEFAULT_VELOCITY],
-        [34, 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
+        ["G1", 6.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["B1", 7.00, 0.125, Constants.ACCENT_VELOCITY, true],
+        ["C#2", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
       ]);
       clipManager.createClip(tb303, 0, Constants.BEATS_PER_BAR * 2, tb303Notes, 96);
       console.log("created 303");
