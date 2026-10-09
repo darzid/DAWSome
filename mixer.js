@@ -216,8 +216,8 @@ class Mixer {
       }
       if (track.sends[0]) sendSelect.value = track.sends[0].name;
       
-      let sendAmountInput = document.createElement("input");
-      sendAmountInput.type = "number";
+      let sendAmountInput = document.createElement("number-input");
+      //sendAmountInput.type = "number";
       sendAmountInput.min = "-100";
       sendAmountInput.max = 10;
       sendAmountInput.step = 0.1;

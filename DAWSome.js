@@ -1041,7 +1041,7 @@
   });
 
   dom.trackHeadersWrap.addEventListener("click", (e) => {
-    console.log("click", e.currentTarget, e.target, e.srcElement)
+    //console.log("click", e.currentTarget, e.target, e.srcElement)
     if (e.target === dom.trackHeadersWrap) trackManager.deselectTrack();
   }
   );
@@ -3246,8 +3246,9 @@
     get xParameter() { return this.xParameterName ? this.xDevice[this.xParameterName] : null; }
     get xParameterValue() { return this.xParameter?.name ? this.xParameter.value : this.xParameter;  }
     set xParameterValue(value) { 
+      if (!this.xDeviceState) return;
       this.xDeviceState.parameters[this.xParameterName] = value;
-      this.xParamValueOutput.innerText = value;
+      this.xParamValueOutput.innerText = value.toFixed(2);
       if (this.xParameterValue == value) return;
       
       if (this.updateDelayInSecs > 0) {
@@ -3272,8 +3273,9 @@
     get yParameter() { return this.yParameterName ? this.yDevice[this.yParameterName] : null; }
     get yParameterValue() { return this.yParameter?.name ? this.yParameter.value : this.yParameter;  }
     set yParameterValue(value) { 
+      if (!this.yDeviceState) return;
       this.yDeviceState.parameters[this.yParameterName] = value;
-      this.yParamValueOutput.innerText = value;
+      this.yParamValueOutput.innerText = value.toFixed(2);
     
       if (this.yParameterValue == value) return;
       
@@ -3291,13 +3293,13 @@
     }
     
     init(track) {
+      console.log("XypadPanel.init");
       if (this.track == track) return;
 
       this.track = track;
       this.trackAudioDevices = audio.getTrackDevices(track);
       
-      
-      let targetDeviceOptionsHtml = '<option>-Select device-</option>';
+      let targetDeviceOptionsHtml = '<option value="">-Select device-</option>';
       targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${this.helpers.toShortDeviceName(d.name)}</option>`).join("");
       this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
@@ -3312,13 +3314,16 @@
       this.yDeviceSelected();
       this.yParameterSelect.value = track.xyPad.yParameter;
       this.yParameterSelected();
-      console.log("XyPad", this);
+      this.updatePosition();
+      console.log("XypadPanel.initialized", this);
     }
     
     xDeviceSelected() {
       this.track.xDevice = this.xDeviceSelect.value;
-      if (!this.xDeviceSelect.value) return;
-      
+      if (!this.xDeviceSelect.value) {
+        this.xParameterSelect.innerHTML = "";
+        return;
+      }
       console.log("Device selected ", this.xDeviceName)
       this.xParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.xDeviceName);
@@ -3332,7 +3337,7 @@
       this.track.xParameter = this.xParameterSelect.value;
       if (!this.xParameterSelect.value) {
         this.xParameterMetadata = null;
-        this.position = this.center;
+        this.position.x = this.center.x;
       } else {
         this.xParameterMetadata = metadataManager.getParameter(this.xDeviceName, this.xParameterName);
         let xRange = this.xParameterMetadata.max - this.xParameterMetadata.min;
@@ -3344,7 +3349,10 @@
     
     yDeviceSelected() {
       this.track.yDevice = this.yDeviceSelect.value;
-      if (!this.yDeviceSelect.value) return;
+      if (!this.yDeviceSelect.value) {
+        this.yParameterSelect.innerHTML = "";
+        return;
+      }
       this.yParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.yDeviceName);
       deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${param.name}">${param.name}</option>`);
@@ -3356,7 +3364,7 @@
       this.track.yParameter = this.yParameterSelect.value;
       if (!this.yParameterSelect.value) {
         this.yParameterMetadata = null;
-        this.position = this.center;
+        this.position.y = this.center.y;
       } else {
         this.yParameterMetadata = metadataManager.getParameter(this.yDeviceName, this.yParameterName);
         let yRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
@@ -3389,6 +3397,8 @@
         let snapMultiplier = 1 / this.xParameterMetadata.step;
         this.xParameterValue = this.xParameterMetadata.min + (Math.round(xParameterModulation * snapMultiplier) / snapMultiplier);
       } 
+      else
+        this.xParamValueOutput.innerText = "0";
       
       if (this.yParameterMetadata) {
         let yParameterRange = this.yParameterMetadata.max - this.yParameterMetadata.min;
@@ -3396,6 +3406,8 @@
         let snapMultiplier = 1 / this.yParameterMetadata.step;
         this.yParameterValue = this.yParameterMetadata.min + (Math.round(yParameterModulation * snapMultiplier) / snapMultiplier);
       } 
+      else
+        this.yParamValueOutput.innerText = "0";
       window.requestAnimationFrame(() => this.draw());
     }
     
