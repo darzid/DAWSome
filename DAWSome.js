@@ -3248,7 +3248,7 @@
     set xParameterValue(value) { 
       if (!this.xDeviceState) return;
       this.xDeviceState.parameters[this.xParameterName] = value;
-      this.xParamValueOutput.innerText = value.toFixed(2);
+      this.xParamValueOutput.innerText = value.toFixed;
       if (this.xParameterValue == value) return;
       
       if (this.updateDelayInSecs > 0) {
@@ -3549,7 +3549,7 @@
       */
       const noteNameToPitch = (noteName) => {
         let pitch = Tone.Frequency(noteName).toMidi();
-        console.log(`Converted notename ${noteName} to pitch ${pitch}`);
+        //console.log(`Converted notename ${noteName} to pitch ${pitch}`);
         return pitch;
       }
       
