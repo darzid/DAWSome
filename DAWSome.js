@@ -2327,9 +2327,40 @@
       }
       
   class BottomPanelManager {
+    panels;
+    panelButtons = [];
+    
     _xyPad;
     constructor(helpers) {
       this.helpers = helpers;
+      
+      this.bottomPanel = document.getElementById("bottom-panel");
+      this.panels = this.bottomPanel.querySelectorAll(".panel");
+      this.tabStrip = this.bottomPanel.querySelector(".tab-strip");
+      
+      this.panelRenderMethods = {
+        "instrument-panel": this.renderInstrumentPanel,
+        "effects-panel": this.renderEffectsPanel,
+        "modulation-panel": this.renderModulationPanel,
+        "xypad-panel": this.renderXypadPanel
+      }
+      this.panels.forEach(panel => {
+        const panelButton = document.createElement("button");
+        panelButton.dataset.panelId = panel.id;
+        panelButton.className = "btn";
+        panelButton.innerText = panel.title;
+        this.tabStrip.appendChild(panelButton);
+        this.panelButtons.push(panelButton);
+        
+        panelButton.onclick = () => {
+          panelButton.classList.toggle("on");
+          if (panelButton.classList.contains("on"))
+            this.showPanel(panelButton.dataset.panelId);
+          else
+            this.hidePanel(panelButton.dataset.panelId);
+        };
+      });
+      
       this.editor = document.querySelector(".editor");
       this.instrumentPanel = document.querySelector(".instrument-panel");
       this.effectsPanel = document.querySelector(".effects-panel");
@@ -2339,215 +2370,105 @@
       
       this._xyPad = new XypadPanel(this.xypadPanel, this.helpers);
       this.xypadPanel.style.display = "none";
-      
-      dom.clipEditorTabBtn.addEventListener("click", () => {
-        dom.clipEditorTabBtn.classList.toggle("on");
-        if (dom.clipEditorTabBtn.classList.contains("on")) {
-          this.showClipEditorPanel();
-        }
-        else {
-          this.editor.style.display = "none";
-        }
-      });
-
-      dom.instrumentTabBtn.addEventListener("click", () => {
-        dom.instrumentTabBtn.classList.toggle("on");
-        if (dom.instrumentTabBtn.classList.contains("on")) {
-          this.showInstrumentPanel()
-        }
-        else {
-          this.instrumentPanel.style.display = "none";
-        }
-      });
-
-      dom.effectsTabBtn.addEventListener("click", () => {
-        dom.effectsTabBtn.classList.toggle("on");
-        if (dom.effectsTabBtn.classList.contains("on")) {
-          this.showEffectsPanel();
-        }
-        else {
-          this.effectsPanel.style.display = "none";
-        }
-      });
-
-      dom.modulationTabBtn.addEventListener("click", () => {
-        dom.modulationTabBtn.classList.toggle("on");
-        if (dom.modulationTabBtn.classList.contains("on")) {
-          this.showModulationPanel();
-        }
-        else {
-          this.modulationPanel.style.display = "none";
-        }
-      });
-
-      dom.xypadTabBtn.addEventListener("click", () => {
-        dom.xypadTabBtn.classList.toggle("on");
-        if (dom.xypadTabBtn.classList.contains("on")) {
-          this.showXypadPanel();
-        }
-        else {
-          this.xypadPanel.style.display = "none";
-        }
-      });
-      
-      dom.mixerTabBtn.addEventListener("click", () => {
-        dom.mixerTabBtn.classList.toggle("on");
-        if (dom.mixerTabBtn.classList.contains("on")) {
-          this.showMixerPanel()
-        }
-        else {
-          this.mixerPanel.style.display = "none";
-        }
-      });
     }
 
-    showClipEditorPanel() {
-    /*  if (!currentClip())
-        dom.loopClip.classList.remove("on");
-      else*/
-        this.showPanel(this.editor, dom.clipEditorTabBtn);
-
-      /*let trackHeader = dom.trackHeaders.querySelector(`[data-id="${projectState.selectedTrackId}"]`);
-      const trackElement = trackHeader.closest(".track");
-      trackElement.scrollIntoView();
-      console.log("scroll into view", trackElement);*/
+    showPanel(panelId) {
+      this.panels.forEach(panel => panel.style.display = panel.id != panelId ? "none" : "flex");
+      this.panelButtons.forEach(panelButton => panelButton.classList.toggle("on", panelButton.dataset.panelId == panelId))
+      this.renderPanel(panelId);
     }
 
-    showInstrumentPanel() {
-      this.showPanel(this.instrumentPanel, dom.instrumentTabBtn);
-      this.renderInstrumentPanel();
-    }
-
-    showEffectsPanel() {
-      this.showPanel(this.effectsPanel, dom.effectsTabBtn);
-      this.renderEffectsPanel();
-    }
-
-    showModulationPanel() {
-      this.showPanel(this.modulationPanel, dom.modulationTabBtn);
-      this.renderModulationPanel();
-    }
-
-    showXypadPanel() {
-      this.showPanel(this.xypadPanel, dom.xypadTabBtn);
-      this.renderXypadPanel();
+    hidePanel(panelId) {
+      document.getElementById(panelId).style.display = "none";
+      this.panelButtons.find(panelButton => panelButton.dataset.panelId == panelId).classList.remove("on");
     }
     
-    showMixerPanel() {
-      this.showPanel(this.mixerPanel, dom.mixerTabBtn);
+    renderPanel(panelId) {
+      const panel = document.getElementById(panelId);
+      panel.style.display = "flex";
+      switch (panelId) {
+        case "instrument-panel": 
+          this.renderInstrumentPanel(panel);
+          return;
+        case "effects-panel": 
+          this.renderEffectsPanel(panel);
+          return;
+        case "modulation-panel":
+          this.renderModulationPanel(panel);
+          return;
+        case "xypad-panel": 
+          this.renderXypadPanel(panel);
+          return;
+      }
     }
-
-    showPanel(panelToShow, tabButtonToShow) {
-      const panels = document.querySelector(".bottom-panel").querySelectorAll(".panel");
-      panels.forEach(panel => {
-        if (panel != panelToShow) {
-          panel.style.display = "none";
-        }
-        else {
-          panel.style.display = "flex";
-        }
-      })
-      const tabButtons = document.querySelector(".bottom-panel").querySelectorAll(".tab-strip button");
-      tabButtons.forEach(button => {
-        if (button != tabButtonToShow) {
-          button.classList.remove("on");
-        }
-        else {
-          button.classList.add("on");
-        }
-      });
-    }
-
+    
     refreshActivePanel() {
       const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
       if (!activeButton) return;
-      if (activeButton.id == "instrument-panel-tab-button")
-        this.renderInstrumentPanel();
-      else if (activeButton.id == "effects-panel-tab-button")
-        this.renderEffectsPanel();
-      else if (activeButton.id == "modulation-panel-tab-button")
-        this.renderModulationPanel();
-      else if (activeButton.id == "xypad-panel-tab-button")
-        this.renderXypadPanel();
+      this.renderPanel(activeButton.dataset.panelId);
     }
 
-    renderInstrumentPanel() {
-      let parentPanel = this.instrumentPanel;
-      this.instrumentPanel.style.display = "flex";
+    renderInstrumentPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
-        parentPanel.style.display = "none";
+        panel.style.display = "none";
         return;
       }
 
       let deviceToInspect = audio.getTrackInstrument(track);
-      parentPanel.innerHTML = "";
-      this.renderDevice(parentPanel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
+      panel.innerHTML = "";
+      this.renderDevice(panel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
     }
 
-    renderEffectsPanel() {
-      this.effectsPanel.style.display = "flex";
+    renderEffectsPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         console.log("no track fx")
-        this.effectsPanel.style.display = "none";
+        panel.style.display = "none";
         return;
       }
 
       let trackEffects = audio.getTrackEffects(track);
 
-      this.effectsPanel.innerHTML = "";
-      trackEffects.forEach(fx => this.renderDevice(this.effectsPanel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
-      this.renderDevice(this.effectsPanel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+      panel.innerHTML = "";
+      trackEffects.forEach(fx => this.renderDevice(panel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
+      this.renderDevice(panel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
     }
 
-    renderModulationPanel() {
-      this.modulationPanel.style.display = "flex";
+    renderModulationPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         console.log("no track")
-        this.modulationPanel.style.display = "none";
+        panel.style.display = "none";
         return;
-      }
-      else {
-        if (!dom.modulationTabBtn.classList.contains("on")) {
-          dom.modulationTabBtn.classList.add("on");
-        }
       }
 
       let trackModulators = audio.getTrackModulators(track);
       let modulatorsStartIndex = 1 + track.effects.length;
 
-      this.modulationPanel.innerHTML = "";
+      panel.innerHTML = "";
       console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
       try {
-        trackModulators.forEach(mod => this.renderDevice(this.modulationPanel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
+        trackModulators.forEach(mod => this.renderDevice(panel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
       }
       catch (error) {
         console.error("Error while creating modulatoe html", error)
       }
-      this.renderDevice(this.modulationPanel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
+      this.renderDevice(panel, track, { name: "", parameters: {} }, modulatorsStartIndex + trackModulators.length, modulatorNames, modulatorPresets, "LFO");
     }
 
-    renderXypadPanel() {
+    renderXypadPanel(panel) {
       console.log("xypad render")
-      this.xypadPanel.style.display = "flex";
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
         console.log("no track")
-        this.xypadPanel.style.display = "none";
+        panel.style.display = "none";
         return;
-      }
-      else {
-        if (!dom.xypadTabBtn.classList.contains("on")) {
-          dom.xypadTabBtn.classList.add("on");
-        }
       }
       
       this._xyPad.init(track);
     }
     
-
     renderDevice(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
       let devicePanel = document.createElement("div");
       devicePanel.className = "device";
