@@ -26,7 +26,7 @@
     DRAG_THRESHOLD: 4,
     TAP_SLOP: 8,
     ZOOM_BUTTON_FACTOR: 1.25,
-    MIN_SONG_BEATS: 16,
+    MIN_SONG_BEATS: 8,
     SONG_TAIL_BEATS: 16,              // empty space kept after the last clip
 
     TONE_LOOKAHEAD: 0.15,
@@ -210,7 +210,10 @@
       const r = this.o.scroller.getBoundingClientRect();
       const vx = e.clientX - r.left, vy = e.clientY - r.top;
       const x = vx + this.o.scroller.scrollLeft, y = vy + this.o.scroller.scrollTop;
-      return { vx, vy, x, y, beat: x / this.pxPerBeat, row: helpers.clamp(Math.floor(y / this.rowHeight), 0, Math.max(0, this.o.rowCount() - 1)) };
+      return { vx, vy, x, y, beat: x / this.pxPerBeat, 
+        row: Math.floor(y / this.rowHeight) };
+     //   , 0, Math.max(0, this.o.rowCount() - 1)) };
+      //row: helpers.clamp(Math.floor(y / this.rowHeight), 0, Math.max(0, this.o.rowCount() - 1)) };
     }
 
     setPxPerBeat(value, anchorX, beatAtAnchor) {
@@ -493,11 +496,19 @@
           element.addEventListener("input", () => this.updating(name, element.value));
           element.addEventListener("change", () => this.update(name, element.value));
           document.addEventListener(`${this._objectType}Changed`, (e) => {
-            if (e.detail.id != element.dataset.objectid) return;
+            console.log("OnChanged " + e.detail.name, e.detail);
+            /*if (e.detail.id != element.dataset.objectid) {
+              console.log("Different object id " + name);
+              return;
+            }*/
             if (e.detail.name != name) return;
-            if (e.detail.value == element.value) return;
+            if (e.detail.value == element.value) {
+              console.log("Input value equal " + name)
+              return;
+            }
             element.value = e.detail.value;
             if (callback) callback();
+            console.log("OnChanged finished " + e.detail.name, e.detail);
           });
           console.log(`Bound ${element.nodeName} to ${name}`, element.value);
           break;
@@ -527,11 +538,20 @@
     }
     
     onchanged(name, callback) {
-      
       document.addEventListener(`${this._objectType}Changed`, (e) => {
         if (e.detail.name != name) return;
         callback(e.detail.value);
       });
+    }
+    
+    refresh() {
+      console.log("Refresh");
+      Object.keys(this._state).forEach(name => {
+        document.dispatchEvent(
+          new CustomEvent(`${this._objectType}Changed`, 
+          { detail: { id: this.id, name: name, value: this._state[name] } })
+      );
+      })
     }
   }
   
@@ -541,12 +561,18 @@
       this.playing = false;
       this.playheadBeat = 0;
       
-      document.addEventListener("ProjectCleared", (e) => this._state = e.detail.projectState);
-      document.addEventListener("ProjectLoaded", (e) => this._state = e.detail.projectState);
-      
       this.addFloatValidation("masterVolume", -500, 10);
       this.addIntValidation("bpm", 20, 300);
       this.addIntValidation("loopLength", 1, 256);
+      
+      document.addEventListener("ProjectCleared", (e) => {
+        this._state = e.detail.projectState;
+        this.refresh();
+      });
+      document.addEventListener("ProjectLoaded", (e) => {
+        this._state = e.detail.projectState;
+        this.refresh();
+      });
     }
     
     get id() { return this.name; }
@@ -590,6 +616,23 @@
       console.log("Added track", track )
       return track;
     }
+    
+    removeTrack(trackId) {
+      console.log("Project.removeTrack " + trackId)
+      this.clips.filter(clip => clip.trackId == trackId).forEach(clip => {
+        document.dispatchEvent(
+          new CustomEvent("ClipRemoved", { detail: { clipId: clip.id } })
+        )
+        this._state.clips = this._state.clips.filter((c) => c.id !== clip.id);
+      });
+      document.dispatchEvent(
+          new CustomEvent("TrackRemoved", { detail: { trackId: trackId } })
+      );
+      
+      this._state.tracks = this._state.tracks.filter((t) => t.id !== trackId);
+    //  if (this._state.selectedTrackId === trackId) 
+     //   this.selectTrack(this._state.tracks[0]?.id ?? null);
+    }
   }
   
   class Track extends Model {
@@ -630,7 +673,6 @@
     get sends() { return this._state.sends.map(sendState => new Send(sendState)); }
     
     addClip(name, start, length, end, loop, notes = []) {
-      
       const count = this._projectState.clips.filter((c) => c.trackId === this.id).length + 1;
   
       if (!end) {
@@ -875,7 +917,15 @@
       //updateInstrument(e.detail.trackId, e.detail.instrumentName);
       console.log(`audio.InstrumentChanged: ${e.detail.trackId}, instrument changed to ${e.detail.instrumentName}`);
     });
-
+    document.addEventListener("ClipRemoved", (e) => {
+      audio.removeClipPart(e.detail.clipId);
+      console.log(`audio.ClipPartRemoved: ${e.detail.clipId}`);
+    });
+    document.addEventListener("TrackRemoved", (e) => {
+      audio.removeTrackChain(e.detail.trackId);
+      console.log(`audio.TrackChainRemoved: ${e.detail.trackId}`);
+    });
+    
     return {
       available: true,
       unlock: async () => await initializeTone(),
@@ -1324,7 +1374,7 @@
   });
 
   dom.trackHeadersWrap.addEventListener("click", (e) => {
-    console.log("trackHeadersWrap click", e.currentTarget, e.target, e.srcElement)
+   // console.log("trackHeadersWrap click", e.currentTarget, e.target, e.srcElement)
     if (e.target === dom.trackHeadersWrap) trackManager.deselectTrack();
   }
   );
@@ -1339,9 +1389,10 @@
       audio.updateTrackChain(track);
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
-      trackManager.removeTrack(track.id);
+      project.removeTrack(track.id);
+      //trackManager.removeTrack(track.id);
       if (!stateHelper.currentClip()) updateManager.editorClipChanged();
-      document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
+      //document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
     } else if (e.target.classList.contains("name")) {
       //bottomPanelManager.refreshActivePanel();
       console.log("name click");
@@ -1399,6 +1450,7 @@
       console.log("deselect xlip")
       return;
     }
+    console.log("scroller.pointerdown select clip", p)
     clipManager.selectClip(clip);
     if (!projectState.drawClips) return;
     aDrag = {
@@ -2202,7 +2254,7 @@
       remainingBeats -= (bars * 4);
       let barBeats = Math.floor(beats % 4);
       remainingBeats -= barBeats;
-      if (remainingBeats > 1) throw "eeror";
+      if (remainingBeats > 1) throw "error";
       let beatSixteenths = remainingBeats * 4;
       return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
     },
@@ -3077,6 +3129,8 @@
         trackElement.classList.remove("selected");
       }
       this.projectState.selectedTrackId = null;
+      clipManager.deselectClip();
+      this.projectState.selectedClipId = null;
   
      // console.log("track cleared")
       this.bottomPanelManager.refreshActivePanel();
@@ -3177,7 +3231,7 @@
       console.log("Sends updated for " + trackId)
     }
     
-    removeTrack(trackId) {
+  /*  removeTrack(trackId) {
       for (const clip of this.projectState.clips.filter((c) => c.trackId === trackId))
         document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
         
@@ -3185,7 +3239,7 @@
       this.mixer.removeTrackFader(this.projectState.tracks.find((t) => t.id == trackId));
       this.projectState.tracks = this.projectState.tracks.filter((t) => t.id !== trackId);
       if (this.projectState.selectedTrackId === trackId) this.selectTrack(this.projectState.tracks[0]?.id ?? null);
-    }
+    }*/
   }
   
   class ClipManager {
