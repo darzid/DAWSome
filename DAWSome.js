@@ -217,6 +217,7 @@
       this.pxPerBeat = helpers.clamp(value, this.o.hZoom.min, this.o.hZoom.max);
       this.updateSpacer();
       this.o.scroller.scrollLeft = this.beatToX(beatAtAnchor) - anchorX;
+     // console.log("setpxperbeat onzoom")
       if (this.o.onZoom) this.o.onZoom();
       this.requestRender();
     }
@@ -225,6 +226,7 @@
       this.rowHeight = helpers.clamp(value, this.o.vZoom.min, this.o.vZoom.max);
       this.updateSpacer();
       this.o.scroller.scrollTop = rowAtAnchor * this.rowHeight - anchorY;
+     // console.log("setRowHeight onzoom")
       if (this.o.onZoom) this.o.onZoom();
       this.requestRender();
     }
@@ -234,6 +236,7 @@
     }
 
     zoomV(factor, anchorY = this.o.scroller.clientHeight / 2) {
+    //  console.log("zoomV")
       this.setRowHeight(this.rowHeight * factor, anchorY, (this.o.scroller.scrollTop + anchorY) / this.rowHeight);
     }
 
@@ -245,6 +248,7 @@
         this.zoomH(Math.exp(-dy * 0.002), e.clientX - r.left);
       } else if (e.altKey) {
         e.preventDefault();
+        console.log("onwheel")
         this.zoomV(Math.exp(-dy * 0.002), e.clientY - r.top);
       } else if (e.shiftKey && dx === 0) {
         e.preventDefault();
@@ -896,7 +900,9 @@
     contentBeats: () => stateHelper.songEndBeats() + Constants.SONG_TAIL_BEATS,
     render: renderArrangement,
     onLocate: (beat) => setPlayhead(helpers.clamp(helpers.snapRound(beat, arrangementStep()), 0, stateHelper.songEndBeats())),
-    onZoom: () => renderTrackHeaders(),
+    onZoom: () => { 
+      //console.log("zoom rth"); 
+      renderTrackHeaders()},
   });
 
   const arrangementStep = () => gridStep("wide", false, av.pxPerBeat).step;
@@ -1003,6 +1009,7 @@
 
   // Track headers are DOM so names and instruments are editable; they scroll with the lanes.
   function renderTrackHeaders() {
+    console.log("render track headers")
     const rh = av.rowHeight;
     dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
     const existing = new Map([...dom.trackHeaders.children].map((el) => [Number(el.dataset.id), el]));
@@ -1043,7 +1050,7 @@
   });
 
   dom.trackHeadersWrap.addEventListener("click", (e) => {
-    //console.log("click", e.currentTarget, e.target, e.srcElement)
+    console.log("trackHeadersWrap click", e.currentTarget, e.target, e.srcElement)
     if (e.target === dom.trackHeadersWrap) trackManager.deselectTrack();
   }
   );
@@ -1051,6 +1058,7 @@
     const el = e.target.closest(".track");
     if (!el) return;
     const track = stateHelper.trackById(Number(el.dataset.id));
+    
     trackManager.selectTrack(track);
     if (e.target.classList.contains("mute")) {
       track.mute = !track.mute;
@@ -1061,8 +1069,12 @@
       if (!stateHelper.currentClip()) updateManager.editorClipChanged();
       document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
     } else if (e.target.classList.contains("name")) {
-      bottomPanelManager.refreshActivePanel();
-      return false;
+      //bottomPanelManager.refreshActivePanel();
+      console.log("name click");
+      e.preventDefault();
+      e.stopPropagation();
+      e.cancelBubble = true;
+      return true;
     }
     updateManager.arrangementChanged();
     e.preventDefault();
@@ -1070,6 +1082,7 @@
   });
 
   dom.trackHeaders.addEventListener("change", (e) => {
+    console.log("change")
     const el = e.target.closest(".track");
     if (!el) return;
     const track = stateHelper.trackById(Number(el.dataset.id));
@@ -1145,6 +1158,7 @@
       if (track && track.id !== d.clip.trackId) {
         d.clip.trackId = track.id;
         trackManager.selectTrack(track);
+        console.log("pointer move rth")
         renderTrackHeaders();
       }
     } else {
@@ -1552,6 +1566,7 @@
       keyOff();
       keyDrag.mode = Math.abs(dx) > Math.abs(dy) ? "zoom" : "scroll";
     }
+    console.log("ed pointermove")
     if (keyDrag.mode === "scroll") ev.o.scroller.scrollTop = keyDrag.scrollTop0 - dy;
     else ev.setRowHeight(keyDrag.rowHeight0 * Math.exp(dx * 0.01), keyDrag.anchorY, keyDrag.rowAtAnchor);
   });
@@ -1560,6 +1575,7 @@
   dom.edKeysCanvas.addEventListener("pointercancel", endKeyPointer);
   dom.edKeysCanvas.addEventListener("wheel", (e) => {
     e.preventDefault();
+    console.log("wheel")
     const { dy } = wheelDeltas(e);
     if (e.altKey || e.ctrlKey || e.metaKey) ev.zoomV(Math.exp(-dy * 0.002), e.clientY - dom.edKeysCanvas.getBoundingClientRect().top);
     else ev.o.scroller.scrollTop += dy;
@@ -2370,8 +2386,9 @@
     panelButtons = [];
     
     _xyPad;
-    constructor(helpers) {
+    constructor(helpers, projectState) {
       this.helpers = helpers;
+      this.projectState = projectState;
       
       this.bottomPanel = document.getElementById("bottom-panel");
       this.panels = this.bottomPanel.querySelectorAll(".panel");
@@ -2442,6 +2459,7 @@
     }
     
     refreshActivePanel() {
+      console.log("refresh active panel")
       const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
       if (!activeButton) return;
       this.renderPanel(activeButton.dataset.panelId);
@@ -2497,8 +2515,8 @@
     }
 
     renderXypadPanel(panel) {
-      console.log("xypad render")
-      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
+      console.log("xypad render", this.projectState.tracks, this.projectState.selectedTrackId)
+      let track = this.projectState.tracks.find(track => track.id === this.projectState.selectedTrackId);
       if (!track) {
         console.log("no track")
         panel.style.display = "none";
@@ -3031,6 +3049,7 @@
       if (trackElement) {
         trackElement.classList.add("selected");
       }
+      this.bottomPanelManager.refreshActivePanel();
     }
   
     selectTrack(track) {
@@ -3310,7 +3329,14 @@
     get xParameterValue() { return this.xParameter?.name ? this.xParameter.value : this.xParameter;  }
     set xParameterValue(value) { 
       if (!this.xDeviceState) return;
-      this.xDeviceState.parameters[this.xParameterName] = value;
+      
+      let parts = this.xParameterName.split(".");
+      let context = this.xDeviceState.parameters;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        context = context[parts[partIndex]];
+      }
+      context[this.xParameterName] = value;
+      
       this.xParamValueOutput.innerText = value.toFixed(2);
       if (this.xParameterValue == value) return;
       
@@ -3325,6 +3351,7 @@
         }
       }
       
+      
       this.updateDeviceParameter(this.xDevice, this.xParameterName, value); 
     }
     
@@ -3337,7 +3364,14 @@
     get yParameterValue() { return this.yParameter?.name ? this.yParameter.value : this.yParameter;  }
     set yParameterValue(value) { 
       if (!this.yDeviceState) return;
-      this.yDeviceState.parameters[this.yParameterName] = value;
+      
+      let parts = this.yParameterName.split(".");
+      let context = this.yDeviceState.parameters;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        context = context[parts[partIndex]];
+      }
+      context[this.yParameterName] = value;
+      //this.yDeviceState.parameters[this.yParameterName] = value;
       this.yParamValueOutput.innerText = value.toFixed(2);
     
       if (this.yParameterValue == value) return;
@@ -3356,7 +3390,7 @@
     }
     
     init(track) {
-      console.log("XypadPanel.init");
+      console.log("XypadPanel.init", track.xyPad);
       if (this.track == track) return;
 
       this.track = track;
@@ -3368,6 +3402,7 @@
       this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.xDeviceSelect.disabled = false;
       this.yDeviceSelect.disabled = false;
+      
       
       this.xDeviceSelect.value = track.xyPad.xDevice;
       this.xDeviceSelected();
@@ -3382,7 +3417,7 @@
     }
     
     xDeviceSelected() {
-      this.track.xDevice = this.xDeviceSelect.value;
+      this.track.xyPad.xDevice = this.xDeviceSelect.value;
       if (!this.xDeviceSelect.value) {
         this.xParameterSelect.innerHTML = "";
         return;
@@ -3396,8 +3431,8 @@
     }
     
     xParameterSelected() {
-      console.log("Param selected ", this.xParameterSelect.value)
-      this.track.xParameter = this.xParameterSelect.value;
+      console.log("xParam selected ", this.xParameterSelect.value)
+      this.track.xyPad.xParameter = this.xParameterSelect.value;
       if (!this.xParameterSelect.value) {
         this.xParameterMetadata = null;
         this.position.x = this.center.x;
@@ -3411,7 +3446,7 @@
     }
     
     yDeviceSelected() {
-      this.track.yDevice = this.yDeviceSelect.value;
+      this.track.xyPad.yDevice = this.yDeviceSelect.value;
       if (!this.yDeviceSelect.value) {
         this.yParameterSelect.innerHTML = "";
         return;
@@ -3419,12 +3454,13 @@
       this.yParameterSelect.innerHTML = '<option>-Select parameter-</option>';
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.yDeviceName);
       deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${param.name}">${param.name}</option>`);
-      this.yParameterSelect.onchange = (e) => this.yParameterSelected(deviceNumberParameters);
+      this.yParameterSelect.onchange = (e) => this.yParameterSelected();
       this.yParameterSelect.disabled = false;
     }
     
     yParameterSelected() {
-      this.track.yParameter = this.yParameterSelect.value;
+      console.log("yParam selected ", this.yParameterSelect.value)
+      this.track.xyPad.yParameter = this.yParameterSelect.value;
       if (!this.yParameterSelect.value) {
         this.yParameterMetadata = null;
         this.position.y = this.center.y;
@@ -3448,6 +3484,8 @@
     }
     
     updatePosition(position) {
+      if (position == undefined) position = this.center;
+      
       position.x = helpers.clamp(position.x, 0, this.size.width);
       position.y = helpers.clamp(position.y, 0, this.size.height);
       this.position = position;
@@ -3500,18 +3538,25 @@
     }
     
     updateDeviceParameter(audioDevice, parameterName, value) {
-      if (audioDevice[parameterName].name) {
-        audioDevice[parameterName].cancelScheduledValues(Tone.now());
-        audioDevice[parameterName].setValueAtTime(value, Constants.TONE_PARAM_SCHEDULEAHEAD);
+      let parts = parameterName.split(".");
+      let context = audioDevice;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        context = context[parts[partIndex]];
+      }
+      parameterName = parts[parts.length - 1];
+      if (context[parameterName].name) {
+        context[parameterName].cancelScheduledValues(Tone.now());
+        context[parameterName].setValueAtTime(value, Constants.TONE_PARAM_SCHEDULEAHEAD);
        // audioDevice[parameterName].value = value;
       }
       else
-        audioDevice[parameterName] = value;
+        context[parameterName] = value;
     }
   }
   
   // ===== Init =====
   function layoutAll() {
+  //  console.log("layout all")
     av.layout();
     ev.layout();
     keysCtx = sizeCanvas(dom.edKeysCanvas, dom.edKeysWrap.clientWidth, dom.edKeysWrap.clientHeight);
@@ -3539,7 +3584,7 @@
   var stateHelper = new StateHelper(projectState, helpers);
   var metadataManager = new MetadataManager();
   var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
-  var bottomPanelManager = new BottomPanelManager(helpers);
+  var bottomPanelManager = new BottomPanelManager(helpers, projectState);
   var mixer = new Mixer(audio, projectState);
   var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
   var clipManager = new ClipManager(projectState, audio, bottomPanelManager, ed);
