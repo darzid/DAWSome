@@ -2426,6 +2426,8 @@
       
       this._xyPad = new XypadPanel(this.xypadPanel, this.helpers);
       this.xypadPanel.style.display = "none";
+      
+      document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
     }
 
     showPanel(panelId) {
@@ -3433,6 +3435,7 @@
     xParameterSelected() {
       console.log("xParam selected ", this.xParameterSelect.value)
       this.track.xyPad.xParameter = this.xParameterSelect.value;
+      console.log("projectstate", this.track.xyPad.xParameter, projectState.tracks)
       if (!this.xParameterSelect.value) {
         this.xParameterMetadata = null;
         this.position.x = this.center.x;
