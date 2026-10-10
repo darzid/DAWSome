@@ -107,7 +107,7 @@
     play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), songLoopLength: $("songLenInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
     importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
-    loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
+    newBtn: $("newBtn"), loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
     trackHeadersWrap: $("trackHeadersWrap"), trackHeaders: $("trackHeaders"),
     clipTitle: $("clipTitle"), len: $("lenInput"), loopClip: $("loopClipBtn"), end: $("endInput"), gridSelect: $("gridSelect"), triplet: $("tripletBtn"),
     snap: $("snapBtn"), gridReadout: $("gridReadout"), draw: $("drawBtn"), clear: $("clearBtn"), accent: $("accentBtn"), slide: $("slideBtn"),
@@ -615,6 +615,7 @@
       addReturnChannel: (send) => {
         const channel = new Tone.Channel(send.volume);
         channel.receive(send.name);
+        console.log("Send fx", send)
         const effectNode = makeToneNode(send.sendEffect);
         const chain = {
           name: send.name,
@@ -939,6 +940,7 @@
       const y = row * rh - sy + 2, h = rh - 5;
       const w = Math.max(2, x1 - x0 - 1);
       const track = stateHelper.trackById(clip.trackId);
+      //console.log("track " + clip.trackId, track, projectState)
       const selected = clip.id === projectState.selectedClipId;
       c.fillStyle = track.color;
       c.globalAlpha = track.mute ? 0.45 : 1;
@@ -1635,30 +1637,55 @@
     return parsed.tracks.length;
   }
 
+  function clearProject() {
+    clipManager.clearAll();
+    trackManager.clearAll();
+    mixer.clearAll();
+    updateManager.arrangementChanged();
+    updateManager.editorClipChanged();
+    
+  }
   function loadProject(projectData, fileName) {
     console.log("loadProject " + fileName, projectData)
+    clearProject();
+    projectState = projectData;
+
+    document.dispatchEvent(new CustomEvent("ProjectLoaded", { detail: { projectState: projectState }}));
     const startBeat = helpers.snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
-    for (const t of projectData.tracks) {
-      let track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, t.devices[0]);
-      console.log("added track");
+    
+    projectData.sends.forEach(send => {
+      console.log("loading send", send)
+      audio.addReturnChannel(send);
+      mixer.addReturnFader(send);
+    });
+    
+    for (const ts of projectData.tracks) {
+      let track = trackManager.loadTrack(ts);
+      console.log("loadProject - added track", track);
 
-      let clips = projectData.clips.filter(c => c.trackId == t.id);
+      let clips = projectState.clips.filter(c => c.trackId == ts.id);
       clips.forEach(c => {
-        console.log("adding clip", c)
+        console.log("loadProject - adding clip", c)
+        audio.rebuildClipPart(c);
+        /*
         const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
         const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), c.notes, c.end);
-        console.log("added clip")
-        first = first ?? clip;
+        console.log("loadProject -added clip")
+        first = first ?? clip;*/
       })
     }
 
-    console.log("loadProject parsed " + fileName, projectData)
-    projectState = projectData;
+    
+      
+    console.log("loadProject - parsed " + fileName, projectData)
+    
+
     if (first) clipManager.selectClip(first);
+    
     updateManager.arrangementChanged();
     updateManager.editorClipChanged();
-    console.log("loaded project", projectState.tracks.length)
+    console.log("loadProject - finished", projectState.tracks.length)
     return projectData.tracks.length;
   }
 
@@ -1698,6 +1725,7 @@
       dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
     }
   });
+  dom.newBtn.addEventListener("click", () => clearProject());
   dom.loadBtn.addEventListener("click", () => dom.projectFile.click());
   dom.projectFile.addEventListener("change", async () => {
     const file = dom.projectFile.files[0];
@@ -1825,7 +1853,10 @@
     dom.gridReadout.textContent = editorGrid().label;
     ev.requestRender();
   });
+  
+  console.log("loopClip", dom.loopClip)
   dom.loopClip.addEventListener("click", () => {
+    
     const clip = stateHelper.currentClip();
     if (!clip) return;
     dom.loopClip.classList.toggle("on");
@@ -1989,6 +2020,8 @@
       this.playing = false;
       this.playheadBeat = 0;
       
+      document.addEventListener("ProjectLoaded", (e) => this._state = e.detail.projectState);
+      
       this.addFloatValidation("masterVolume", -500, 10);
       this.addIntValidation("bpm", 20, 300);
       this.addIntValidation("loopLength", 1, 256);
@@ -2145,9 +2178,15 @@
     constructor(projectState, helpers) {
       this.projectState = projectState;
       this.helpers = helpers;
+      document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
     }
     
-    trackById(id) { return this.projectState.tracks.find((t) => t.id === id); }
+    trackById(id) { let track = this.projectState.tracks.find((t) => t.id === id);
+      if (!track) 
+        alert("Track " + id + " not found");
+      else
+        return track;
+    }
     clipById(id) { return this.projectState.clips.find((c) => c.id === id); }
     currentClip() { return this.clipById(this.projectState.selectedClipId) ?? null; }
     songEndBeats() {
@@ -2959,10 +2998,14 @@
       this.bottomPanelManager = bottomPanelManager;
       this.mixer = mixer;
       
+      document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
       document.addEventListener("SelectTrack", (e) => this.selectTrackById(e.detail.trackId));
       document.addEventListener("SendChanged", (e) => this.updateTrackSends(e.detail.trackId));
     }
     
+    clearAll() {
+      this.projectState.tracks.forEach(track => this.removeTrack(track.id));
+    }
     deselectTrack() {
       if (!this.projectState.selectedTrackId) {
         return;
@@ -3004,7 +3047,19 @@
       this.mixer.addReturnFader(send);
     }
     
-    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false, sends = [], xyPad = null) {
+    loadTrack(track) {
+      console.log("loadTrack", track);
+      this.audio.addTrackChain(track);
+      this.selectTrack(track);
+      this.mixer.addTrackFader(track);
+      /*return this.addTrack(
+        trackState.name, 
+        trackState.devices[0], 
+        trackState.effects, 
+        trackState.modulators, 
+        trackState.volume, trackState.mute, trackState.sends, trackState.xyPad, trackState.color);*/
+    }
+    addTrack(name, instrument, effects, modulators = null, volume = 0, mute = false, sends = [], xyPad = null, id = null, color = null) {
       if (!effects) effects = []
       if (!modulators) modulators = [];
       if (!xyPad) {
@@ -3013,7 +3068,7 @@
           yDevice: "", yParameter: ""
         }
       }
-     // console.log("addTrack " + name)
+      console.log("addTrack " + name)
       let devices = [];
       instrument.presetName = "Default";
       devices.push(instrument);
@@ -3026,9 +3081,9 @@
       modulators.forEach(modulator => devices.push(modulator.modulator));
       //console.log("add track model", devices)
       const track = {
-        id: this.projectState.nextId++,
+        id: id != null ? id : this.projectState.nextId++,
         name,
-        color: Constants.TRACK_COLORS[this.projectState.tracks.length % Constants.TRACK_COLORS.length],
+        color: color != null ? color : Constants.TRACK_COLORS[this.projectState.tracks.length % Constants.TRACK_COLORS.length],
         instrumentName: instrument.name,
         instrumentParameters: instrument.parameters,
         //device: instrument, 
@@ -3045,7 +3100,7 @@
         this.audio.addTrackChain(track);
         this.selectTrack(track);
         this.mixer.addTrackFader(track);
-        //console.log("added track model", track)
+        console.log("added track model", track)
       }
       catch (error) {
         console.error("error while adding track", error)
@@ -3077,7 +3132,12 @@
       this.bottomPanelManager = bottomPanelManager;
       this.ed = clipEditor;
       
+      document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
       document.addEventListener("RemoveClip", (e) => this.removeClip(e.detail.clipId));
+    }
+    
+    clearAll() {
+      this.projectState.clips.forEach(clip => this.removeClip(clip.id));
     }
     
     createClip(track, start, length, notes = [], end = null) {
@@ -3131,12 +3191,13 @@
       this.ev = editorView;
       this.dom = dom;
       this.renderTrackHeaders = renderTrackHeadersCallback;
-      
+      document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
       document.addEventListener("ClipChanged", (e) => this.editorClipChanged());
     }
     
       // Everything that must follow a change to clip placement, tracks, or loop length.
     arrangementChanged() {
+      console.log("arrangement changed, ", projectState)
       this.audio.setLoop(this.projectState.loop, stateHelper.songEndBeats());
       this.av.updateSpacer();
       this.renderTrackHeaders();
@@ -3250,7 +3311,7 @@
     set xParameterValue(value) { 
       if (!this.xDeviceState) return;
       this.xDeviceState.parameters[this.xParameterName] = value;
-      this.xParamValueOutput.innerText = value.toFixed;
+      this.xParamValueOutput.innerText = value.toFixed(2);
       if (this.xParameterValue == value) return;
       
       if (this.updateDelayInSecs > 0) {

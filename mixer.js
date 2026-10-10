@@ -19,6 +19,15 @@ class Mixer {
       this.addVuMeter(this._masterChannel, this._masterFaderContainer);
     }
     
+    clearAll() {
+      this.mixer.querySelectorAll(".channel-fader-container").forEach(fader => {
+        if (!fader.classList.contains("master")) this.mixer.removeChild(fader)
+      })
+      this.mixer.querySelectorAll(".vu-meter").forEach(meter => {
+        if (!meter.classList.contains("master")) this.mixer.removeChild(meter)
+      })
+      this._insertBefore = this._masterFaderContainer;
+    }
     addReturnFader(returnChannel) {
       let faderContainer = document.createElement("div");
       faderContainer.className = "channel-fader-container return faders";
@@ -251,6 +260,8 @@ class Mixer {
     addVuMeter(channel, faderContainer) {
       let faderMeterCanvas = document.createElement("canvas");
       faderMeterCanvas.className = "vu-meter";
+      if (faderContainer.classList.contains("master"))
+        faderMeterCanvas.classList.add("master");
       faderMeterCanvas.width = "5";
       faderMeterCanvas.height = "100";
       faderMeterCanvas.dataset.val = 400;
