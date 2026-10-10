@@ -3156,7 +3156,8 @@
     //  console.log("clip changed")
       const clip = stateHelper.currentClip();
       this.dom.clipTitle.textContent = clip ? `${clip.name} (${stateHelper.trackById(clip.trackId).name})` : "No clip selected";
-      this.dom.loopClip.classList.toggle("on", clip.loop);
+      
+      this.dom.loopClip.classList.toggle("on", clip ? clip.loop : false);
       this.dom.len.value = clip ? clip.length / Constants.BEATS_PER_BAR : 1;
       this.dom.end.value = clip ? clip.end : 1;
       this.dom.len.disabled = !clip;
