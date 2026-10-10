@@ -2262,10 +2262,26 @@
     toShortDeviceName: (deviceName) => {
       let parts = deviceName.split(".");
       return parts[parts.length - 1];
+    },
+    getDeviceParameter: (device, parameterPath) => {
+      let parts = parameterPath.split(".");
+      let name = parts[parts.length - 1];
+      
+      let parameterContext = device;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        parameterContext = parameterContext[parts[partIndex]];
+      }
+      let parameter = parameterContext[name];
+      return parameter;
+    },
+    updateDeviceParameter: (device, parameterPath, value) => {
+      let parameter = helpers.getDeviceParameter(device, parameterPath);
+      if (parameter.name)
+        parameter.value = value;
+      else
+        parameter = value;
     }
   }
-  
-  
   
   class StateHelper {
     constructor(projectState, helpers) {
@@ -2339,6 +2355,10 @@
       return this.deviceParameters[deviceName];
     }
     
+    getEffectNames() {
+      return Object.entries(this.metadata.devices).filter(entry => entry[1].type == "Effect").map(entry => entry[0]);
+    }
+    
     getDeviceNumberParameters(deviceName) {
       //console.log("getDeviceNumberParameters for " + deviceName)
       let deviceMetadata = this.getDeviceMetadata(deviceName);
@@ -2348,6 +2368,18 @@
         if (item[1].type == "Number") results.push({ name: item[0], metadata: item[1].metadata}) });
         
       //console.log("number params ", results);
+      return results;
+    }
+    
+    getDeviceValueParameters(deviceName) {
+      //console.log("getDeviceValueParameters for " + deviceName)
+      let deviceMetadata = this.getDeviceMetadata(deviceName);
+      
+      let results = [];
+      Object.entries(deviceMetadata).forEach(item => {
+        if (item[1].type == "Number" || item[1].type == "Option") results.push({ name: item[0], type: item[1].type, metadata: item[1].metadata}) });
+        
+      console.log("value params ", results);
       return results;
     }
     
@@ -2457,7 +2489,185 @@
           });
         }
       }
+  
+  class DeviceParametersView {
+    device;
+    valueParametersMetadata;
+    constructor(parametersPanel) {
+      this.parametersPanel = parametersPanel;
+    }
+    
+    renderDevice(device) {
+      this.device = device;
+      this.refresh();
+    }
+    
+    refresh() {
+      this.parametersPanel.innerHTML = "";
+      if (!this.device) {
+        return;
+      }
+      this.valueParametersMetadata = metadataManager.getDeviceValueParameters(this.device.name);
+      this.valueParametersMetadata.forEach(parameterMetadata => this.renderParameter(parameterMetadata));
+    }
+    
+    renderParameter(parameterMetadata) {
+      let parts = parameterMetadata.name.split(".");
+      let shortName = parts[parts.length - 1];
+      let groupName = parts.length > 1 ? parameterMetadata.name.substring(0, parameterMetadata.name.length - (shortName.length + 1)) : "";
+          
+      let paramElement = document.createElement("div");
+      paramElement.className = "parameter";
+      paramElement.dataset.group = groupName;
+      if (groupName)
+        paramElement.classList.add("hidden");
+      this.parametersPanel.appendChild(paramElement);
       
+      let label = document.createElement("label");
+      let prefix = groupName ? "> " : "";
+      label.innerText = prefix + shortName; // parameterPath.replace(".", " ");
+      paramElement.appendChild(label);
+      
+      let parameter = helpers.getDeviceParameter(this.device, parameterMetadata.name);
+      
+      let valueGroup = document.createElement("div");
+      valueGroup.className = "value-group";
+      paramElement.appendChild(valueGroup);
+  
+      if (parameterMetadata.type == "Number")
+        this.renderNumberParameter(parameterMetadata, parameter, valueGroup);
+      else
+        this.renderOptionParameter(parameterMetadata, parameter, valueGroup);
+        
+      this.renderUnitLabel(parameterMetadata, valueGroup);
+    }
+              
+    renderNumberParameter(parameterMetadata, parameter, valueGroup) {
+      console.log("renderNumberParameter", parameter)
+      let input = document.createElement("number-input");
+      input.readOnly = true;
+      valueGroup.appendChild(input);
+      input.dataset.parameter = parameterMetadata.name;
+      input.min = parameterMetadata.metadata.min;
+      input.max = parameterMetadata.metadata.max;
+      input.step = parameterMetadata.metadata.step;
+      input.value = parameter.name ? parameter.value : parameter;
+      input.fill = "#d29524";
+      input.focusFill = "#f2b544";
+      input.oninput = () => {
+        if (parameter.name)
+          parameter.value = input.value;
+        else
+          parameter = input.value;
+      }
+    }
+    
+    renderOptionParameter(parameterMetadata, parameter, valueGroup) {
+      let select = document.createElement("select");
+      let optionsHtml = "";
+      console.log("renderOptionParameter", parameterMetadata.metadata.values)
+      parameterMetadata.metadata.values.forEach(value => {
+        let option = document.createElement("option");
+        option.value = value;
+        option.innerText = value;
+        if (parameter == value) {
+          option.selected = "selected";
+        }
+        select.appendChild(option);
+      });
+      valueGroup.appendChild(select);
+      
+      select.oninput = () => {
+        if (parameter.name)
+          parameter.value = select.value;
+        else
+          parameter = select.value;
+      };
+    }
+  
+    renderUnitLabel(parameterMetadata, valueGroup) {
+      let unitLabel = document.createElement("label");
+      unitLabel.className = "unit";
+      valueGroup.appendChild(unitLabel);
+      if (parameterMetadata.unit)
+        unitLabel.innerText = parameterMetadata.unit;
+    }
+  }
+  
+  class EffectsView {
+    constructor(panel) {
+      this.panel = panel;
+      this.header = panel.querySelector(".header");
+      this.content = panel.querySelector(".content");
+      this.prevBtn = panel.querySelector(".prev");
+      this.nextBtn = panel.querySelector(".next");
+      this.devicePicker = panel.querySelector(".devicePicker");
+      this.devicePicker.addEventListener("change", () => this.devicePicked());
+      this.devicePresetPicker = panel.querySelector(".devicePresetPicker");
+      this.devicePresetPicker.addEventListener("change", () => this.devicePresetPicked());
+      this.parameterView = new DeviceParametersView(this.content);
+      
+      this.canAddNewDevice = true;
+      this.devices = [];
+      this.devicePickerList = [];
+      this.devicePresetPickerList = [];
+      this.deviceOptionPickerCallback = null;
+      this.pageIndex = -1;
+      this.currentDevice;
+    }
+    
+    get lastPageIndex() { return this.canAddNewDevice ? this.devices.length : this.devices.length - 1; }
+    get nextPageAvailable() { return this.pageIndex < this.lastPageIndex; }
+    get previousPageAvailable() { return this.pageIndex > 0; }
+    get currentDevice() { return this.devices[this.pageIndex]; }
+    
+    init(devices) {
+      this.devices = devices;
+      this.devicePickerList = metadataManager.getEffectNames();
+      this.devicePresetPickerList = effectPresets;
+      this.pageIndex = 0;
+    }
+    
+    render() {
+      console.log("EffectsView.render", this.devicePickerList)
+      let devicePickerOptionsHtml = this.devicePickerList.map((deviceName) => `<option value="${deviceName}">${deviceName}</option>`).join("");
+      this.devicePicker.innerHTML = "<option value=''>-Device-</option>";
+      this.devicePicker.innerHTML += devicePickerOptionsHtml;
+      if (this.currentDevice) {
+        this.devicePicker.value = this.currentDevice.name;
+        this.devicePicked()
+      }
+      this.parameterView.renderDevice(this.currentDevice);
+    }
+    
+    devicePicked() {
+      let deviceName = this.devicePicker.value;
+      if (!deviceName) {
+        this.devicePresetPicker.innerHTML = "";
+        return;
+      }
+      console.log("EffectsView.devicePicked", this.devicePicker.value, this.devicePresetPickerList[deviceName])
+      let devicePresetPickerOptionsHtml = Object.keys(this.devicePresetPickerList[deviceName]).map((presetName) => `<option value="${presetName}">${presetName}</option>`).join("");
+      this.devicePresetPicker.innerHTML = "<option value=''>-Preset-</option>";
+      this.devicePresetPicker.innerHTML += devicePresetPickerOptionsHtml;
+    }
+    
+    devicePresetPicked() {
+      let presetName = this.devicePresetPicker.value;
+      if (!presetName) {
+        return;
+      }
+      
+      let preset = this.devicePresetPickerList[this.currentDevice.name][presetName];
+      Object.keys(preset).forEach(parameterName => {
+        let value = preset[parameterName];
+        helpers.updateDeviceParameter(this.currentDevice, parameterName, value);
+        //this.parameterView.updateParameter(parameterName, value);
+      });
+      this.parameterView.refresh();
+    }
+  }
+  
   class BottomPanelManager {
     panels;
     panelButtons = [];
@@ -2491,6 +2701,7 @@
       this.editor = document.querySelector(".editor");
       this.instrumentPanel = document.querySelector(".instrument-panel");
       this.effectsPanel = document.querySelector(".effects-panel");
+      this.fxPanel = document.querySelector(".fx-panel");
       this.modulationPanel = document.querySelector(".modulation-panel");
       this.xypadPanel = document.querySelector(".xypad-panel");
       this.mixerPanel = document.querySelector(".mixer");
@@ -2498,8 +2709,11 @@
       this._xyPad = new XypadPanel(this.xypadPanel, this.helpers);
       this.xypadPanel.style.display = "none";
       
+      this.fxView = new EffectsView(this.fxPanel);
+      
       document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
       document.addEventListener("ClipChanged", (e) => this.setButtonStates());
+      document.addEventListener("SelectTrack", (e) => this.setButtonStates());
       this.setButtonStates();
     }
 
@@ -2518,18 +2732,20 @@
       this.panelButtons.forEach(panelButton => {
         switch (panelButton.dataset.panelId) {
           case "clipeditor-panel":
-            panelButton.disabled = (!this.projectState.selectedClipId);
-            
+            panelButton.disabled = (this.projectState.selectedClipId == null);
             break;
           case "instrument-panel": 
           case "effects-panel": 
+          case "fx-panel":
           case "modulation-panel":
           case "xypad-panel": 
-            panelButton.disabled = (!this.projectState.selectedTrackId);
+            panelButton.disabled = (this.projectState.selectedTrackId == null);
             break;
         }
-        if (panelButton.classList.contains("on") && panelButton.disabled)
+        if (panelButton.classList.contains("on") && panelButton.disabled) {
           this.hidePanel(panelButton.dataset.panelId);
+          console.log("setButtonStates: hidden disabled panel " + panelButton.dataset.panelId, this.projectState.selectedTrackId)
+        }
       });
     }
     
@@ -2543,6 +2759,9 @@
           return;
         case "effects-panel": 
           this.renderEffectsPanel(panel);
+          return;
+        case "fx-panel":
+          this.renderFxPanel(panel);
           return;
         case "modulation-panel":
           this.renderModulationPanel(panel);
@@ -2584,10 +2803,23 @@
       let trackEffects = audio.getTrackEffects(track);
 
       panel.innerHTML = "";
-      trackEffects.forEach(fx => this.renderDevice(panel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect"));
-      this.renderDevice(panel, track, { name: "" }, trackEffects.length, effectNames, effectPresets, "Effect");
+      trackEffects.forEach(fx => this.renderDevice(panel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect", trackEffects.indexOf(fx)));
+     // this.renderDevice(panel, track, { name: "" }, 1, effectNames, effectPresets, "Effect");
     }
 
+    renderFxPanel(panel) {
+      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
+      if (!track) {
+        console.log("no track fx")
+        panel.style.display = "none";
+        return;
+      }
+
+      let trackEffects = audio.getTrackEffects(track);
+      this.fxView.init(trackEffects);
+      this.fxView.render();
+    }
+    
     renderModulationPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
@@ -2622,7 +2854,7 @@
       this._xyPad.init(track);
     }
     
-    renderDevice(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument") {
+    renderDevice(parentPanel, track, trackDeviceNode, deviceIndex, deviceNames, devicePresets, panelType = "Instrument", pageNumber = 0) {
       let devicePanel = document.createElement("div");
       devicePanel.className = "device";
       devicePanel.dataset.trackid = track.id;
@@ -2650,17 +2882,40 @@
       }
 
       let parametersPanel = devicePanel.querySelector(".device-parameters");
+      
       let prevBtn = devicePanel.querySelector(".prev");
       let nextBtn = devicePanel.querySelector(".next");
-      let lastEffectIndex = track.effects.length + 1;
+      
+      let lastEffectIndex = track.effects.length - 1;
+      
+      const updateButtonStates = (pageNumber) => {
+      
+        prevBtn.disabled = pageNumber == 0 ? "disabled" : "";
+        //prevBtn.disabled = false;
+        nextBtn.disabled = pageNumber === lastEffectIndex + 1 ? "disabled" : "";
+        console.log("updateButtonStates " + deviceIndex, prevBtn.disabled, nextBtn.disabled);
+      }
+      
       if (isMultiDevicePanel) {
         prevBtn.style.display = "inline";
         nextBtn.style.display = "inline";
-        prevBtn.disabled = deviceIndex == 1 ? "disabled" : "";
-
-        nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
-        prevBtn.onclick = (e) => devicePanel.previousElementSibling.scrollIntoView();
-        nextBtn.onclick = (e) => devicePanel.nextElementSibling.scrollIntoView();
+        updateButtonStates(pageNumber);
+        prevBtn.onclick = (e) => {
+          parametersPanel.previousSibling.scrollIntoView();
+          deviceIndex--;
+          pageNumber--;
+          updateButtonStates(pageNumber);
+        }
+        nextBtn.onclick = (e) => {
+          devicePanel.style.marginLeft = "-100px";
+          parametersPanel.style.background = "red";
+          //parametersPanel.style.marginLeft = "-200px";
+          deviceIndex++;
+          pageNumber++;
+          prevBtn.disabled = false;
+          updateButtonStates(pageNumber);
+          //alert("next clicked")
+        }
       }
       else {
         prevBtn.style.display = "none";
@@ -2707,7 +2962,8 @@
               console.log("added effect", trackDeviceNode)
               fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
 
-              nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
+              updateButtonStates(deviceIndex);
+              //nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
               renderDeviceParameters();
               renderDevice(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, effectNames, effectPresets, "Effect");
             }
@@ -2972,7 +3228,8 @@
         console.log("renderDeviceLists")
         if (deviceIndex < track.devices.length) {
           let trackDeviceListsState = track.devices[deviceIndex].lists;
-          let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
+          let trackDeviceMetadata = deviceList.devices[track.devices[deviceIndex].name];
+          if (!trackDeviceMetadata) console.error("Metadata not found for " + trackDeviceNode.name)
           if (trackDeviceMetadata.lists) {
             console.log("create device lists html", track, trackDeviceNode, trackDeviceListsState, trackDeviceMetadata);
           
@@ -3120,27 +3377,33 @@
     clearAll() {
       this.projectState.tracks.forEach(track => this.removeTrack(track.id));
     }
+    
     deselectTrack() {
       if (!this.projectState.selectedTrackId) {
         return;
       }
-      let trackElement = document.querySelector(`.track[data-id="${projectState.selectedTrackId}"]`);
-      if (trackElement) {
-        trackElement.classList.remove("selected");
-      }
-      this.projectState.selectedTrackId = null;
+      this.deselectTrackById(this.projectState.selectedTrackId);
       clipManager.deselectClip();
-      this.projectState.selectedClipId = null;
-  
-     // console.log("track cleared")
+      //this.projectState.selectedClipId = null;
+      this.projectState.selectedTrackId = null;
       this.bottomPanelManager.refreshActivePanel();
     }
   
+    deselectTrackById(trackId) {
+      let trackElement = document.querySelector(`.track[data-id="${trackId}"]`);
+      if (trackElement) {
+        trackElement.classList.remove("selected");
+      }
+      clipManager.deselectClip();
+      this.bottomPanelManager.refreshActivePanel();
+    }
+    
     selectTrackById(trackId) {
       if (trackId === this.projectState.selectedTrackId) {
         return;
       }
-      this.deselectTrack();
+      if (this.projectState.selectedTrackId)
+        this.deselectTrackById(this.projectState.selectedTrackId);
       this.projectState.selectedTrackId = trackId;
   
       let trackElement = document.querySelector(`.track[data-id="${projectState.selectedTrackId}"]`);
