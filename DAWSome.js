@@ -541,6 +541,7 @@
       this.playing = false;
       this.playheadBeat = 0;
       
+      document.addEventListener("ProjectCleared", (e) => this._state = e.detail.projectState);
       document.addEventListener("ProjectLoaded", (e) => this._state = e.detail.projectState);
       
       this.addFloatValidation("masterVolume", -500, 10);
@@ -1932,6 +1933,7 @@
     mixer.clearAll();
     updateManager.arrangementChanged();
     updateManager.editorClipChanged();
+    document.dispatchEvent(new CustomEvent("ProjectCleared", { detail: { projectState: projectState }}));
   }
   
   function loadProject(projectData, fileName) {
@@ -1957,19 +1959,11 @@
       clips.forEach(c => {
         console.log("loadProject - adding clip", c)
         audio.rebuildClipPart(c);
-        /*
-        const lastEnd = c.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-        const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), c.notes, c.end);
-        console.log("loadProject -added clip")
-        first = first ?? clip;*/
       })
     }
 
-    
-      
     console.log("loadProject - parsed " + fileName, projectData)
     
-
     if (first) clipManager.selectClip(first);
     
     updateManager.arrangementChanged();
