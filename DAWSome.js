@@ -2393,13 +2393,7 @@
       this.bottomPanel = document.getElementById("bottom-panel");
       this.panels = this.bottomPanel.querySelectorAll(".panel");
       this.tabStrip = this.bottomPanel.querySelector(".tab-strip");
-      
-      this.panelRenderMethods = {
-        "instrument-panel": this.renderInstrumentPanel,
-        "effects-panel": this.renderEffectsPanel,
-        "modulation-panel": this.renderModulationPanel,
-        "xypad-panel": this.renderXypadPanel
-      }
+    
       this.panels.forEach(panel => {
         const panelButton = document.createElement("button");
         panelButton.dataset.panelId = panel.id;
@@ -2428,6 +2422,8 @@
       this.xypadPanel.style.display = "none";
       
       document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
+      document.addEventListener("ClipChanged", (e) => this.setButtonStates());
+      this.setButtonStates();
     }
 
     showPanel(panelId) {
@@ -2441,7 +2437,27 @@
       this.panelButtons.find(panelButton => panelButton.dataset.panelId == panelId).classList.remove("on");
     }
     
+    setButtonStates() {
+      this.panelButtons.forEach(panelButton => {
+        switch (panelButton.dataset.panelId) {
+          case "clipeditor-panel":
+            panelButton.disabled = (!this.projectState.selectedClipId);
+            
+            break;
+          case "instrument-panel": 
+          case "effects-panel": 
+          case "modulation-panel":
+          case "xypad-panel": 
+            panelButton.disabled = (!this.projectState.selectedTrackId);
+            break;
+        }
+        if (panelButton.classList.contains("on") && panelButton.disabled)
+          this.hidePanel(panelButton.dataset.panelId);
+      });
+    }
+    
     renderPanel(panelId) {
+      this.setButtonStates();
       const panel = document.getElementById(panelId);
       panel.style.display = "flex";
       switch (panelId) {
@@ -2462,6 +2478,7 @@
     
     refreshActivePanel() {
       console.log("refresh active panel")
+      this.setButtonStates();
       const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
       if (!activeButton) return;
       this.renderPanel(activeButton.dataset.panelId);
