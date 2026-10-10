@@ -61,10 +61,33 @@
     </div>
   </div>
 
-  <div class="bottom-panel">
+  <div id="bottom-panel" class="bottom-panel">
     <div id="hint" class="hint"></div>
     
-    <div class="editor panel">
+    <div id="mixer-panel" title="Mixer" class="mixer faders panel"></div>
+    <div id="instrument-panel" title="Instrument" class="instrument-panel panel"></div>
+    <div id="effects-panel" title="Effects" class="effects-panel panel"></div>
+    <div id="xypad-panel" title="XY pad" class="xypad-panel panel" style="flex-direction: column">
+      <div style="flex-direction: row">
+        <label>X-axis:
+          <select name="x-device-select"></select>
+          <select name="x-parameter-select"></select>
+        </label>
+      </div>
+      <output name="x-param-value"></output>
+      <div style="flex-direction: row;">
+        <canvas></canvas>
+        <output name="y-param-value"></output>
+      </div>
+      <div style="flex-direction: row; ">
+        <label>Y-axis:
+          <select name="y-device-select"></select>
+          <select name="y-parameter-select"></select>
+        </label>
+      </div>
+    </div>
+    <div id="modulation-panel" title="LFO" class="modulation-panel panel"></div>
+    <div id="clipeditor-panel" title="Clip" class="editor panel">
       <div class="toolbar">
         <div class="group"><span id="clipTitle" class="title">No clip selected</span>
           <label>Len <input id="lenInput" type="number" min="0.25" max="256" step="0.25" value="1"> bars</label>
@@ -112,38 +135,8 @@
         </div>
       </div>
     </div>
-    
-    <div class="instrument-panel panel"></div>
-    <div class="effects-panel panel"></div>
-    <div class="modulation-panel panel"></div>
-    <div class="xypad-panel panel" style="flex-direction: column">
-      <div style="flex-direction: row">
-        <label>X-axis:
-          <select name="x-device-select"></select>
-          <select name="x-parameter-select"></select>
-        </label>
-      </div>
-      <output name="x-param-value"></output>
-      <div style="flex-direction: row; flex: 1">
-        <canvas></canvas>
-        <output name="y-param-value"></output>
-      </div>
-      <div style="flex-direction: row; ">
-        <label>Y-axis:
-          <select name="y-device-select"></select>
-          <select name="y-parameter-select"></select>
-        </label>
-      </div>
-    </div>
-    <div class="mixer faders panel"></div>
-
+  
     <div class="tab-strip">
-      <button id="clip-editor-tab-button" class="btn">Clip</button>
-      <button id="instrument-panel-tab-button" class="btn">Instrument</button>
-      <button id="effects-panel-tab-button" class="btn">Effects</button>
-      <button id="modulation-panel-tab-button" class="btn">Modulation</button>
-      <button id="xypad-panel-tab-button" class="btn">XY pad</button>
-      <button id="mixer-tab-button" class="btn">Mixer</button>
     </div>
   </div>
 </div>
@@ -152,8 +145,6 @@
 <script src="vu-meter.js"></script>
 <script src="presetbrowser.js"></script>
 <script src="mixer.js"></script>
-<!--<script src="devices/DAWSome.Tb303.js" type="module"></script>-->
 <script src="DAWSome.js" type="module"></script>
- <!-- <script src="config.js"></script>-->
 </body>
 </html>
