@@ -721,6 +721,7 @@
       removeTrackChain: (trackId) => {
         const ch = chain(trackId);
         if (!ch) return;
+        console.log("remove track insteument", ch.instrument);
         ch.instrument.dispose();
         ch.channel.dispose();
         chains.delete(trackId);
@@ -3897,6 +3898,10 @@
       this._monoSynth.triggerAttackRelease(note, duration, time, velocity);
     }
     
+    dispose() {
+      this._monoSynth.dispose();
+      this._distortion.dispose();
+    }
     _prepareNote(time, velocity, slide) {
       if (velocity == Constants.ACCENT_VELOCITY) {
        // console.log("Accent")
