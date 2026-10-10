@@ -628,7 +628,7 @@
       },
       getReturnChannel: (send) => { return returnChannels(send.id) },
       getReturnChannels: (send) => { return returnChannels },
-      addTrack: (track) => {
+      addTrackChain: (track) => {
         //console.log("adding track")
         const channel = new Tone.Channel(track.volume).connect(masterChannel);
         channel.mute = track.mute;
@@ -652,7 +652,7 @@
         connectModulators(ch, track);
         //console.log("added track", chain(track.id));
       },
-      updateTrack: (track) => {
+      updateTrackChain: (track) => {
         console.log("updating track")
         const ch = chain(track.id);
         if (ch.instrumentName !== track.instrumentName || ch.instrumentParameters !== track.instrumentParameters) {
@@ -718,22 +718,21 @@
         }
         return ch.modulators;
       },
-      removeTrack: (trackId) => {
+      removeTrackChain: (trackId) => {
         const ch = chain(trackId);
         if (!ch) return;
         ch.instrument.dispose();
         ch.channel.dispose();
         chains.delete(trackId);
       },
-      rebuildClip: (clip) => {
-
+      rebuildClipPart: (clip) => {
         try {
           const old = parts.get(clip.id);
           if (old) old.dispose();
 
           const ch = chain(clip.trackId);
           if (!ch) throw "No chain found for track " + clip.trackId;
-          //console.log("rebuildClip, create events", clip)
+          //console.log("rebuildClipPart, create events", clip)
           const events = clip.notes
             .filter((n) => n.start < clip.length - Constants.EPS)
             .map((n) => ({
@@ -768,7 +767,7 @@
           console.error("rebuild clip", error)
         }
       },
-      removeClip: (clipId) => {
+      removeClipPart: (clipId) => {
         const part = parts.get(clipId);
         if (!part) return;
         part.dispose();
@@ -806,7 +805,7 @@
 
   const audio = createAudio() ?? {
     available: false, unlock: () => Promise.resolve(),
-    setBpm() { }, setLoop() { }, addTrack() { }, updateTrack() { }, removeTrack() { }, rebuildClip() { }, removeClip() { },
+    setBpm() { }, setLoop() { }, addTrackChain() { }, updateTrackChain() { }, removeTrackChain() { }, rebuildClipPart() { }, removeClipPart() { },
     async play() { }, stop() { }, seek() { }, positionBeat: () => 0, keyOn() { }, keyOff() { }, preview() { },
   };
 
@@ -1052,7 +1051,7 @@
     trackManager.selectTrack(track);
     if (e.target.classList.contains("mute")) {
       track.mute = !track.mute;
-      audio.updateTrack(track);
+      audio.updateTrackChain(track);
       document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute } }));
     } else if (e.target.classList.contains("del")) {
       trackManager.removeTrack(track.id);
@@ -1159,7 +1158,7 @@
     const d = aDrag;
     aDrag = null;
     if (d.moved) {
-      audio.rebuildClip(d.clip);
+      audio.rebuildClipPart(d.clip);
       updateManager.arrangementChanged();
       updateManager.editorClipChanged();
     }
@@ -1315,7 +1314,7 @@
 
   function addNoteAt(clip, beat, pitch) {
     const step = editorStep();
-    const start = Math.max(0, ed.snap ? snapFloor(beat, step) : beat);
+    const start = Math.max(0, ed.snap ? helpers.snapFloor(beat, step) : beat);
     if (noteAt(clip, start + Constants.EPS, pitch)) return null;
     let duration = step ?? ed.lastDuration;
     for (const o of clip.notes) {
@@ -1804,7 +1803,7 @@
     if (!clip) return;
     clip.length = helpers.clamp(Number(dom.len.value) || clip.length / Constants.BEATS_PER_BAR, 0.25, 256) * Constants.BEATS_PER_BAR;
     dom.len.value = clip.length / Constants.BEATS_PER_BAR;
-    audio.rebuildClip(clip);
+    audio.rebuildClipPart(clip);
     updateManager.arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
@@ -1813,7 +1812,7 @@
     const clip = stateHelper.currentClip();
     if (!clip) return;
     clip.end = parseInt(dom.end.value);
-    audio.rebuildClip(clip);
+    audio.rebuildClipPart(clip);
     updateManager.arrangementChanged();
     ev.updateSpacer();
     ev.requestRender();
@@ -2087,7 +2086,7 @@
       const clip = new Clip(this._projectState, clipState);
       //this.projectState.clips.push(clip);
       this._projectState.clips.push(clip);
-      audio.rebuildClip(clip);
+      audio.rebuildClipPart(clip);
       
       return clip;
     }
@@ -2532,7 +2531,7 @@
           if (isInstrument) {
             track.instrumentName = e.target.value;
             console.log("Selected instrument " + track.instrumentName)
-            audio.updateTrack(track);
+            audio.updateTrackChain(track);
             console.log("Yrack updated for Selected instrument " + track.instrumentName)
             track.devices[0].presetName = "default";
             console.log("Preset set for Selected instrument " + track.instrumentName)
@@ -2547,7 +2546,7 @@
               let newFx = { name: e.target.value, parameters: {} };
               track.effects.push(newFx);
               track.devices.push(newFx);
-              audio.updateTrack(track);
+              audio.updateTrackChain(track);
               console.log("updated track with new effect " + e.target.value);
               let effects = audio.getTrackEffects(track);
               trackDeviceNode = effects[effects.length - 1];
@@ -2566,7 +2565,7 @@
           renderDeviceParameters();
           renderDeviceLists();
           document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: track.id, instrumentName: e.target.value } }));
-          audio.updateTrack(track);
+          audio.updateTrackChain(track);
         };
 
         instrumentPresetSelect.oninput = (e) => {
@@ -2576,7 +2575,7 @@
           }
 
           console.log("Preset selected " + e.target.value, track.instrumentParameters)
-          audio.updateTrack(track);
+          audio.updateTrackChain(track);
           renderDeviceParameters();
           document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
         };
@@ -3042,7 +3041,7 @@
       };
       try {
         this.projectState.tracks.push(track);
-        this.audio.addTrack(track);
+        this.audio.addTrackChain(track);
         this.selectTrack(track);
         this.mixer.addTrackFader(track);
         //console.log("added track model", track)
@@ -3055,7 +3054,7 @@
   
     updateTrackSends(trackId) {
       const track = trackById(trackId);
-      this.audio.updateTrack(track);
+      this.audio.updateTrackChain(track);
       console.log("Sends updated for " + trackId)
     }
     
@@ -3063,7 +3062,7 @@
       for (const clip of this.projectState.clips.filter((c) => c.trackId === trackId))
         document.dispatchEvent(new CustomEvent("RemoveClip", { detail: { clipId: clip.id } }));
         
-      this.audio.removeTrack(trackId);
+      this.audio.removeTrackChain(trackId);
       this.mixer.removeTrackFader(this.projectState.tracks.find((t) => t.id == trackId));
       this.projectState.tracks = this.projectState.tracks.filter((t) => t.id !== trackId);
       if (this.projectState.selectedTrackId === trackId) this.selectTrack(this.projectState.tracks[0]?.id ?? null);
@@ -3090,12 +3089,12 @@
       let loop = end - start > length;
       const clip = { id: this.projectState.nextId++, trackId: track.id, name: `${track.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
       this.projectState.clips.push(clip);
-      this.audio.rebuildClip(clip);
+      this.audio.rebuildClipPart(clip);
       return clip;
     }
   
     removeClip(clipId) {
-      this.audio.removeClip(clipId);
+      this.audio.removeClipPart(clipId);
       this.projectState.clips = this.projectState.clips.filter((c) => c.id !== clipId);
       if (this.projectState.selectedClipId === clipId) 
         this.projectState.selectedClipId = null;
@@ -3116,7 +3115,7 @@
       this.projectState.selectedClipId = clip.id;
       console.log("clip selected");
   
-      this.bottomPanelManager.showClipEditorPanel();
+      this.bottomPanelManager.showPanel("clipeditor-panel");
   
       this.ed.selected.clear();
       document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
@@ -3147,7 +3146,7 @@
     // Everything that must follow a change to the selected clip's notes.
     notesChanged() {
       const clip = stateHelper.currentClip();
-      if (clip) this.audio.rebuildClip(clip);
+      if (clip) this.audio.rebuildClipPart(clip);
       this.ev.updateSpacer();
       this.ev.requestRender();
       this.av.requestRender();
@@ -3157,6 +3156,7 @@
     //  console.log("clip changed")
       const clip = stateHelper.currentClip();
       this.dom.clipTitle.textContent = clip ? `${clip.name} (${stateHelper.trackById(clip.trackId).name})` : "No clip selected";
+      this.dom.loopClip.classList.toggle("on", clip.loop);
       this.dom.len.value = clip ? clip.length / Constants.BEATS_PER_BAR : 1;
       this.dom.end.value = clip ? clip.end : 1;
       this.dom.len.disabled = !clip;
