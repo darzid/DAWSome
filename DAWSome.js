@@ -431,6 +431,278 @@
       c.fill();
     }
   }
+  
+  class Model {
+    _numberValidations = {};
+    constructor(projectState, objectState, objectType) {
+      this._projectState = projectState;
+      this._state = objectState;
+      this._objectType = objectType;
+    }
+    
+    get id() { return this._state.id; }
+    
+    addIntValidation(name, min, max) {
+      this._numberValidations[name] = { type: "int", min: min, max: max };
+    }
+    addFloatValidation(name, min, max) {
+      this._numberValidations[name] = { type: "float", min: min, max: max };
+    }
+    
+    isValid(name, value) {
+      if (this._numberValidations[name]) {
+        if (this._numberValidations[name].type == "int") value = Math.round(value);
+        if (value < this._numberValidations[name].min) {
+          console.warn(`${this._objectType}.${name} may not be lower than ${this._numberValidations[name].min}`);
+          return false;
+        }
+        if (value > this._numberValidations[name].max) {
+          console.warn(`${this._objectType}.${name} may not be higher than ${this._numberValidations[name].max}`);
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    updating(name, value) {
+      if (this._state[name] == value) return;
+      if (!this.isValid(name, value)) return;
+      console.log(`Updating ${this._objectType}.${name} from ${this._state[name]} to ${value}`);
+      this._state[name] = value;
+      document.dispatchEvent(
+        new CustomEvent(`${this._objectType}Changing`, 
+        { detail: { id: this.id, name: name, value: value } })
+      );
+    }
+    
+    update(name, value) {
+      if (!this.isValid(name, value)) return;
+      this._state[name] = value;
+      console.log(`Updated ${this._objectType}.${name} to ${value}`);
+      document.dispatchEvent(
+        new CustomEvent(`${this._objectType}Changed`, 
+        { detail: { id: this.id, name: name, value: value } })
+      );
+    }
+    
+    bind(element, name, callback = null) {
+      switch (element.nodeName) {
+        case "INPUT":
+          element.dataset.objectid = this.id;
+          element.value = this._state[name];
+          element.addEventListener("input", () => this.updating(name, element.value));
+          element.addEventListener("change", () => this.update(name, element.value));
+          document.addEventListener(`${this._objectType}Changed`, (e) => {
+            if (e.detail.id != element.dataset.objectid) return;
+            if (e.detail.name != name) return;
+            if (e.detail.value == element.value) return;
+            element.value = e.detail.value;
+            if (callback) callback();
+          });
+          console.log(`Bound ${element.nodeName} to ${name}`, element.value);
+          break;
+        case "BUTTON":
+          element.dataset.objectid = this.id;
+          if (element.classList.contains("toggle")) {
+            element.classList.toggle("on", this._state[name]);
+          }
+          element.addEventListener("click", () => {
+            if (element.classList.contains("toggle")) {
+              element.classList.toggle("on");
+              this.update(name, element.classList.contains("on"));
+            }
+            if (callback) callback();
+          });
+          
+          console.log(`Bound toggle ${element.nodeName} to ${name}`, element.value);
+          break;
+      }
+    }
+    
+    onchanging(name, callback) {
+      document.addEventListener(`${this._objectType}Changing`, (e) => {
+        if (e.detail.name != name) return;
+        callback(e.detail.value);
+      });
+    }
+    
+    onchanged(name, callback) {
+      
+      document.addEventListener(`${this._objectType}Changed`, (e) => {
+        if (e.detail.name != name) return;
+        callback(e.detail.value);
+      });
+    }
+  }
+  
+  class Project extends Model {
+    constructor(projectState) {
+      super(projectState, projectState, "project");
+      this.playing = false;
+      this.playheadBeat = 0;
+      
+      document.addEventListener("ProjectLoaded", (e) => this._state = e.detail.projectState);
+      
+      this.addFloatValidation("masterVolume", -500, 10);
+      this.addIntValidation("bpm", 20, 300);
+      this.addIntValidation("loopLength", 1, 256);
+    }
+    
+    get id() { return this.name; }
+    
+    get nextId() { return this._state.nextId; }
+    
+    get name() { return this._state.name; }
+    set name(value) { this.update("name", value); }
+    
+    get masterVolume() { return this._state.masterVolume; }
+    set masterVolume(value) { this.update("masterVolume", value); }
+    
+    get bpm() { return this._state.bpm; }
+    set bpm(value) { this.update("bpm", helpers.clamp(Math.round(value), 20, 300)); }
+    
+    get loop() { return this._state.loop; }
+    set loop(value) { this.update("loop", value); }
+    
+    get loopLength() { return this._state.loopLength; }
+    set loopLength(value) { this.update("loopLength", value); }
+    
+    get follow() { return this._state.follow; }
+    set follow(value) { this.update("follow", value); }
+    
+    get drawClips() { return this._state.drawClips; }
+    set drawClips(value) { this.update("drawClips", value); }
+    
+    get tracks() { return this._state.tracks.map(trackState => new Track(this._projectState, trackState)); }
+    get clips() { return this._state.clips.map(clipState => new Clip(this._projectState, clipState)); }
+    get sends() { return this._state.sends.map(sendState => new Send(this._projectState, sendState)); }
+    
+    get selectedTrackId() { return this._state.selectedTrackId; }
+    set selectedTrackId(value) { this.update("selectedTrackId", value); }
+    
+    get selectedClipId() { return this._state.selectedClipId; }
+    set selectedClipId(value) { this.update("selectedClipId", value); }
+    
+    addTrack(name, devices, volume) {
+      const track = new Track(this._projectState, { id: this._projectState.nextId++, name: name, color: Constants.TRACK_COLORS[this.tracks.length % Constants.TRACK_COLORS.length], volume: volume, mute: false, solo: false, devices: devices});
+      this._projectState.tracks.push(track);
+      console.log("Added track", track )
+      return track;
+    }
+  }
+  
+  class Track extends Model {
+    constructor(projectState, trackState, nextId) {
+      super(projectState, trackState, "track");
+    }
+    
+    get name() { return this._state.name; }
+    set name(value) { this.update("name", value); }
+    
+    get color() { return this._state.color; }
+    set color(value) { this.update("color", value); }
+    
+    get volume() { return this._state.volume; }
+    set volume(value) { this.update("volume", value); }
+    
+    get mute() { return this._state.mute; }
+    set mute(value) { this.update("mute", value); }
+    
+    get solo() { return this._state.solo; }
+    set solo(value) { this.update("solo", value); }
+    
+    get devices() { return this._state.devices; }
+    
+    get instrument() { return this.devices.filter(device => device.type == "Instrument")[0]; }
+    set instrument(value) { 
+      if (this.devices.length == 0) 
+        this.devices.push(value);
+      else
+        this.devices[0] = value; 
+    }
+    get effects() { return this.devices.filter(device => device.type == "Effect"); }
+    get modulators() { return this.devices.filter(device => device.type == "Modulator"); }
+    
+    get instrumentName() { return this.instrument.name; }
+    get instrumentParameters() { return this.instrument.parameters; }
+    
+    get sends() { return this._state.sends.map(sendState => new Send(sendState)); }
+    
+    addClip(name, start, length, end, loop, notes = []) {
+      
+      const count = this._projectState.clips.filter((c) => c.trackId === this.id).length + 1;
+  
+      if (!end) {
+        end = start + length;
+        console.log("determined clip end, start, length, end", start, length, end)
+      }
+      //let loop = end - start > length;
+      const clipState = { id: this._projectState.nextId++, trackId: this.id, name: `${this.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
+      const clip = new Clip(this._projectState, clipState);
+      //this.projectState.clips.push(clip);
+      this._projectState.clips.push(clip);
+      audio.rebuildClipPart(clip);
+      
+      return clip;
+    }
+  }
+  
+  class Clip extends Model {
+    constructor(projectState, clipState) {
+      super(projectState, clipState, "clip");
+    }
+    get trackId() { return this._state.trackId; }
+    
+    get name() { return this._state.name; }
+    set name(value) { this.update("name", value); }
+    
+    get start() { return this._state.start; }
+    set start(value) { this.update("start", value); }
+    
+    get length() { return this._state.length; }
+    set length(value) { this.update("length", value); }
+    
+    get end() { return this._state.end; }
+    set end(value) { this.update("end", value); }
+    
+    get loop() { return this._state.loop; }
+    set loop(value) { this.update("loop", value); }
+
+    get notes() { return this._state.notes.map(noteState => new Note(this._projectState, noteState)); }
+    
+    addNote(noteName, start, duration, velocity) {
+      const note = new Note(this._projectState, { id: this._projectState.nextId++, noteName: noteName, start: start, duration: duration, velocity: velocity});
+      this.notes.push(note);
+      return note;
+    }
+  }
+  
+  class Note extends Model {
+    constructor(projectState, noteState) {
+      super(projectState, noteState, "note");
+    }
+    
+    get noteName() { return this._state.noteName; }
+    set noteName(value) { this.update("noteName", value); }
+  
+    get start() { return this._state.start; }
+    set start(value) { this.update("start", value); }
+    
+    get duration() { return this._state.duration; }
+    set duration(value) { this.update("duration", value); }
+    
+    get velocity() { return this._state.velocity; }
+    set velocity(value) { this.update("velocity", value); }
+  }
+  
+  var project = new Project(projectState);
+  project.bind(dom.projectName, "name");
+  project.bind(dom.play, "playing", async () => await togglePlay());
+  project.bind(dom.bpm, "bpm", () => audio.setBpm(project.bpm));
+  project.bind(dom.loop, "loop", () => audio.setLoop(project.loop, project.loopLength));
+  project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
+  project.bind(dom.follow, "follow");
+  project.bind(dom.drawClips, "drawClips");
 
   // ===== Audio (Tone.js) =====
   function createAudio() {
@@ -438,7 +710,7 @@
     console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
-    const masterChannel = new Tone.Channel(projectState.masterVolume).toDestination();
+    const masterChannel = new Tone.Channel(project.masterVolume).toDestination();
     const chains = new Map();   // trackId → { instrument, channel, device name }
     chains.set(0, {
       channel: masterChannel
@@ -572,7 +844,7 @@
     }
     const updateInstrument = (trackId, instrumentName) => {
       const ch = chain(trackId);
-      const track = projectState.tracks.find(track => track.id == trackId);
+      const track = project.tracks.find(track => track.id == trackId);
       track.devices[0].name = instrumentName;
       track.devices[0].parameters = {};
 
@@ -615,6 +887,7 @@
         transport.loop = on;
         transport.loopStart = 0;
         transport.loopEnd = toTicks(endBeats);
+        console.log("Updated audio loop to " + on + " " + endBeats)
       },
       addReturnChannel: (send) => {
         const channel = new Tone.Channel(send.volume);
@@ -896,7 +1169,7 @@
     hZoom: { min: 3, max: 200 },
     vZoom: { min: 40, max: 120 },
     rowHeight: 52,
-    rowCount: () => projectState.tracks.length,
+    rowCount: () => project.tracks.length,
     contentBeats: () => stateHelper.songEndBeats() + Constants.SONG_TAIL_BEATS,
     render: renderArrangement,
     onLocate: (beat) => setPlayhead(helpers.clamp(helpers.snapRound(beat, arrangementStep()), 0, stateHelper.songEndBeats())),
@@ -907,10 +1180,10 @@
 
   const arrangementStep = () => gridStep("wide", false, av.pxPerBeat).step;
   const clipAt = (beat, row) => {
-    const track = projectState.tracks[row];
+    const track = project.tracks[row];
     if (!track) return null;
-    for (let i = projectState.clips.length - 1; i >= 0; i--) {
-      const c = projectState.clips[i];
+    for (let i = project.clips.length - 1; i >= 0; i--) {
+      const c = project.clips[i];
       if (c.trackId === track.id && beat >= c.start && beat < helpers.clipEnd(c)) return c;
     }
     return null;
@@ -1659,8 +1932,8 @@
     mixer.clearAll();
     updateManager.arrangementChanged();
     updateManager.editorClipChanged();
-    
   }
+  
   function loadProject(projectData, fileName) {
     console.log("loadProject " + fileName, projectData)
     clearProject();
@@ -1722,10 +1995,10 @@
   function updateSongSettingsUI() {
     //dom.projectName.value = projectState.name;
     //dom.bpm.value = projectState.bpm;
-    dom.songLoopLength.value = stateHelper.songEndBeats();
-    dom.follow.classList.toggle("on", projectState.follow);
-    dom.loop.classList.toggle("on", projectState.loop);
-    dom.drawClips.classList.toggle("on", projectState.drawClips);
+    //dom.songLoopLength.value = stateHelper.songEndBeats();
+    //dom.follow.classList.toggle("on", projectState.follow);
+    //dom.loop.classList.toggle("on", projectState.loop);
+    //dom.drawClips.classList.toggle("on", projectState.drawClips);
   }
 
   dom.importBtn.addEventListener("click", () => dom.midiFile.click());
@@ -1797,7 +2070,7 @@
 
  // dom.projectName.addEventListener("change", () => projectState.name = dom.projectName.value);
 
-  dom.play.addEventListener("click", togglePlay);
+//  dom.play.addEventListener("click", togglePlay);
   
   /*dom.bpm.addEventListener("input", () => {
     const v = Number(dom.bpm.value);
@@ -1806,9 +2079,9 @@
   dom.bpm.addEventListener("change", () => setBpm(helpers.clamp(Number(dom.bpm.value) || projectState.bpm, 20, 300)));
   */
   
-  bindToggle(dom.loop, projectState, "loop", () => audio.setLoop(projectState.loop, stateHelper.songEndBeats()));
-  bindToggle(dom.follow, projectState, "follow", () => { });
-  bindToggle(dom.drawClips, projectState, "drawClips", () => { });
+//  bindToggle(dom.loop, projectState, "loop", () => audio.setLoop(projectState.loop, stateHelper.songEndBeats()));
+//  bindToggle(dom.follow, projectState, "follow", () => { });
+//  bindToggle(dom.drawClips, projectState, "drawClips", () => { });
   dom.addTrack.addEventListener("click", async () => {
     trackManager.addTrack(`Track ${projectState.tracks.length + 1}`, Constants.DEFAULT_INSTRUMENT);
     updateManager.arrangementChanged();
@@ -1946,249 +2219,7 @@
     }
   }
   
-  class Model {
-    _numberValidations = {};
-    constructor(projectState, objectState, objectType) {
-      this._projectState = projectState;
-      this._state = objectState;
-      this._objectType = objectType;
-    }
-    
-    get id() { return this._state.id; }
-    
-    addIntValidation(name, min, max) {
-      this._numberValidations[name] = { type: "int", min: min, max: max };
-    }
-    addFloatValidation(name, min, max) {
-      this._numberValidations[name] = { type: "float", min: min, max: max };
-    }
-    
-    isValid(name, value) {
-      if (this._numberValidations[name]) {
-        if (this._numberValidations[name].type == "int") value = Math.round(value);
-        if (value < this._numberValidations[name].min) {
-          console.warn(`${this._objectType}.${name} may not be lower than ${this._numberValidations[name].min}`);
-          return false;
-        }
-        if (value > this._numberValidations[name].max) {
-          console.warn(`${this._objectType}.${name} may not be higher than ${this._numberValidations[name].max}`);
-          return false;
-        }
-      }
-      return true;
-    }
-    
-    updating(name, value) {
-      if (this._state[name] == value) return;
-      if (!this.isValid(name, value)) return;
-      console.log(`Updating ${this._objectType}.${name} from ${this._state[name]} to ${value}`);
-      this._state[name] = value;
-      document.dispatchEvent(
-        new CustomEvent(`${this._objectType}Changing`, 
-        { detail: { id: this.id, name: name, value: value } })
-      );
-    }
-    
-    update(name, value) {
-      if (!this.isValid(name, value)) return;
-      this._state[name] = value;
-      console.log(`Updated ${this._objectType}.${name} to ${value}`);
-      document.dispatchEvent(
-        new CustomEvent(`${this._objectType}Changed`, 
-        { detail: { id: this.id, name: name, value: value } })
-      );
-    }
-    
-    bind(element, name) {
-      if (element.nodeName == "INPUT") {
-        element.dataset.objectid = this.id;
-        element.value = this._state[name];
-        element.addEventListener("input", () => this.updating(name, element.value));
-        element.addEventListener("change", () => this.update(name, element.value));
-        document.addEventListener(`${this._objectType}Changed`, (e) => {
-          if (e.detail.id != element.dataset.objectid) return;
-          if (e.detail.name != name) return;
-          if (e.detail.value == element.value) return;
-          element.value = e.detail.value;
-        });
-        console.log(`Bound ${element.nodeName} to ${name}`, element.value);
-      }
-    }
-    
-    onchanging(name, callback) {
-      document.addEventListener(`${this._objectType}Changing`, (e) => {
-        if (e.detail.name != name) return;
-        callback(e.detail.value);
-      });
-    }
-    
-    onchanged(name, callback) {
-      document.addEventListener(`${this._objectType}Changed`, (e) => {
-        if (e.detail.name != name) return;
-        callback(e.detail.value);
-      });
-    }
-  }
   
-  class Project extends Model {
-    constructor(projectState) {
-      super(projectState, projectState, "project");
-      this.playing = false;
-      this.playheadBeat = 0;
-      
-      document.addEventListener("ProjectLoaded", (e) => this._state = e.detail.projectState);
-      
-      this.addFloatValidation("masterVolume", -500, 10);
-      this.addIntValidation("bpm", 20, 300);
-      this.addIntValidation("loopLength", 1, 256);
-    }
-    
-    get id() { return this.name; }
-    
-    get nextId() { return this._state.nextId; }
-    
-    get name() { return this._state.name; }
-    set name(value) { this.update("name", value); }
-    
-    get masterVolume() { return this._state.masterVolume; }
-    set masterVolume(value) { this.update("masterVolume", value); }
-    
-    get bpm() { return this._state.bpm; }
-    set bpm(value) { this.update("bpm", helpers.clamp(Math.round(value), 20, 300)); }
-    
-    get loop() { return this._state.loop; }
-    set loop(value) { this.update("loop", value); }
-    
-    get loopLength() { return this._state.loopLength; }
-    set loopLength(value) { this.update("loopLength", value); }
-    
-    get follow() { return this._state.follow; }
-    set follow(value) { this.update("follow", value); }
-    
-    get drawClips() { return this._state.drawClips; }
-    set drawClips(value) { this.update("drawClips", value); }
-    
-    get tracks() { return this._state.tracks.map(trackState => new Track(this._projectState, trackState)); }
-    get clips() { return this._state.clips.map(clipState => new Clip(this._projectState, clipState)); }
-    get sends() { return this._state.sends.map(sendState => new Send(this._projectState, sendState)); }
-    
-    get selectedTrackId() { return this._state.selectedTrackId; }
-    set selectedTrackId(value) { this.update("selectedTrackId", value); }
-    
-    get selectedClipId() { return this._state.selectedClipId; }
-    set selectedClipId(value) { this.update("selectedClipId", value); }
-    
-    addTrack(name, devices, volume) {
-      const track = new Track(this._projectState, { id: this._projectState.nextId++, name: name, color: Constants.TRACK_COLORS[this.tracks.length % Constants.TRACK_COLORS.length], volume: volume, mute: false, solo: false, devices: devices});
-      this._projectState.tracks.push(track);
-      console.log("Added track", track )
-      return track;
-    }
-  }
-  
-  class Track extends Model {
-    constructor(projectState, trackState, nextId) {
-      super(projectState, trackState, "track");
-    }
-    
-    get name() { return this._state.name; }
-    set name(value) { this.update("name", value); }
-    
-    get color() { return this._state.color; }
-    set color(value) { this.update("color", value); }
-    
-    get volume() { return this._state.volume; }
-    set volume(value) { this.update("volume", value); }
-    
-    get mute() { return this._state.mute; }
-    set mute(value) { this.update("mute", value); }
-    
-    get solo() { return this._state.solo; }
-    set solo(value) { this.update("solo", value); }
-    
-    get devices() { return this._state.devices; }
-    
-    get instrument() { return this.devices.filter(device => device.type == "Instrument")[0]; }
-    set instrument(value) { 
-      if (this.devices.length == 0) 
-        this.devices.push(value);
-      else
-        this.devices[0] = value; 
-    }
-    get effects() { return this.devices.filter(device => device.type == "Effect"); }
-    get modulators() { return this.devices.filter(device => device.type == "Modulator"); }
-    
-    get instrumentName() { return this.instrument.name; }
-    get instrumentParameters() { return this.instrument.parameters; }
-    
-    get sends() { return this._state.sends.map(sendState => new Send(sendState)); }
-    
-    addClip(name, start, length, end, loop, notes = []) {
-      
-      const count = this._projectState.clips.filter((c) => c.trackId === this.id).length + 1;
-  
-      if (!end) {
-        end = start + length;
-        console.log("determined clip end, start, length, end", start, length, end)
-      }
-      //let loop = end - start > length;
-      const clipState = { id: this._projectState.nextId++, trackId: this.id, name: `${this.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
-      const clip = new Clip(this._projectState, clipState);
-      //this.projectState.clips.push(clip);
-      this._projectState.clips.push(clip);
-      audio.rebuildClipPart(clip);
-      
-      return clip;
-    }
-  }
-  
-  class Clip extends Model {
-    constructor(projectState, clipState) {
-      super(projectState, clipState, "clip");
-    }
-    get trackId() { return this._state.trackId; }
-    
-    get name() { return this._state.name; }
-    set name(value) { this.update("name", value); }
-    
-    get start() { return this._state.start; }
-    set start(value) { this.update("start", value); }
-    
-    get length() { return this._state.length; }
-    set length(value) { this.update("length", value); }
-    
-    get end() { return this._state.end; }
-    set end(value) { this.update("end", value); }
-    
-    get loop() { return this._state.loop; }
-    set loop(value) { this.update("loop", value); }
-
-    get notes() { return this._state.notes.map(noteState => new Note(this._projectState, noteState)); }
-    
-    addNote(noteName, start, duration, velocity) {
-      const note = new Note(this._projectState, { id: this._projectState.nextId++, noteName: noteName, start: start, duration: duration, velocity: velocity});
-      this.notes.push(note);
-      return note;
-    }
-  }
-  
-  class Note extends Model {
-    constructor(projectState, noteState) {
-      super(projectState, noteState, "note");
-    }
-    
-    get noteName() { return this._state.noteName; }
-    set noteName(value) { this.update("noteName", value); }
-  
-    get start() { return this._state.start; }
-    set start(value) { this.update("start", value); }
-    
-    get duration() { return this._state.duration; }
-    set duration(value) { this.update("duration", value); }
-    
-    get velocity() { return this._state.velocity; }
-    set velocity(value) { this.update("velocity", value); }
-  }
   
   class StateHelper {
     constructor(projectState, helpers) {
@@ -2207,8 +2238,8 @@
     currentClip() { return this.clipById(this.projectState.selectedClipId) ?? null; }
     songEndBeats() {
       let endBeats = Math.max(Constants.MIN_SONG_BEATS, this.helpers.ceilBars(this.projectState.clips.reduce((m, c) => Math.max(m, this.helpers.clipEnd(c)), 0)));
-      if (endBeats > this.projectState.loopLength)
-        projectState.loopLength = endBeats;
+      if (endBeats > project.loopLength)
+        project.loopLength = endBeats;
       return endBeats;
     }
   }
@@ -3584,22 +3615,7 @@
     av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
   }
 
-  var project = new Project(projectState);
-  project.bind(dom.projectName, "name");
-  project.bind(dom.bpm, "bpm");
-  project.onchanged("bpm", audio.setBpm);
   
-  console.log("Project", project);
-  console.log("Clips", project.clips);
-  console.log("NextId 1 = " + project.nextId);
-  
-  /*let track = project.addTrack("Bla", "#ff9900", 0, []);
-  let clip = track.addClip("Clip 1", 0, 1, 2, true);
-  console.log("NextId 2 = " + project.nextId);*/
-  
-  //project.clips[0].addNote(30, 0, 1, 1);
-  //console.log("NextId after = " + project._nextId);
-  console.log("Project", project);
   
   var stateHelper = new StateHelper(projectState, helpers);
   var metadataManager = new MetadataManager();
@@ -3609,6 +3625,17 @@
   var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
   var clipManager = new ClipManager(projectState, audio, bottomPanelManager, ed);
   var updateManager = new UpdateManager(projectState, audio, av, ev, dom, renderTrackHeaders);
+  
+  /*
+  var project = new Project(projectState);
+  project.bind(dom.projectName, "name");
+  project.bind(dom.play, "playing", async () => await togglePlay());
+  project.bind(dom.bpm, "bpm", () => audio.setBpm(project.bpm));
+  project.bind(dom.loop, "loop", () => audio.setLoop(project.loop, project.loopLength));
+  project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
+  project.bind(dom.follow, "follow");
+  project.bind(dom.drawClips, "drawClips");
+  */
   
   async function init() {
     await metadataManager.loadDevices();
@@ -3642,7 +3669,7 @@
 
     audio.setBpm(projectState.bpm);
     createDemoSong();
-    updateSongSettingsUI(dom, projectState);
+  //  updateSongSettingsUI(dom, projectState);
 
     dom.gridReadout.textContent = editorGrid().label;
     updatePosReadout();
