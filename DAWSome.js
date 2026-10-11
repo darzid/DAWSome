@@ -1,4 +1,4 @@
-(async () => {
+async function DAWSome() {
   let toneInitialized = false;
   let swRegistration = null;
 
@@ -741,7 +741,8 @@
   var project = new Project(projectState);
   project.bind(dom.projectName, "name");
   project.bind(dom.play, "playing", async () => await togglePlay());
-  project.bind(dom.bpm, "bpm", () => audio.setBpm(project.bpm));
+  project.bind(dom.bpm, "bpm", () => audio.setBpm);
+  project.onchanged("bpm", () => audio.setBpm(project.bpm));
   project.bind(dom.loop, "loop", () => audio.setLoop(project.loop, project.loopLength));
   project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
   project.bind(dom.follow, "follow");
@@ -1122,12 +1123,12 @@
 
     async function initializeTone() {
       if (!toneInitialized) {
-        console.log('initializing Tone.js context, context state: ' + Tone.getContext().state);
+        console.log("initializing Tone.js context, context state: " + Tone.getContext().state);
         //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
         Tone.getContext().lookAhead = Constants.TONE_LOOKAHEAD;
         console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
         toneInitialized = true;
-        console.log('Starting Tone, context state: ' + Tone.getContext().state);
+        console.log("Starting Tone, context state: " + Tone.getContext().state);
         await Tone.start();
       }
     }
@@ -2258,7 +2259,7 @@
       let beatSixteenths = remainingBeats * 4;
       return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
     },
-    isObject: (value) => { typeof value === 'object' && !Array.isArray(value) && value !== null; },
+    isObject: (value) => { typeof value === "object" && !Array.isArray(value) && value !== null; },
     toShortDeviceName: (deviceName) => {
       let parts = deviceName.split(".");
       return parts[parts.length - 1];
@@ -2316,10 +2317,10 @@
       }
       else {
         console.log("Load devices")
-        await fetch('devices.json')
+        await fetch("devices.json")
           .then(response => {
             if (!response.ok) {
-              throw new Error(`HTTP error! Status: ${response.status}`);
+              throw new Error("HTTP error! Status: ${response.status}");
             }
             return response.json();
           })
@@ -2327,7 +2328,7 @@
             this.parseDevices(data);
           })
           .catch(error => {
-            console.error('Error loading JSON:', error);
+            console.error("Error loading JSON:", error);
           });
       }
     }
@@ -2357,6 +2358,10 @@
     
     getEffectNames() {
       return Object.entries(this.metadata.devices).filter(entry => entry[1].type == "Effect").map(entry => entry[0]);
+    }
+    
+    getInstrumentNames() {
+      return Object.entries(this.metadata.devices).filter(entry => entry[1].type == "Instrument").map(entry => entry[0]);
     }
     
     getDeviceNumberParameters(deviceName) {
@@ -2586,56 +2591,43 @@
     }
   
     renderUnitLabel(parameterMetadata, valueGroup) {
+      console.log("renderUnitLabel ", parameterMetadata)
       let unitLabel = document.createElement("label");
       unitLabel.className = "unit";
       valueGroup.appendChild(unitLabel);
-      if (parameterMetadata.unit)
-        unitLabel.innerText = parameterMetadata.unit;
+      if (parameterMetadata.metadata.unit)
+        unitLabel.innerText = parameterMetadata.metadata.unit;
     }
   }
   
-  class EffectsView {
+  class DeviceBaseView {
     constructor(panel) {
       this.panel = panel;
       this.header = panel.querySelector(".header");
       this.content = panel.querySelector(".content");
-      this.prevBtn = panel.querySelector(".prev");
-      this.nextBtn = panel.querySelector(".next");
+      this.parameterView = new DeviceParametersView(this.content);
+      
       this.devicePicker = panel.querySelector(".devicePicker");
       this.devicePicker.addEventListener("change", () => this.devicePicked());
       this.devicePresetPicker = panel.querySelector(".devicePresetPicker");
       this.devicePresetPicker.addEventListener("change", () => this.devicePresetPicked());
-      this.parameterView = new DeviceParametersView(this.content);
       
-      this.canAddNewDevice = true;
-      this.devices = [];
       this.devicePickerList = [];
       this.devicePresetPickerList = [];
-      this.deviceOptionPickerCallback = null;
-      this.pageIndex = -1;
-      this.currentDevice;
+      
+      this._currentDevice = null;
     }
     
-    get lastPageIndex() { return this.canAddNewDevice ? this.devices.length : this.devices.length - 1; }
-    get nextPageAvailable() { return this.pageIndex < this.lastPageIndex; }
-    get previousPageAvailable() { return this.pageIndex > 0; }
-    get currentDevice() { return this.devices[this.pageIndex]; }
-    
-    init(devices) {
-      this.devices = devices;
-      this.devicePickerList = metadataManager.getEffectNames();
-      this.devicePresetPickerList = effectPresets;
-      this.pageIndex = 0;
-    }
+    get currentDevice() { return this._currentDevice; }
     
     render() {
-      console.log("EffectsView.render", this.devicePickerList)
-      let devicePickerOptionsHtml = this.devicePickerList.map((deviceName) => `<option value="${deviceName}">${deviceName}</option>`).join("");
+      console.log("DeviceBaseView.render", this.currentDevice?.name, this.devicePickerList)
+      let devicePickerOptionsHtml = this.devicePickerList.map((deviceName) => `<option value="${deviceName}">${helpers.toShortDeviceName(deviceName)}</option>`).join("");
       this.devicePicker.innerHTML = "<option value=''>-Device-</option>";
       this.devicePicker.innerHTML += devicePickerOptionsHtml;
       if (this.currentDevice) {
         this.devicePicker.value = this.currentDevice.name;
-        this.devicePicked()
+        this.devicePicked();
       }
       this.parameterView.renderDevice(this.currentDevice);
     }
@@ -2646,10 +2638,13 @@
         this.devicePresetPicker.innerHTML = "";
         return;
       }
-      console.log("EffectsView.devicePicked", this.devicePicker.value, this.devicePresetPickerList[deviceName])
-      let devicePresetPickerOptionsHtml = Object.keys(this.devicePresetPickerList[deviceName]).map((presetName) => `<option value="${presetName}">${presetName}</option>`).join("");
+      console.log("DeviceBaseView.devicePicked", this.devicePicker.value, this.devicePresetPickerList[deviceName])
+      
       this.devicePresetPicker.innerHTML = "<option value=''>-Preset-</option>";
-      this.devicePresetPicker.innerHTML += devicePresetPickerOptionsHtml;
+      if (this.devicePresetPickerList[deviceName]) {
+        let devicePresetPickerOptionsHtml = Object.keys(this.devicePresetPickerList[deviceName]).map((presetName) => `<option value="${presetName}">${presetName}</option>`).join("");
+        this.devicePresetPicker.innerHTML += devicePresetPickerOptionsHtml;
+      }
     }
     
     devicePresetPicked() {
@@ -2665,6 +2660,48 @@
         //this.parameterView.updateParameter(parameterName, value);
       });
       this.parameterView.refresh();
+    }
+  }
+  
+  class InstrumentView extends DeviceBaseView {
+    constructor(panel) {
+      super(panel);
+    }
+    
+    init(device) {
+      console.log("InstrumentView.init", device)
+      this._currentDevice = device;
+      this.devicePickerList = metadataManager.getInstrumentNames();
+      this.devicePresetPickerList = instrumentPresets;
+      super.render();
+    }
+  }
+  
+  class EffectsView extends DeviceBaseView {
+    constructor(panel) {
+      super(panel);
+      
+      this.prevBtn = panel.querySelector(".prev");
+      this.nextBtn = panel.querySelector(".next");
+      
+      this.canAddNewDevice = true;
+      this.devices = [];
+      
+      this.pageIndex = -1;
+    }
+    
+    get lastPageIndex() { return this.canAddNewDevice ? this.devices.length : this.devices.length - 1; }
+    get nextPageAvailable() { return this.pageIndex < this.lastPageIndex; }
+    get previousPageAvailable() { return this.pageIndex > 0; }
+    get currentDevice() { return this.devices[this.pageIndex]; }
+    
+    init(devices) {
+      this.devices = devices;
+      this.devicePickerList = metadataManager.getEffectNames();
+      this.devicePresetPickerList = effectPresets;
+      this.pageIndex = 0;
+      
+      super.render();
     }
   }
   
@@ -2700,6 +2737,7 @@
       
       this.editor = document.querySelector(".editor");
       this.instrumentPanel = document.querySelector(".instrument-panel");
+      this.instPanel = document.querySelector(".inst-panel");
       this.effectsPanel = document.querySelector(".effects-panel");
       this.fxPanel = document.querySelector(".fx-panel");
       this.modulationPanel = document.querySelector(".modulation-panel");
@@ -2709,6 +2747,7 @@
       this._xyPad = new XypadPanel(this.xypadPanel, this.helpers);
       this.xypadPanel.style.display = "none";
       
+      this.instView = new InstrumentView(this.instPanel);
       this.fxView = new EffectsView(this.fxPanel);
       
       document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
@@ -2735,6 +2774,7 @@
             panelButton.disabled = (this.projectState.selectedClipId == null);
             break;
           case "instrument-panel": 
+          case "inst-panel":
           case "effects-panel": 
           case "fx-panel":
           case "modulation-panel":
@@ -2756,16 +2796,19 @@
       switch (panelId) {
         case "instrument-panel": 
           this.renderInstrumentPanel(panel);
-          return;
+          break;
+        case "inst-panel":
+          this.renderInstPanel(panel);
+          break;
         case "effects-panel": 
           this.renderEffectsPanel(panel);
-          return;
+          break;
         case "fx-panel":
           this.renderFxPanel(panel);
-          return;
+          break;
         case "modulation-panel":
           this.renderModulationPanel(panel);
-          return;
+          break;
         case "xypad-panel": 
           this.renderXypadPanel(panel);
           return;
@@ -2792,6 +2835,17 @@
       this.renderDevice(panel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
     }
 
+    renderInstPanel(panel) {
+      let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
+      if (!track) {
+        panel.style.display = "none";
+        return;
+      }
+
+      let deviceToInspect = audio.getTrackInstrument(track);
+      this.instView.init(deviceToInspect);
+    }
+    
     renderEffectsPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
@@ -2817,7 +2871,6 @@
 
       let trackEffects = audio.getTrackEffects(track);
       this.fxView.init(trackEffects);
-      this.fxView.render();
     }
     
     renderModulationPanel(panel) {
@@ -3324,7 +3377,7 @@
           console.log("chanhe")
           const file = fileInput.files[0];
           const filePath = fileInput.value;
-          const fileName = filePath.substr(filePath.lastIndexOf('\\') + 1);
+          const fileName = filePath.substr(filePath.lastIndexOf("\\") + 1);
 
 
           if (!file) return;
@@ -3375,7 +3428,7 @@
     }
     
     clearAll() {
-      this.projectState.tracks.forEach(track => this.removeTrack(track.id));
+      this.projectState.tracks.forEach(track => project.removeTrack(track.id));
     }
     
     deselectTrack() {
@@ -3757,7 +3810,7 @@
       this.track = track;
       this.trackAudioDevices = audio.getTrackDevices(track);
       
-      let targetDeviceOptionsHtml = '<option value="">-Select device-</option>';
+      let targetDeviceOptionsHtml = "<option value=''>-Select device-</option>";
       targetDeviceOptionsHtml += track.devices.map((d) => `<option value="${track.devices.indexOf(d)}">${this.helpers.toShortDeviceName(d.name)}</option>`).join("");
       this.xDeviceSelect.innerHTML = targetDeviceOptionsHtml;
       this.yDeviceSelect.innerHTML = targetDeviceOptionsHtml;
@@ -3784,7 +3837,7 @@
         return;
       }
       console.log("Device selected ", this.xDeviceName)
-      this.xParameterSelect.innerHTML = '<option>-Select parameter-</option>';
+      this.xParameterSelect.innerHTML = "<option>-Select parameter-</option>";
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.xDeviceName);
       deviceNumberParameters.forEach(param => this.xParameterSelect.innerHTML += `<option value="${param.name}">${param.name}</option>`);
       this.xParameterSelect.onchange = (e) => this.xParameterSelected();
@@ -3813,7 +3866,7 @@
         this.yParameterSelect.innerHTML = "";
         return;
       }
-      this.yParameterSelect.innerHTML = '<option>-Select parameter-</option>';
+      this.yParameterSelect.innerHTML = "<option>-Select parameter-</option>";
       let deviceNumberParameters = metadataManager.getDeviceNumberParameters(this.yDeviceName);
       deviceNumberParameters.forEach(param => this.yParameterSelect.innerHTML += `<option value="${param.name}">${param.name}</option>`);
       this.yParameterSelect.onchange = (e) => this.yParameterSelected();
@@ -4393,4 +4446,5 @@
   }
   
   await init();
-})();
+}
+DAWSome();

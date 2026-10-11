@@ -66,6 +66,15 @@
     
     <div id="mixer-panel" title="Mixer" class="mixer faders panel"></div>
     <div id="instrument-panel" title="Instrument" class="instrument-panel panel"></div>
+    <div id="inst-panel" title="Inst" class="inst-panel panel">
+      <div class="device">
+        <div class="header device-header">
+          <select class="devicePicker inst" title="Instrument"></select>
+          <select class="devicePresetPicker instPreset" title="Preset"></select>
+        </div>
+        <div class="content device-parameters param-scroller"></div>
+      </div>
+    </div>
     <div id="effects-panel" title="Effects" class="effects-panel panel"></div>
     <div id="fx-panel" title="FX" class="fx-panel panel">
       <div class="device">
@@ -75,7 +84,7 @@
           <select class="devicePresetPicker instPreset" title="Preset"></select>
           <button class="next">⏩️</button>
         </div>
-        <div class="content device-parameters"></div>
+        <div class="content device-parameters param-scroller"></div>
       </div>
     </div>
     <div id="xypad-panel" title="XY pad" class="xypad-panel panel" style="flex-direction: column">

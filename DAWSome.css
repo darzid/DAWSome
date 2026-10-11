@@ -142,7 +142,7 @@
   .scroller::-webkit-scrollbar-thumb { background: #555; border-radius: 1.25vw; }
   .scroller::-webkit-scrollbar-corner { background: #1c1c1c; }
   
-  .instrument-panel, .effects-panel, .fx-panel, .modulation-panel, .mixer { flex: 1; 
+  .instrument-panel, .inst-panel, .effects-panel, .fx-panel, .modulation-panel, .mixer { flex: 1; 
     min-height: 5vh; 
     display: none; 
     flex-direction: row; 
@@ -184,7 +184,7 @@
 
   .modulation-panel .device .device-header select { font-weight: normal; } 
   
-  .device .device-parameters { display: flex; flex-direction: column; width: 100vw; overflow-y: auto; padding: 1.25vw; }
+  .device .device-parameters { display: flex; flex-direction: column; width: 100vw; height: 100%; overflow-y: auto; padding: 1.25vw; }
   .device .device-parameters .parameter { flex-direction: row; width: stretch; padding-top: 0.25vh; padding-bottom: 0.25vh; } 
   .device .device-parameters .parameter label { display: inline-block; width: 45vw;  color: var(--muted); vertical-align: middle; text-overflow: ellipsis; overflow: hidden; }
   /* .device .device-parameters .parameter:has(label.paramgroup) { background: rgba(60, 60, 60, 0.5); } */
@@ -195,6 +195,8 @@
   .device .device-parameters .parameter .value-group input { margin-right: 0pt; min-width: 35vw; max-width: 35vw; height: auto; }
   .device .device-parameters .parameter .value-group select { margin-left: 0.2em; margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-weight: bold; height: auto; text-align: center; }
   .device .device-parameters .parameter .value-group label.unit { font-size: smaller; margin-left: 0.5vw; margin-right: 0; min-width: 5vw; max-width: 5vw; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
+
+  .device .param-scroller { overflow-y: scroll; max-height: 21vh; scrollbar-width: thin; scrollbar-color: red; }
 
   .list {
     display: grid;
