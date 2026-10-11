@@ -157,7 +157,7 @@
     .instrument-panel, .effects-panel, .fx-panel, .modulation-panel { min-height: 30vh; max-height: 30vh; }
   }
   .mixer { overflow-x: auto; }
-
+  .instrument-panel { display: none; }
   .effects-panel, .fx-panel { overflow-x: hidden; }
   
   .device { height: max-content; padding-bottom: 5pt; } 
@@ -192,9 +192,9 @@
   
   .device .device-parameters .parameter .value-group { float: right; margin-left: auto; margin-right: 0; }
 
-  .device .device-parameters .parameter .value-group input { margin-right: 0pt; min-width: 35vw; max-width: 35vw; height: auto; }
-  .device .device-parameters .parameter .value-group select { margin-left: 0.2em; margin-right: 0pt; min-width: 35vw; max-width: 35vw; font-weight: bold; height: auto; text-align: center; }
-  .device .device-parameters .parameter .value-group label.unit { font-size: smaller; margin-left: 0.5vw; margin-right: 0; min-width: 5vw; max-width: 5vw; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
+  .device .device-parameters .parameter .value-group input { margin-right: 0pt; min-width: 40vw; max-width: 40vw; height: auto; }
+  .device .device-parameters .parameter .value-group select { margin-left: 0.2em; margin-right: 0pt; min-width: 40vw; max-width: 40vw; font-weight: bold; height: auto; text-align: center; }
+  .device .device-parameters .parameter .value-group label.unit { font-size: smaller; margin-left: 0.5vw; margin-right: 0; min-width: 6vw; max-width: 6vw; vertical-align: top; overflow: hidden; text-overflow: ellipsis; }
 
   .device .param-scroller { overflow-y: scroll; max-height: 21vh; scrollbar-width: thin; scrollbar-color: red; }
 

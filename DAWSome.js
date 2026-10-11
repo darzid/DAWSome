@@ -2275,12 +2275,32 @@ async function DAWSome() {
       let parameter = parameterContext[name];
       return parameter;
     },
+    getDeviceStateParameter: (deviceState, parameterPath) => {
+      let parts = parameterPath.split(".");
+      let name = parts[parts.length - 1];
+      
+      let parameterContext = deviceState.parameters;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        parameterContext = parameterContext[parts[partIndex]];
+      }
+      let parameter = parameterContext[name];
+      return parameter;
+    },
     updateDeviceParameter: (device, parameterPath, value) => {
       let parameter = helpers.getDeviceParameter(device, parameterPath);
       if (parameter.name)
         parameter.value = value;
       else
         parameter = value;
+    },
+    updateDeviceStateParameter: (deviceState, parameterName, value) => {
+      let parts = parameterName.split(".");
+      let context = deviceState.parameters;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        context = context[parts[partIndex]];
+      }
+      parameterName = parts[parts.length - 1];
+      context[parameterName] = value;
     }
   }
   
@@ -2496,13 +2516,17 @@ async function DAWSome() {
       }
   
   class DeviceParametersView {
+    deviceState;
     device;
     valueParametersMetadata;
+    groupName;
     constructor(parametersPanel) {
       this.parametersPanel = parametersPanel;
     }
     
-    renderDevice(device) {
+    renderDevice(deviceState, device) {
+      if (deviceState == null) alert("no state")
+      this.deviceState = deviceState;
       this.device = device;
       this.refresh();
     }
@@ -2520,7 +2544,11 @@ async function DAWSome() {
       let parts = parameterMetadata.name.split(".");
       let shortName = parts[parts.length - 1];
       let groupName = parts.length > 1 ? parameterMetadata.name.substring(0, parameterMetadata.name.length - (shortName.length + 1)) : "";
-          
+      if (this.groupName != groupName && groupName != "") {
+        this.renderGroupLabel(groupName);
+        this.groupName = groupName;
+      }
+      
       let paramElement = document.createElement("div");
       paramElement.className = "parameter";
       paramElement.dataset.group = groupName;
@@ -2533,22 +2561,37 @@ async function DAWSome() {
       label.innerText = prefix + shortName; // parameterPath.replace(".", " ");
       paramElement.appendChild(label);
       
-      let parameter = helpers.getDeviceParameter(this.device, parameterMetadata.name);
-      
       let valueGroup = document.createElement("div");
       valueGroup.className = "value-group";
       paramElement.appendChild(valueGroup);
   
       if (parameterMetadata.type == "Number")
-        this.renderNumberParameter(parameterMetadata, parameter, valueGroup);
+        this.renderNumberParameter(parameterMetadata, valueGroup);
       else
-        this.renderOptionParameter(parameterMetadata, parameter, valueGroup);
+        this.renderOptionParameter(parameterMetadata, valueGroup);
         
       this.renderUnitLabel(parameterMetadata, valueGroup);
     }
+    
+    renderGroupLabel(groupName) {
+      let paramElement = document.createElement("div");
+      paramElement.className = "parameter";
+      this.parametersPanel.appendChild(paramElement);
+      
+      let label = document.createElement("label");
+      label.className = "paramgroup";
+      label.dataset.group = groupName;
+      label.innerText = groupName.replace(".", " ");
+      paramElement.appendChild(label);
+      
+      label.addEventListener("click", () => {
+        const groupParams = this.parametersPanel.querySelectorAll(`div.parameter[data-group="${groupName}"]`);
+        groupParams.forEach(param => param.classList.toggle("hidden"));
+      })
+    }
               
-    renderNumberParameter(parameterMetadata, parameter, valueGroup) {
-      console.log("renderNumberParameter", parameter)
+    renderNumberParameter(parameterMetadata, valueGroup) {
+      //console.log("renderNumberParameter", parameterMetadata.name)
       let input = document.createElement("number-input");
       input.readOnly = true;
       valueGroup.appendChild(input);
@@ -2556,38 +2599,29 @@ async function DAWSome() {
       input.min = parameterMetadata.metadata.min;
       input.max = parameterMetadata.metadata.max;
       input.step = parameterMetadata.metadata.step;
-      input.value = parameter.name ? parameter.value : parameter;
+      input.value = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       input.fill = "#d29524";
       input.focusFill = "#f2b544";
-      input.oninput = () => {
-        if (parameter.name)
-          parameter.value = input.value;
-        else
-          parameter = input.value;
-      }
+      input.oninput = () => this.updateParameter(parameterMetadata, input.value);
     }
     
-    renderOptionParameter(parameterMetadata, parameter, valueGroup) {
+    renderOptionParameter(parameterMetadata, valueGroup) {
       let select = document.createElement("select");
       let optionsHtml = "";
       console.log("renderOptionParameter", parameterMetadata.metadata.values)
+      let parameterValue = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       parameterMetadata.metadata.values.forEach(value => {
         let option = document.createElement("option");
         option.value = value;
         option.innerText = value;
-        if (parameter == value) {
+        if (parameterValue == value) {
           option.selected = "selected";
         }
         select.appendChild(option);
       });
       valueGroup.appendChild(select);
       
-      select.oninput = () => {
-        if (parameter.name)
-          parameter.value = select.value;
-        else
-          parameter = select.value;
-      };
+      select.oninput = () => this.updateParameter(parameterMetadata, select.value);
     }
   
     renderUnitLabel(parameterMetadata, valueGroup) {
@@ -2597,6 +2631,11 @@ async function DAWSome() {
       valueGroup.appendChild(unitLabel);
       if (parameterMetadata.metadata.unit)
         unitLabel.innerText = parameterMetadata.metadata.unit;
+    }
+  
+    updateParameter(parameterMetadata, value) {
+      helpers.updateDeviceStateParameter(this.deviceState, parameterMetadata.name, value);
+      helpers.updateDeviceParameter(this.device, parameterMetadata.name, value);
     }
   }
   
@@ -2615,9 +2654,11 @@ async function DAWSome() {
       this.devicePickerList = [];
       this.devicePresetPickerList = [];
       
+      this._currentDeviceState = null;
       this._currentDevice = null;
     }
     
+    get currentDeviceState() { return this._currentDeviceState; }
     get currentDevice() { return this._currentDevice; }
     
     render() {
@@ -2629,7 +2670,7 @@ async function DAWSome() {
         this.devicePicker.value = this.currentDevice.name;
         this.devicePicked();
       }
-      this.parameterView.renderDevice(this.currentDevice);
+      this.parameterView.renderDevice(this.currentDeviceState, this.currentDevice);
     }
     
     devicePicked() {
@@ -2668,8 +2709,9 @@ async function DAWSome() {
       super(panel);
     }
     
-    init(device) {
-      console.log("InstrumentView.init", device)
+    init(deviceState, device) {
+      console.log("InstrumentView.init", deviceState, device)
+      this._currentDeviceState = deviceState;
       this._currentDevice = device;
       this.devicePickerList = metadataManager.getInstrumentNames();
       this.devicePresetPickerList = instrumentPresets;
@@ -2843,7 +2885,7 @@ async function DAWSome() {
       }
 
       let deviceToInspect = audio.getTrackInstrument(track);
-      this.instView.init(deviceToInspect);
+      this.instView.init(track.devices[0], deviceToInspect);
     }
     
     renderEffectsPanel(panel) {
@@ -3966,7 +4008,9 @@ async function DAWSome() {
       }
       else
         context[parameterName] = value;
-    }
+    };
+    
+    
   }
   
   // ===== Init =====
