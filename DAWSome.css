@@ -157,7 +157,7 @@
     .instrument-panel, .effects-panel, .fx-panel, .modulation-panel { min-height: 30vh; max-height: 30vh; }
   }
   .mixer { overflow-x: auto; }
-  .instrument-panel { display: none; }
+  .instrument-panel, .effects-panel { display: none; }
   .effects-panel, .fx-panel { overflow-x: hidden; }
   
   .device { height: max-content; padding-bottom: 5pt; } 
