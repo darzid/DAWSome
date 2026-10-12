@@ -2543,7 +2543,7 @@ async function DAWSome() {
       }
       this.valueParametersMetadata = metadataManager.getDeviceValueParameters(this.device.name);
       this.valueParametersMetadata.forEach(parameterMetadata => this.renderParameter(parameterMetadata));
-     // this.renderLists();
+      this.renderLists();
     }
     
     renderParameter(parameterMetadata) {
@@ -2807,8 +2807,7 @@ async function DAWSome() {
       
       if (this.track.devices[0].name == this.devicePicker.value) return;
       
-      console.warn("This is broken")
-      this.track.devices[0] = deviceList.devices[this.devicePicker.value];
+      this.track.devices[0] = { name: this.devicePicker.value, parameters: {}};
       this._currentDeviceState = this.track.devices[0];
       
       this.track.instrumentName = this.devicePicker.value;
@@ -2818,7 +2817,7 @@ async function DAWSome() {
       console.log("Track updated for Selected instrument " + this.track.instrumentName)
       this.track.devices[0].presetName = "default";
       console.log("Preset set for Selected instrument " + this.track.instrumentName)
-      
+      this.render();
      // document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: this.track.id, instrumentName: this.devicePicker.value } }));
       
     }
