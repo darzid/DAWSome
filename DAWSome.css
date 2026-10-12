@@ -158,6 +158,8 @@
   }
   .mixer { overflow-x: auto; }
   .instrument-panel, .effects-panel { display: none; }
+  .modulation-panel { display: none; }
+  
   .effects-panel, .fx-panel { overflow-x: hidden; }
   
   .device { height: max-content; padding-bottom: 5pt; } 

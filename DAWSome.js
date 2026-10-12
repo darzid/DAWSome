@@ -2807,7 +2807,7 @@ async function DAWSome() {
       
       if (this.track.devices[0].name == this.devicePicker.value) return;
       
-      this.track.devices[0] = { name: this.devicePicker.value, parameters: {}};
+      this.track.devices[0] = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
       this._currentDeviceState = this.track.devices[0];
       
       this.track.instrumentName = this.devicePicker.value;
@@ -2819,7 +2819,6 @@ async function DAWSome() {
       console.log("Preset set for Selected instrument " + this.track.instrumentName)
       this.render();
      // document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: this.track.id, instrumentName: this.devicePicker.value } }));
-      
     }
     
     devicePresetPicked() {
