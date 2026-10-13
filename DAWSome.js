@@ -2845,11 +2845,7 @@ async function DAWSome() {
         this.devices.push(audio.rebuildDevice(this.track, this.trackDeviceIndex));
       }
       
-      if (this.trackDeviceIndex == 0) {
-        this.track.instrumentName = this.devicePicker.value;
-        console.log("Selected instrument " + this.track.instrumentName)
-      }
-
+      
       metadataManager.buildDeviceState(this.currentDevice, this.currentDeviceState);
       
       console.log("Track updated for Selected device " + this.currentDevice.name)
@@ -2907,6 +2903,9 @@ async function DAWSome() {
     devicePicked() {
       console.log("InstrumentView.devicePicked " + this.devicePicker.value)
       super.devicePicked();
+
+      this.track.instrumentName = this.devicePicker.value;
+      console.log("Selected instrument " + this.track.instrumentName)
      // document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: this.track.id, instrumentName: this.devicePicker.value } }));
     }
     
