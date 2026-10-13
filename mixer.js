@@ -28,12 +28,12 @@ class Mixer {
       })
       this._insertBefore = this._masterFaderContainer;
     }
+    
     addReturnFader(returnChannel) {
       let faderContainer = document.createElement("div");
       faderContainer.className = "channel-fader-container return faders";
       this.mixer.insertBefore(faderContainer, this._masterFaderContainer);
       if (this._insertBefore == this._masterFaderContainer) this._insertBefore = faderContainer;
-      
       
       this.addFader(returnChannel, faderContainer);
       this.addTrackMuteButton(returnChannel, faderContainer);
@@ -48,6 +48,7 @@ class Mixer {
     addTrackFader(track) {
       let faderContainer = document.createElement("div");
       faderContainer.className = "channel-fader-container faders";
+      faderContainer.dataset.channelId = track.id;
       this.mixer.insertBefore(faderContainer, this._insertBefore);
       
       this.addFader(track, faderContainer);
@@ -241,8 +242,8 @@ class Mixer {
     addTrackEvents(track, faderContainer) {
       document.addEventListener("TrackRemoved", (e) => {
         if (e.detail.trackId !== track.id) return;
-        console.log("Track removed", e.detail)
-        this.mixer.removeChild(faderContainer);
+        console.log("Mixer: Track fader removed", e.detail)
+        this.removeTrackFader(track.id);
       })
       document.addEventListener("TrackNameChanged", (e) => {
         if (e.detail.trackId !== track.id) return;
@@ -260,6 +261,7 @@ class Mixer {
     addVuMeter(channel, faderContainer) {
       let faderMeterCanvas = document.createElement("canvas");
       faderMeterCanvas.className = "vu-meter";
+      faderMeterCanvas.dataset.channelId = channel.id;
       if (faderContainer.classList.contains("master"))
         faderMeterCanvas.classList.add("master");
       faderMeterCanvas.width = "5";
@@ -267,16 +269,22 @@ class Mixer {
       faderMeterCanvas.dataset.val = 400;
       faderMeterCanvas.dataset.channelName = channel.name;
       faderContainer.after(faderMeterCanvas);
-      /*if (faderContainer !== this._insertBefore)
-        this.mixer.insertBefore(faderMeterCanvas, this._insertBefore);
-      else
-        this.mixer.appendChild(faderMeterCanvas);*/
         
       let chain = this.audio.getChain(channel.id);
       levelMeterManager.register(chain.channel.output, faderMeterCanvas, this.mixer);
     }
     
-    removeTrackFader() {}
+    removeTrackFader(trackId) {
+     // console.log("Mixer.removeTrackFader", this.mixer)
+      let vuMeter = this.mixer.querySelector(`.vu-meter[data-channel-id="${trackId}"]`);
+      this.mixer.removeChild(vuMeter);
+      
+      let faderContainer = this.mixer.querySelector(`.channel-fader-container[data-channel-id="${trackId}"]`);
+      
+      this.mixer.removeChild(faderContainer);
+      
+      console.log("Mixer track channel removed " + trackId);
+    }
   }
   
   class MasterChannel {
