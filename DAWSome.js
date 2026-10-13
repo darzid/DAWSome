@@ -907,6 +907,7 @@ async function DAWSome() {
       connectDevices(ch);
     };
     const chain = (trackId) => chains.get(trackId);
+    const deviceNode = (deviceId) => deviceNodes.get(deviceId);
     document.addEventListener("MuteChanged", (e) => {
       const ch = chain(e.detail.trackId);
       ch.channel.mute = e.detail.muted;
@@ -1025,6 +1026,7 @@ async function DAWSome() {
         }
         track.sends.forEach(send => ch.channel.send(send.name, send.volume));
       },
+      
       getChain: (trackId) => { 
         const ch = chain(trackId);
         return ch; },
@@ -1043,6 +1045,9 @@ async function DAWSome() {
         ch.modulators.forEach(mod => devices.push(mod));
         return devices;
       },
+      getDeviceNode: (device) => {
+        return deviceNode(device.id);
+      },
       getTrackModulators: (track) => {
         const ch = chain(track.id);
         if (!ch.modulators) {
@@ -1058,6 +1063,42 @@ async function DAWSome() {
         ch.instrument.dispose();
         ch.channel.dispose();
         chains.delete(trackId);
+      },
+      rebuildDevice: (track, deviceIndex) => {
+        console.log("rebuildDevice ", track.devices[deviceIndex])
+        const trackDevices = audio.getTrackDevices(track);
+        const ch = chain(track.id);
+        const deviceNode = makeToneNode(track.devices[deviceIndex]);
+        if (deviceIndex < trackDevices.length) {
+          if (deviceIndex > 0) {
+            trackDevices[deviceIndex - 1].disconnect();
+          }
+          trackDevices[deviceIndex].disconnect();
+          trackDevices[deviceIndex].dispose();
+          
+          if (deviceIndex > 0)
+            ch.effects[deviceIndex - 1] = deviceNode;
+          else 
+            ch.instrument = deviceNode;
+        }
+        else {
+          if (deviceIndex > 0)
+            ch.effects.push(deviceNode);
+          else 
+            ch.instrument = deviceNode;
+        }
+        //deviceNodes.delete(track.devices[deviceIndex].id);
+        
+        if (deviceIndex > 0) {
+          trackDevices[deviceIndex - 1].connect(deviceNode);
+        }
+        
+        if (deviceIndex < track.devices.length - 1) 
+          deviceNode.connect(trackDevices[deviceIndex + 1]);
+        else 
+          deviceNode.connect(ch.channel);
+          
+        return deviceNode;
       },
       rebuildClipPart: (clip) => {
         try {
@@ -2287,7 +2328,7 @@ async function DAWSome() {
         parameterContext = parameterContext[parts[partIndex]];
       }
       let parameter = parameterContext[name];
-      if (parameter == null) console.error("No parameter", deviceState, parameterPath)
+      if (parameter == null) console.error("No parameter found with name " + name, deviceState, parameterPath)
       return parameter;
     },
     updateDeviceParameter: (device, parameterPath, value) => {
@@ -2551,7 +2592,7 @@ async function DAWSome() {
       let parts = parameterMetadata.name.split(".");
       let shortName = parts[parts.length - 1];
       let groupName = parts.length > 1 ? parameterMetadata.name.substring(0, parameterMetadata.name.length - (shortName.length + 1)) : "";
-      console.log("renderParameter " + shortName, parameterMetadata)
+     // console.log("renderParameter " + shortName, parameterMetadata)
       if (this.groupName != groupName && groupName != "") {
         this.renderGroupLabel(groupName);
         this.groupName = groupName;
@@ -2599,7 +2640,7 @@ async function DAWSome() {
     }
               
     renderNumberParameter(parameterMetadata, valueGroup) {
-      console.log("renderNumberParameter " + parameterMetadata.name, parameterMetadata)
+      //console.log("renderNumberParameter " + parameterMetadata.name, parameterMetadata)
       let input = document.createElement("number-input");
       input.readOnly = true;
       valueGroup.appendChild(input);
@@ -2607,7 +2648,7 @@ async function DAWSome() {
       input.min = parameterMetadata.metadata.min;
       input.max = parameterMetadata.metadata.max;
       input.step = parameterMetadata.metadata.step;
-      console.log("renderNumberParameter getDeviceStateParameter " + parameterMetadata.name, this.deviceState, parameterMetadata)
+     // console.log("renderNumberParameter getDeviceStateParameter " + parameterMetadata.name, this.deviceState, parameterMetadata)
       input.value = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       input.fill = "#d29524";
       input.focusFill = "#f2b544";
@@ -2617,7 +2658,7 @@ async function DAWSome() {
     renderOptionParameter(parameterMetadata, valueGroup) {
       let select = document.createElement("select");
       let optionsHtml = "";
-      console.log("renderOptionParameter", parameterMetadata.metadata.values)
+     // console.log("renderOptionParameter", parameterMetadata.metadata.values)
       let parameterValue = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       parameterMetadata.metadata.values.forEach(value => {
         let option = document.createElement("option");
@@ -2634,7 +2675,7 @@ async function DAWSome() {
     }
   
     renderUnitLabel(parameterMetadata, valueGroup) {
-      console.log("renderUnitLabel ", parameterMetadata)
+      //console.log("renderUnitLabel ", parameterMetadata)
       let unitLabel = document.createElement("label");
       unitLabel.className = "unit";
       valueGroup.appendChild(unitLabel);
@@ -2648,7 +2689,7 @@ async function DAWSome() {
     }
     
     renderLists() {
-      console.log("renderLists")
+   //   console.log("renderLists")
       let deviceIndex = this.track.devices.indexOf(this.deviceState);
       if (deviceIndex == this.track.devices.length) return;
       
@@ -2720,7 +2761,12 @@ async function DAWSome() {
   }
   
   class DeviceBaseView {
-    track;
+    _track;
+    _trackDeviceIndex = -1;
+    _devicePickerList;
+    _devicePresetPickerList;
+    canAddNewDevice = false;
+    
     constructor(panel) {
       this.panel = panel;
       this.header = panel.querySelector(".header");
@@ -2732,43 +2778,100 @@ async function DAWSome() {
       this.devicePresetPicker = panel.querySelector(".devicePresetPicker");
       this.devicePresetPicker.addEventListener("change", () => this.devicePresetPicked());
       
-      this.devicePickerList = [];
-      this.devicePresetPickerList = [];
+      this._devicePickerList = [];
+      this._devicePresetPickerList = [];
       
+      this._deviceStates = [];
+      this._devices = [];
       this._currentDeviceState = null;
       this._currentDevice = null;
+      
+      this.pageIndex = -1;
     }
     
-    get currentDeviceState() { return this._currentDeviceState; }
-    get currentDevice() { return this._currentDevice; }
+    get track() { return this._track; }
+    get trackDeviceIndex() { return this._trackDeviceIndex; }
+    get deviceStates() { return this._deviceStates; }
+    get devices() { return this._devices; }
+    get currentDeviceState() { return this.deviceStates[this.pageIndex]; }
+    get currentDevice() { return this.devices[this.pageIndex]; }
+    get devicePickerList() { return this._devicePickerList; }
+    get devicePresetPickerList() { return this._devicePresetPickerList; }
+    get lastPageIndex() { return this.canAddNewDevice ? this.deviceStates.length : this.deviceStates.length - 1; }
+    get nextPageAvailable() { return this.pageIndex < this.lastPageIndex; }
+    get previousPageAvailable() { return this.pageIndex > 0; }
+    get isNewDevice() { return this.canAddNewDevice && this.pageIndex == this.deviceStates.length; }
+    
+    init(track, deviceStates, devices, devicePickerList, devicePresetPickerList) {
+      this._track = track;
+      this._deviceStates = deviceStates;
+      this._devices = devices;
+      this.pageIndex = 0;
+      this._trackDeviceIndex = this.track.devices.indexOf(this.currentDeviceState);
+      this._devicePickerList = devicePickerList;
+      this._devicePresetPickerList = devicePresetPickerList;
+      this.render();
+    }
     
     render() {
       console.log("DeviceBaseView.render " + this.currentDevice?.name, this.currentDeviceState, this.devicePickerList)
       let devicePickerOptionsHtml = this.devicePickerList.map((deviceName) => `<option value="${deviceName}">${helpers.toShortDeviceName(deviceName)}</option>`).join("");
       this.devicePicker.innerHTML = "<option value=''>-Device-</option>";
       this.devicePicker.innerHTML += devicePickerOptionsHtml;
-      if (this.currentDevice) {
+      if (this.currentDevice && this.currentDevice.name != this.devicePicker.value) {
         this.devicePicker.value = this.currentDevice.name;
         this.devicePicked();
       }
       this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
+      this.updateUIState();
     }
     
     devicePicked() {
-      let deviceName = this.devicePicker.value;
-      if (!deviceName) {
+      if (!this.isNewDevice) {
+        console.log("DeviceBaseView.devicePicked existing device", this, this.lastPageIndex)
+        if (this.devices[this.pageIndex].name == this.devicePicker.value) return;
+        console.log("DeviceBaseView.devicePicked start update existing " + this.devicePicker.value);
+        this.track.devices[this.trackDeviceIndex] = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
+        this.devices[this.pageIndex] = audio.rebuildDevice(this.track, this.trackDeviceIndex);
+      }
+      else {
+        console.log("DeviceBaseView.devicePicked start add new " + this.devicePicker.value);
+        
+        const newDeviceState = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
+        this.track.devices.push(newDeviceState);
+        this.deviceStates.push(newDeviceState);
+        this._trackDeviceIndex = this.track.devices.indexOf(newDeviceState);
+        console.log("Rebuild device " + this._trackDeviceIndex);
+        this.devices.push(audio.rebuildDevice(this.track, this.trackDeviceIndex));
+      }
+      
+      if (this.trackDeviceIndex == 0) {
+        this.track.instrumentName = this.devicePicker.value;
+        console.log("Selected instrument " + this.track.instrumentName)
+      }
+
+      metadataManager.buildDeviceState(this.currentDevice, this.currentDeviceState);
+      
+      console.log("Track updated for Selected device " + this.currentDevice.name)
+      this.currentDeviceState.presetName = "default";
+      console.log("Preset set for Selected instrument " + this.currentDevice.name);
+      
+      if (!this.devicePicker.value) {
         this.devicePresetPicker.innerHTML = "";
         return;
       }
-      console.log("DeviceBaseView.devicePicked", this.devicePicker.value, this.devicePresetPickerList[deviceName])
+      console.log("DeviceBaseView.devicePicked presets for " + this.devicePicker.value, this.devicePresetPickerList[this.devicePicker.value])
       
       this.devicePresetPicker.innerHTML = "<option value=''>-Preset-</option>";
-      if (this.devicePresetPickerList[deviceName]) {
-        let devicePresetPickerOptionsHtml = Object.keys(this.devicePresetPickerList[deviceName]).map((presetName) => `<option value="${presetName}">${presetName}</option>`).join("");
+      if (this.devicePresetPickerList[this.devicePicker.value]) {
+        let devicePresetPickerOptionsHtml = Object.keys(this.devicePresetPickerList[this.devicePicker.value]).map((presetName) => `<option value="${presetName}">${presetName}</option>`).join("");
         this.devicePresetPicker.innerHTML += devicePresetPickerOptionsHtml;
       }
       
-     // this.render();
+      console.log("DeviceBaseView.devicePicked render params for " + this.devicePicker.value)
+      this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
+      //this.render();
+      this.updateUIState();
     }
     
     devicePresetPicked() {
@@ -2785,6 +2888,10 @@ async function DAWSome() {
       });
       this.parameterView.refresh();
     }
+    
+    updateUIState() {
+      
+    }
   }
   
   class InstrumentView extends DeviceBaseView {
@@ -2794,30 +2901,12 @@ async function DAWSome() {
     
     init(track, deviceState, device) {
       console.log("InstrumentView.init, state, device", deviceState, device)
-      this.track = track;
-      this._currentDeviceState = deviceState;
-      this._currentDevice = device;
-      this.devicePickerList = metadataManager.getInstrumentNames();
-      this.devicePresetPickerList = instrumentPresets;
-      super.render();
+      super.init(track, [deviceState], [device], metadataManager.getInstrumentNames(), instrumentPresets);
     }
     
     devicePicked() {
+      console.log("InstrumentView.devicePicked " + this.devicePicker.value)
       super.devicePicked();
-      
-      if (this.track.devices[0].name == this.devicePicker.value) return;
-      
-      this.track.devices[0] = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
-      this._currentDeviceState = this.track.devices[0];
-      
-      this.track.instrumentName = this.devicePicker.value;
-      console.log("Selected instrument " + this.track.instrumentName)
-      audio.updateTrackChain(this.track);
-      this._currentDevice = audio.getTrackInstrument(this.track);
-      console.log("Track updated for Selected instrument " + this.track.instrumentName)
-      this.track.devices[0].presetName = "default";
-      console.log("Preset set for Selected instrument " + this.track.instrumentName)
-      this.render();
      // document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: this.track.id, instrumentName: this.devicePicker.value } }));
     }
     
@@ -2843,30 +2932,10 @@ async function DAWSome() {
       this.nextBtn.addEventListener("click", () => this.nextPage());
       
       this.canAddNewDevice = true;
-      this.deviceStates = [];
-      this.devices = [];
-      
-      this.pageIndex = -1;
-      this.track = null;
     }
     
-    get lastPageIndex() { return this.canAddNewDevice ? this.deviceStates.length : this.deviceStates.length - 1; }
-    get nextPageAvailable() { return this.pageIndex < this.lastPageIndex; }
-    get previousPageAvailable() { return this.pageIndex > 0; }
-    get isNewDevice() { return this.canAddNewDevice && this.pageIndex == this.lastPageIndex; }
-    get currentDeviceState() { return this.deviceStates[this.pageIndex]; }
-    get currentDevice() { return this.devices[this.pageIndex]; }
-    
     init(track, deviceStates, devices) {
-      this.track = track;
-      this.deviceStates = deviceStates;
-      this.devices = devices;
-      
-      this.devicePickerList = metadataManager.getEffectNames();
-      this.devicePresetPickerList = effectPresets;
-      this.pageIndex = 0;
-  
-      this.render();
+      super.init(track, deviceStates, devices, metadataManager.getEffectNames(), effectPresets);
     }
     
     previousPage() {
@@ -2881,15 +2950,18 @@ async function DAWSome() {
       this.render();
     }
     
-    render() {
-      this.prevBtn.disabled = this.previousPageAvailable ? false : true;
-      this.nextBtn.disabled = this.nextPageAvailable ? false : true;
-      
-      super.render();
-    }
-    
     devicePicked() {
+      /*let effectName = this.devicePicker.value;
+      if (this.isNewDevice) {
+        if (effectName) {
+          let newFx = { id: projectState.nextId++, name: effectName, parameters: {} };
+          this.track.effects.push(newFx);
+          this.track.devices.push(newFx);
+        }
+      }*/
       super.devicePicked();
+
+    /*  super.devicePicked();
       
       let effectName = this.devicePicker.value;
       if (this.isNewDevice) {
@@ -2911,11 +2983,18 @@ async function DAWSome() {
         this.track.devices[1 + this.pageIndex].presetName = "default";
         console.log("Preset set for Selected fx " + effectName);
       }
+      
+      this.render();*/
     }
     
     devicePresetPicked() {
       super.devicePicked();
       this.track.devices[1 + this.pageIndex].presetName = this.devicePicker.value;
+    }
+    
+    updateUIState() {
+      this.prevBtn.disabled = this.previousPageAvailable ? false : true;
+      this.nextBtn.disabled = this.nextPageAvailable ? false : true;
     }
   }
   
