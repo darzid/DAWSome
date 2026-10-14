@@ -24,7 +24,8 @@ class LevelMeterManager {
 
   updateMeters() {
     this.meters.forEach((meter) => meter.update());
-    window.requestAnimationFrame(() => this.updateMeters());
+    //window.requestAnimationFrame(() => this.updateMeters());
+    //window.setInterval(() => this.updateMeters(), 100);
   }
 }
 

@@ -1176,6 +1176,17 @@ async function DAWSome() {
         //Tone.setContext(new Tone.Context({ latencyHint: "playback" }));
         Tone.getContext().lookAhead = Constants.TONE_LOOKAHEAD;
         console.log("Tone.js context lookahead latency: " + Tone.getContext().lookAhead);
+        
+        var loop = new Tone.Loop(function(time){
+        	//instead of scheduling visuals inside of here
+        	//schedule a deferred callback with Tone.Draw
+        	Tone.Draw.schedule(function(){
+        	  tickPlayhead();
+        	  levelMeterManager.updateMeters();
+        	}, time) //use AudioContext time of the event
+        }, "16n");
+        loop.start();
+        
         toneInitialized = true;
         console.log("Starting Tone, context state: " + Tone.getContext().state);
         await Tone.start();
@@ -1978,17 +1989,20 @@ async function DAWSome() {
   }
 
   function tickPlayhead() {
-    if (!projectState.playing) return;
-    projectState.playheadBeat = audio.positionBeat();
-    updatePosReadout();
-    if (projectState.follow) {
-      followPlayhead(av, projectState.playheadBeat);
-      const local = editorPlayhead();
-      if (local !== null) followPlayhead(ev, local);
+    if (projectState.playing) {
+      projectState.playheadBeat = audio.positionBeat();
+      updatePosReadout();
+      if (projectState.follow) {
+        followPlayhead(av, projectState.playheadBeat);
+        const local = editorPlayhead();
+        if (local !== null) followPlayhead(ev, local);
+      }
+      av.requestRender();
+      ev.requestRender();
     }
-    av.requestRender();
-    ev.requestRender();
-    requestAnimationFrame(tickPlayhead);
+    
+   // requestAnimationFrame(tickPlayhead);
+   // window.setTimeout(tickPlayhead, 10);
   }
 
   async function togglePlay() {
@@ -2000,7 +2014,8 @@ async function DAWSome() {
       try {
         await audio.play();
         projectState.playing = true;
-        requestAnimationFrame(tickPlayhead);
+        
+        //requestAnimationFrame(tickPlayhead);
       } catch (err) {
         console.error("Playback could not start:", err);
       }
@@ -4061,7 +4076,7 @@ async function DAWSome() {
     track;
     trackAudioDevices;
     position;
-    updateDelayInSecs = 0;
+    updateDelayInSecs = 0.05;
     
     constructor(xypadPanelElement, helpers) {
       this.helpers = helpers;
