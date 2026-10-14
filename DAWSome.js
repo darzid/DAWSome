@@ -1,4 +1,4 @@
-async function DAWSome() {
+async function DAWSomeApp() {
   let toneInitialized = false;
   let swRegistration = null;
 
@@ -1603,7 +1603,10 @@ async function DAWSome() {
       const lastEnd = clip.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       return Math.max(helpers.ceilBars(clip.length), helpers.ceilBars(lastEnd));
     },
-    render: renderEditor,
+    render: () => {
+      if (document.getElementById("clipeditor-panel").style.display != "none")
+        renderEditor();
+    },
     onLocate: (beat) => {
       const clip = stateHelper.currentClip();
       if (!clip) return;
@@ -1994,8 +1997,10 @@ async function DAWSome() {
       updatePosReadout();
       if (projectState.follow) {
         followPlayhead(av, projectState.playheadBeat);
-        const local = editorPlayhead();
-        if (local !== null) followPlayhead(ev, local);
+        if (document.getElementById("clipeditor-panel").style.display != "none") {
+          const local = editorPlayhead();
+          if (local !== null) followPlayhead(ev, local);
+        }
       }
       av.requestRender();
       ev.requestRender();
@@ -4837,4 +4842,4 @@ async function DAWSome() {
   
   await init();
 }
-DAWSome();
+DAWSomeApp();
