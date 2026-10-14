@@ -765,7 +765,7 @@ async function DAWSome() {
     const toTicks = (beats) => Tone.Ticks(Math.round(beats * PPQ));
     const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
     
-    const getValueParams = (logSteps, deviceNodeContext, deviceContext, deviceMetadataContext, paramContextPath) => {
+    const getValueParams = (logSteps, deviceNodeContext, deviceStateContext, deviceMetadataContext, paramContextPath) => {
       if (logSteps) {
         if (paramContextPath)
           console.log(`getValueParams: ${paramContextPath}`, deviceMetadataContext);
@@ -779,17 +779,22 @@ async function DAWSome() {
         if (logSteps) console.log(`Device param "${paramPath}" metadata path: ${paramMetadataPath}`);
 
         let parts = paramMetadataPath.split("/");
-        if (parts[0] != "unitTypes" && parts[0] != "enumTypes") {
-          if (!deviceContext[paramName])
-            deviceContext[paramName] = {};
-          getValueParams(logSteps, deviceNodeContext[paramName], deviceContext[paramName], deviceList[parts[0]][parts[1]].parameters, paramPath);
+
+        if (parts[0] != "unitTypes" && parts[0] != "enumTypes" && parts[0] != "array") {
+          if (deviceNodeContext[paramName]) {
+            if (!deviceStateContext[paramName])
+              deviceStateContext[paramName] = {};
+            getValueParams(logSteps, deviceNodeContext[paramName], deviceStateContext[paramName], deviceList[parts[0]][parts[1]].parameters, paramPath);
+          }
         }
         else {
-          if (deviceNodeContext[paramName].name && (deviceNodeContext[paramName].name == "Signal" || deviceNodeContext[paramName].name == "Param"))
-            deviceContext[paramName] = deviceNodeContext[paramName].value;
-          else
-            deviceContext[paramName] = deviceNodeContext[paramName];
-          if (logSteps) console.log(`Device param "${paramPath}" set: ${deviceContext}`);
+          if (deviceNodeContext[paramName]) {
+            if (deviceNodeContext[paramName].name && (deviceNodeContext[paramName].name == "Signal" || deviceNodeContext[paramName].name == "Param"))
+              deviceStateContext[paramName] = deviceNodeContext[paramName].value;
+            else
+              deviceStateContext[paramName] = deviceNodeContext[paramName];
+            if (logSteps) console.log(`Device param "${paramPath}" set: ${deviceStateContext}`);
+          }
         }
       });
     }
@@ -822,7 +827,7 @@ async function DAWSome() {
 
       }
       catch (error) {
-        console.error("error while trying to create device projectState", error);
+        console.error("error while trying to create device " + device.name, error);
         throw error;
       }
 
@@ -2308,6 +2313,19 @@ async function DAWSome() {
       let parts = deviceName.split(".");
       return parts[parts.length - 1];
     },
+    hasParameter: (device, parameterPath) => {
+      let parts = parameterPath.split(".");
+      let name = parts[parts.length - 1];
+      
+      let parameterContext = device;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        parameterContext = parameterContext[parts[partIndex]];
+      }
+      if (parameterContext[name] == undefined)
+        return false;
+      else
+        return true;
+    },
     getDeviceParameter: (device, parameterPath) => {
       let parts = parameterPath.split(".");
       let name = parts[parts.length - 1];
@@ -2328,24 +2346,34 @@ async function DAWSome() {
         parameterContext = parameterContext[parts[partIndex]];
       }
       let parameter = parameterContext[name];
-      if (parameter == null) console.error("No parameter found with name " + name, deviceState, parameterPath)
+      if (parameter == null) console.warn("No parameter found with name " + name, deviceState, parameterPath)
       return parameter;
     },
     updateDeviceParameter: (device, parameterPath, value) => {
       let parameter = helpers.getDeviceParameter(device, parameterPath);
-      if (parameter.name)
+      if (helpers.isObject(parameter))
         parameter.value = value;
       else
         parameter = value;
     },
-    updateDeviceStateParameter: (deviceState, parameterName, value) => {
-      let parts = parameterName.split(".");
+    updateDeviceStateParameter: (deviceState, parameterPath, value) => {
+      let parts = parameterPath.split(".");
       let context = deviceState.parameters;
       for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
         context = context[parts[partIndex]];
       }
-      parameterName = parts[parts.length - 1];
+      let parameterName = parts[parts.length - 1];
       context[parameterName] = value;
+    },
+    updateParameter: (device, deviceState, parameterPath, value) => {
+      try {
+        helpers.updateDeviceParameter(device, parameterPath, value);
+        helpers.updateDeviceStateParameter(deviceState, parameterPath, value);
+        console.log(`Updated ${device.name}.${parameterPath} to ${value}`);
+      }
+      catch (error) {
+        throw `Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`;
+      }
     }
   }
   
@@ -2442,14 +2470,14 @@ async function DAWSome() {
     }
     
     getDeviceValueParameters(deviceName) {
-      //console.log("getDeviceValueParameters for " + deviceName)
+      console.log("getDeviceValueParameters for " + deviceName)
       let deviceMetadata = this.getDeviceMetadata(deviceName);
       
       let results = [];
       Object.entries(deviceMetadata).forEach(item => {
         if (item[1].type == "Number" || item[1].type == "Option") results.push({ name: item[0], type: item[1].type, metadata: item[1].metadata}) });
         
-      console.log("value params ", results);
+      //console.log("value params ", results);
       return results;
     }
     
@@ -2474,9 +2502,17 @@ async function DAWSome() {
           deviceStateContext = deviceStateContext[part];
         }
         let paramName = parts[parts.length - 1];
-        if (!deviceStateContext[paramName]) {
-          let paramValue = deviceContext[paramName].name ? deviceContext[paramName].value : deviceContext[paramName];
-          deviceStateContext[paramName] = paramValue;
+        if (!deviceStateContext[paramName] && deviceContext[paramName]) {
+          try {
+            let paramValue = deviceContext[paramName].name ? deviceContext[paramName].value : deviceContext[paramName];
+            deviceStateContext[paramName] = paramValue;
+          }
+          catch (error) {
+            console.error(`Failed to retrieve param value ${paramName}`, deviceContext[paramName]);
+            
+            throw error;
+          }
+          
         }
       })
     }
@@ -2571,6 +2607,7 @@ async function DAWSome() {
     }
     
     renderDevice(track, deviceState, device) {
+      console.warn("DeviceParametersView.renderDevice for " + device.name);
       this.track = track;
       this.deviceState = deviceState;
       this.device = device;
@@ -2582,13 +2619,16 @@ async function DAWSome() {
       if (!this.device) {
         return;
       }
+      console.warn("DeviceParametersView.refresh for " + this.device.name);
       this.valueParametersMetadata = metadataManager.getDeviceValueParameters(this.device.name);
-      this.valueParametersMetadata.forEach(parameterMetadata => this.renderParameter(parameterMetadata));
+      this.valueParametersMetadata.forEach(parameterMetadata => {
+        if (helpers.hasParameter(this.device, parameterMetadata.name))
+          this.renderParameter(parameterMetadata)
+      });
       this.renderLists();
     }
     
     renderParameter(parameterMetadata) {
-      
       let parts = parameterMetadata.name.split(".");
       let shortName = parts[parts.length - 1];
       let groupName = parts.length > 1 ? parameterMetadata.name.substring(0, parameterMetadata.name.length - (shortName.length + 1)) : "";
@@ -2644,20 +2684,26 @@ async function DAWSome() {
       let input = document.createElement("number-input");
       input.readOnly = true;
       valueGroup.appendChild(input);
-      input.dataset.parameter = parameterMetadata.name;
+      input.dataset.parameter = parameterMetadata.name.replace(".", "-");
       input.min = parameterMetadata.metadata.min;
       input.max = parameterMetadata.metadata.max;
       input.step = parameterMetadata.metadata.step;
-     // console.log("renderNumberParameter getDeviceStateParameter " + parameterMetadata.name, this.deviceState, parameterMetadata)
-      input.value = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
+      console.log("renderNumberParameter getDeviceStateParameter for " + this.device.name + "." + parameterMetadata.name, this.deviceState, parameterMetadata);
+      let stateValue = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
+      if (stateValue) 
+        input.value = stateValue;
+      else 
+        input.value = helpers.getDeviceParameter(this.device, parameterMetadata.name);
       input.fill = "#d29524";
       input.focusFill = "#f2b544";
-      input.oninput = () => this.updateParameter(parameterMetadata, input.value);
+      input.oninput = () => this.updateDeviceParameter(parameterMetadata.name, input.value);
     }
     
     renderOptionParameter(parameterMetadata, valueGroup) {
       let select = document.createElement("select");
+      select.dataset.parameter = parameterMetadata.name.replace(".", "-");
       let optionsHtml = "";
+      console.log("renderOptionParameter getDeviceStateParameter for " + this.device.name + "." + parameterMetadata.name, this.deviceState, parameterMetadata)
      // console.log("renderOptionParameter", parameterMetadata.metadata.values)
       let parameterValue = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       parameterMetadata.metadata.values.forEach(value => {
@@ -2671,7 +2717,7 @@ async function DAWSome() {
       });
       valueGroup.appendChild(select);
       
-      select.oninput = () => this.updateParameter(parameterMetadata, select.value);
+      select.oninput = () => this.updateDeviceParameter(parameterMetadata.name, select.value);
     }
   
     renderUnitLabel(parameterMetadata, valueGroup) {
@@ -2683,9 +2729,18 @@ async function DAWSome() {
         unitLabel.innerText = parameterMetadata.metadata.unit;
     }
   
-    updateParameter(parameterMetadata, value) {
-      helpers.updateDeviceStateParameter(this.deviceState, parameterMetadata.name, value);
-      helpers.updateDeviceParameter(this.device, parameterMetadata.name, value);
+    updateDeviceParameter(parameterPath, value) {
+      helpers.updateParameter(this.device, this.deviceState, parameterPath, value);
+    }
+    
+    refreshParameter(parameterPath, value) {
+      let parameterControl = this.parametersPanel.querySelector(`[data-parameter="${parameterPath.replace(".", "-")}"]`);
+      if (!parameterControl) {
+        console.warn("RefreshParameter: Could not find control for parameter " + parameterPath, this.parametersPanel);
+       // throw "RefreshParameter: Could not find control for parameter " + parameterPath;
+       return;
+      }
+      parameterControl.value = value;
     }
     
     renderLists() {
@@ -2820,7 +2875,7 @@ async function DAWSome() {
       this.devicePicker.innerHTML += devicePickerOptionsHtml;
       if (this.currentDevice && this.currentDevice.name != this.devicePicker.value) {
         this.devicePicker.value = this.currentDevice.name;
-        this.devicePicked();
+        this.fillPresetsPicker();
       }
       this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
       this.updateUIState();
@@ -2845,12 +2900,21 @@ async function DAWSome() {
         this.devices.push(audio.rebuildDevice(this.track, this.trackDeviceIndex));
       }
       
-      
       metadataManager.buildDeviceState(this.currentDevice, this.currentDeviceState);
       
       console.log("Track updated for Selected device " + this.currentDevice.name)
-      this.currentDeviceState.presetName = "default";
+      this.currentDeviceState.presetName = "";
       console.log("Preset set for Selected instrument " + this.currentDevice.name);
+      
+      this.fillPresetsPicker();
+      
+      console.log("DeviceBaseView.devicePicked render params for " + this.devicePicker.value)
+      this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
+      //this.render();
+      this.updateUIState();
+    }
+  
+    fillPresetsPicker() {
       
       if (!this.devicePicker.value) {
         this.devicePresetPicker.innerHTML = "";
@@ -2863,11 +2927,9 @@ async function DAWSome() {
         let devicePresetPickerOptionsHtml = Object.keys(this.devicePresetPickerList[this.devicePicker.value]).map((presetName) => `<option value="${presetName}">${presetName}</option>`).join("");
         this.devicePresetPicker.innerHTML += devicePresetPickerOptionsHtml;
       }
-      
-      console.log("DeviceBaseView.devicePicked render params for " + this.devicePicker.value)
-      this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
-      //this.render();
-      this.updateUIState();
+      if (this.currentDeviceState && this.currentDeviceState.presetName != "" && this.currentDeviceState.presetName != "default" ) {
+        this.devicePresetPicker.value = this.currentDeviceState.presetName;
+      }
     }
     
     devicePresetPicked() {
@@ -2877,17 +2939,31 @@ async function DAWSome() {
       }
       
       let preset = this.devicePresetPickerList[this.currentDevice.name][presetName];
-      Object.keys(preset).forEach(parameterName => {
-        let value = preset[parameterName];
-        helpers.updateDeviceParameter(this.currentDevice, parameterName, value);
-        //this.parameterView.updateParameter(parameterName, value);
-      });
-      this.parameterView.refresh();
+      try {
+        this.recursePreset(preset);
+      }
+      catch (error) {
+        console.error(`Error while applying preset "${presetName}: ${error}`, preset)
+        throw "Error while applying preset " + presetName + ": " + error;
+      }
+      this.track.devices[this.trackDeviceIndex].presetName = this.devicePresetPicker.value;
     }
     
-    updateUIState() {
-      
+    recursePreset(presetContext, parentPath = "") {
+      Object.keys(presetContext).forEach(parameterName => {
+        let parameterPath = (parentPath != "") ? parentPath + "." + parameterName : parameterName;
+        let value = presetContext[parameterName];
+        if (typeof value === "object") {
+          this.recursePreset(value, parameterPath);
+        }
+        else {
+          helpers.updateParameter(this.currentDevice, this.currentDeviceState, parameterPath, value);
+          this.parameterView.refreshParameter(parameterPath, value);
+        }
+      });
     }
+    
+    updateUIState() {}
   }
   
   class InstrumentView extends DeviceBaseView {
@@ -2910,13 +2986,13 @@ async function DAWSome() {
     }
     
     devicePresetPicked() {
-      super.devicePicked();
+      super.devicePresetPicked();
       
-      this.track.instrumentParameters = devicePresets[this.track.instrumentName][this.devicePresetPicker.value];
-      this.track.devices[0].presetName = this.devicePresetPicker.value;
-      console.log("Preset selected " + this.devicePresetPicker.value, this.track.instrumentParameters)
-      audio.updateTrackChain(this.track);
-      document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: this.track.id, presetName: this.devicePresetPicker.value } }));
+      this.track.instrumentParameters = instrumentPresets[this.track.instrumentName][this.devicePresetPicker.value];
+    //  this.track.devices[0].presetName = this.devicePresetPicker.value;
+      console.log("Preset selected " + this.devicePresetPicker.value, this.track.instrumentParameters);
+      //audio.updateTrackChain(this.track);
+    //  document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: this.track.id, presetName: this.devicePresetPicker.value } }));
     }
   }
   
@@ -2988,7 +3064,7 @@ async function DAWSome() {
     
     devicePresetPicked() {
       super.devicePicked();
-      this.track.devices[1 + this.pageIndex].presetName = this.devicePicker.value;
+      
     }
     
     updateUIState() {
