@@ -2,7 +2,7 @@ class LevelMeterManager {
   meters = [];
 
   register(audioNode, meterCanvasElement, containerElement) {
-    console.log("Register " + meterCanvasElement.getAttribute("name"), meterCanvasElement.parentElement.parentElement);
+    console.log("Register " + meterCanvasElement.name, meterCanvasElement.parentElement.parentElement);
     if (!meterCanvasElement.width) {
       console.error("Element doesnt have width");
     }

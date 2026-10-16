@@ -4607,7 +4607,7 @@ async function DAWSomeApp() {
           }
         }
       };
-      const closedhatReverbSend = { name: "Reverb", volume: 5 };
+      const closedhatReverbSend = { name: "Reverb", volume: 10 };
       
       const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [closedhatReverbSend]);
       let chNotes1 = mk([
@@ -4645,7 +4645,7 @@ async function DAWSomeApp() {
           }
         }
       };
-      const openhatReverbSend = { name: "Reverb", volume: 5 };
+      const openhatReverbSend = { name: "Reverb", volume: -5 };
       const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [openhatReverbSend]);
       let ohNotes = mk([["F#2", 0.5, 0.125]]);
       clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);

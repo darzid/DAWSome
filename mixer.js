@@ -226,21 +226,30 @@ class Mixer {
       }
       if (track.sends[0]) sendSelect.value = track.sends[0].name;
       
+      /*
       let sendAmountInput = document.createElement("number-input");
-      //sendAmountInput.type = "number";
       sendAmountInput.min = "-100";
-      sendAmountInput.max = 10;
+      sendAmountInput.max = "10";
       sendAmountInput.step = 0.1;
       sendAmountInput.id = `${track.id}-sendamount`;
       sendAmountInput.className = "send-amount";
+      sendAmountInput.value = track.sends[0].volume;
+      faderContainer.appendChild(sendAmountInput);
+            */
+     
+      let sendVolume = track.sends.length == 0 ? 0 : track.sends[0].volume;
+      let sendAmountInputHtml = `<number-input id="${track.id}-sendamount" class="send-amount" min="-100" max="10" step="0.1" value="${sendVolume}" />`;
+      let span = document.createElement("span");
+      span.innerHTML = sendAmountInputHtml;
+      faderContainer.appendChild(span);
+      let sendAmountInput = document.getElementById(`${track.id}-sendamount`);
+      
       sendAmountInput.oninput = () => {
         console.log("send amount changed to " + sendAmountInput.value)
         track.sends[0].volume = parseFloat(sendAmountInput.value)
         document.dispatchEvent(new CustomEvent("SendChanged", { detail: { trackId: track.id, sends: track.sends }}));
       };
 
-      faderContainer.appendChild(sendAmountInput);
-      
       updateSendInput();
     }
     
@@ -265,6 +274,7 @@ class Mixer {
     
     addVuMeter(channel, faderContainer) {
       let faderMeterCanvas = document.createElement("canvas");
+      faderMeterCanvas.name = `channel-${channel.id}-vumeter`;
       faderMeterCanvas.className = "vu-meter";
       faderMeterCanvas.dataset.channelId = channel.id;
       if (faderContainer.classList.contains("master"))
@@ -276,6 +286,7 @@ class Mixer {
       faderContainer.after(faderMeterCanvas);
         
       let chain = this.audio.getChain(channel.id);
+      console.log("create vumeter for " + faderMeterCanvas.name)
       levelMeterManager.register(chain.channel.output, faderMeterCanvas, this.mixer);
     }
     
