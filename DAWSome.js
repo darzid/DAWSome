@@ -5109,7 +5109,7 @@ async function exportAudio() {
   const exportBtn = $("exportBtn");
   exportBtn.disabled = true;
   exportBtn.innerText = "Rendering...";
-  if (dom.hint) dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
+  if (dom.hint) dom.hint.textContent = "Offline rendering voorbereiden...";
 
   try {
     // 1. Bepaal de totale duur van het nummer in seconden
@@ -5125,7 +5125,7 @@ async function exportAudio() {
       // Bouw de virtuele Master Channel voor de offline context
       const offlineMaster = new Tone.Channel(projectState.masterVolume).toDestination();
       const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.getTransport().PPQ));
-      const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
+      //const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
       // Maak offline afspeel-structuren aan per track/clip
       for (const track of projectState.tracks) {
         if (track.mute) continue; // Muted tracks overslaan[span_5](start_span)[span_5](end_span)
@@ -5139,53 +5139,36 @@ async function exportAudio() {
         // Koppel alle clips en notes aan de offline Part
         const trackClips = projectState.clips.filter(c => c.trackId === track.id);
         for (const clip of trackClips) {
-          const events = clip.notes.map(n => ({
-            time: (clip.start + n.start) * (60 / bpm),
-            dur: n.duration * (60 / bpm),
-            hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
-            vel: n.velocity,
-            slide: n.slide
-          }));
-
-        /*  const events = clip.notes
-            .filter((n) => n.start < clip.length - Constants.EPS)
-            .map((n) => ({
-              time: toTicks(n.start),
-              hz: hz(n.pitch),
-              dur: toTicks(Math.min(n.duration, clip.length - n.start)),
+          let noteStartInTicks = toTicks(clip.start);
+          let clipEndInTicks = toTicks(clip.end);
+          let clipLengthInTicks = toTicks(clip.length * 4);
+          let events = [];
+          while (noteStartInTicks < clipEndInTicks) {
+            const noteEvents = clip.notes.map(n => ({
+              time: noteStartInTicks + toTicks(n.start),
+              dur: toTicks(n.duration),
+              hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
               vel: n.velocity,
               slide: n.slide
-            }));*/
-
-          // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
-         /* const part = new Tone.Part((time, ev) => {
-            if (instNode.name == "NoiseSynth") 
-              instNode.triggerAttackRelease(ev.dur, time, ev.vel);
-            else if (instNode && typeof instNode.triggerAttackRelease === "function") {
-              instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
-            }
-          }, events);*/
-
+            }));
+            noteEvents.forEach(evt => events.push(evt));
+            if (clip.loop) 
+              noteStartInTicks += clipLengthInTicks;
+            else
+              noteStart = clipEndInTicks;
+          }
+        
           const part = new Tone.Part((time, ev) => {
             if (instNode.name == "NoiseSynth") 
               instNode.triggerAttackRelease(ev.dur, time, ev.vel);
-            else if (instNode.triggerAttackRelease) {
+            else if (instNode.triggerAttackRelease && typeof instNode.triggerAttackRelease === "function") {
               instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
             }
-          }, events).start(helpers.beatsToTime(clip.start));
-          
-        //  part.start(helpers.beatsToTime(clip.start));
-
-          if (clip.loop) {
-            let loopEnd = helpers.beatsToTime(clip.length);
-            part.loopStart = 0;
-            part.loopEnd = loopEnd;
-            part.loop = true;
-            part.stop(helpers.beatsToTime(clip.end));
-          }
+          }, events).start(0);
         }
       }
-
+      console.log("song ready")
+      dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
       // Start de offline transport
       Tone.getTransport().start(0);
 
