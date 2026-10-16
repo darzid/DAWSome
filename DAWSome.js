@@ -753,6 +753,8 @@ async function DAWSomeApp() {
   project.bind(dom.follow, "follow");
   project.bind(dom.drawClips, "drawClips");
 
+
+        
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
@@ -946,6 +948,39 @@ async function DAWSomeApp() {
       console.log(`audio.TrackChainRemoved: ${e.detail.trackId}`);
     });
     
+    const createPartFromClip = (clip, instrumentNode) => {
+         const events = clip.notes
+            .filter((n) => n.start < clip.length - Constants.EPS)
+            .map((n) => ({
+              time: toTicks(n.start),
+              hz: hz(n.pitch),
+              dur: toTicks(Math.min(n.duration, clip.length - n.start)),
+              vel: n.velocity,
+              slide: n.slide
+            }));
+
+          // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
+          const part = new Tone.Part((time, ev) => {
+            if (instrumentNode.name == "NoiseSynth") 
+              instrumentNode.triggerAttackRelease(ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel);
+            else if (instrumentNode && typeof instrumentNode.triggerAttackRelease === "function") {
+              instrumentNode.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
+            }
+          }, events);
+
+          part.start(helpers.beatsToTime(clip.start));
+
+          if (clip.loop) {
+            let loopEnd = helpers.beatsToTime(clip.length);
+            part.loopStart = 0;
+            part.loopEnd = loopEnd;
+            part.loop = true;
+            part.stop(helpers.beatsToTime(clip.end));
+          }
+          
+          return part;
+        }
+        
     return {
       available: true,
       unlock: async () => await initializeTone(),
@@ -1131,6 +1166,9 @@ async function DAWSomeApp() {
           
         return deviceNode;
       },
+      createClipPart: (clip, instrumentNode) => {
+        return createPartFromClip(clip, instrumentNode);
+      },
       rebuildClipPart: (clip) => {
         try {
           const old = parts.get(clip.id);
@@ -1139,40 +1177,17 @@ async function DAWSomeApp() {
           const ch = chain(clip.trackId);
           if (!ch) throw "No chain found for track " + clip.trackId;
           
-          const events = clip.notes
-            .filter((n) => n.start < clip.length - Constants.EPS)
-            .map((n) => ({
-              time: toTicks(n.start),
-              hz: hz(n.pitch),
-              dur: toTicks(Math.min(n.duration, clip.length - n.start)),
-              vel: n.velocity,
-              slide: n.slide
-            }));
-
-          // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
-          const part = new Tone.Part((time, ev) => {
-            if (ch.instrument.name == "NoiseSynth") 
-              ch.instrument.triggerAttackRelease(ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel);
-            else if (ch.instrument && typeof ch.instrument.triggerAttackRelease === "function") {
-              ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
-            }
-          }, events);
-
-          part.start(helpers.beatsToTime(clip.start));
-
-          if (clip.loop) {
-            let loopEnd = helpers.beatsToTime(clip.length);
-            part.loopStart = 0;
-            part.loopEnd = loopEnd;
-            part.loop = true;
-            part.stop(helpers.beatsToTime(clip.end));
-          }
-          
+         // const part = createClipPart(clip, ch.instrument);
+          const instrumentNode = ch.instrument;
+          const part = createPartFromClip(clip, instrumentNode);
+        
           parts.set(clip.id, part);
         }
         catch (error) {
           console.error("rebuild clip error:", error);
         }
+        
+        
       },
       removeClipPart: (clipId) => {
         const part = parts.get(clipId);
@@ -4792,6 +4807,73 @@ async function DAWSomeApp() {
       clipManager.deselectClip();
       trackManager.deselectTrack();
     }
+    
+    async function exportAudio() {
+      const exportBtn = $("exportBtn");
+      exportBtn.disabled = true;
+      exportBtn.innerText = "Rendering...";
+      if (dom.hint) dom.hint.textContent = "Offline rendering voorbereiden...";
+    
+      try {
+        // 1. Bepaal de totale duur van het nummer in seconden
+        const songBeats = stateHelper.songEndBeats(); // Berekent aantal beats[span_3](start_span)[span_3](end_span)
+        const bpm = projectState.bpm; //[span_4](start_span)[span_4](end_span)
+        const durationInSeconds = (songBeats / bpm) * 60 + 2.0; // +2 sec tail voor reverb/delays
+    
+        // 2. Render de compositie offline op snelle hardware-snelheid via Tone.Offline
+        const renderedBuffer = await Tone.Offline(async (OfflineContext) => {
+          // Stel BPM en Transport van de offline context in
+          Tone.getTransport().bpm.value = bpm;
+          
+          // Bouw de virtuele Master Channel voor de offline context
+          const offlineMaster = new Tone.Channel(projectState.masterVolume).toDestination();
+          const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.getTransport().PPQ));
+          //const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
+          // Maak offline afspeel-structuren aan per track/clip
+          for (const track of projectState.tracks) {
+            if (track.mute) continue; // Muted tracks overslaan[span_5](start_span)[span_5](end_span)
+    
+            const channel = new Tone.Channel(track.volume).connect(offlineMaster);
+            // Genereer de instrument-node voor deze offline context
+            let instNode = createDevice(track.devices[0]); //(!track.instrumentName.startsWith("DAWSome.")) ? new Tone[track.devices[0].name](track.devices[0].parameters) :null;// eval(`DAWSome.${track.devices[0].name}(track.devices[0].parameters)`);
+            //DAWSome[track.devices[0].name](track.devices[0].parameters);
+            instNode.connect(channel);
+    
+            // Koppel alle clips en notes aan de offline Part
+            const trackClips = projectState.clips.filter(c => c.trackId === track.id);
+            for (const clip of trackClips) {
+              audio.createClipPart(clip, instNode);
+            }
+          }
+          alert("song ready")
+          dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
+          // Start de offline transport
+          Tone.getTransport().start(0);
+    
+        }, durationInSeconds);
+    
+        // 3. Omzetten naar WAV en automatisch laten downloaden
+        const wavBlob = bufferToWav(renderedBuffer);
+        const url = URL.createObjectURL(wavBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${projectState.name || 'DAWSome_Export'}.wav`;
+        a.click();
+        URL.revokeObjectURL(url);
+    
+        if (dom.hint) dom.hint.textContent = "Export succesvol afgerond!";
+      } catch (err) {
+        console.error("Fout tijdens exporteren:", err);
+        alert("Fout tijdens exporteren: " + err.message)
+        if (dom.hint) dom.hint.textContent = `Export mislukt: ${err.message}`;
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.innerText = "Export";
+      }
+    }
+    
+    // Event listener koppelen aan de button
+    $("exportBtn").addEventListener("click",  () => exportAudio());
   }
 
   class Tb303  {
@@ -5105,97 +5187,7 @@ function bufferToWav(buffer) {
   }
 }
 
-async function exportAudio() {
-  const exportBtn = $("exportBtn");
-  exportBtn.disabled = true;
-  exportBtn.innerText = "Rendering...";
-  if (dom.hint) dom.hint.textContent = "Offline rendering voorbereiden...";
 
-  try {
-    // 1. Bepaal de totale duur van het nummer in seconden
-    const songBeats = stateHelper.songEndBeats(); // Berekent aantal beats[span_3](start_span)[span_3](end_span)
-    const bpm = projectState.bpm; //[span_4](start_span)[span_4](end_span)
-    const durationInSeconds = (songBeats / bpm) * 60 + 2.0; // +2 sec tail voor reverb/delays
-
-    // 2. Render de compositie offline op snelle hardware-snelheid via Tone.Offline
-    const renderedBuffer = await Tone.Offline(async (OfflineContext) => {
-      // Stel BPM en Transport van de offline context in
-      Tone.getTransport().bpm.value = bpm;
-      
-      // Bouw de virtuele Master Channel voor de offline context
-      const offlineMaster = new Tone.Channel(projectState.masterVolume).toDestination();
-      const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.getTransport().PPQ));
-      //const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
-      // Maak offline afspeel-structuren aan per track/clip
-      for (const track of projectState.tracks) {
-        if (track.mute) continue; // Muted tracks overslaan[span_5](start_span)[span_5](end_span)
-
-        const channel = new Tone.Channel(track.volume).connect(offlineMaster);
-        // Genereer de instrument-node voor deze offline context
-        let instNode = createDevice(track.devices[0]); //(!track.instrumentName.startsWith("DAWSome.")) ? new Tone[track.devices[0].name](track.devices[0].parameters) :null;// eval(`DAWSome.${track.devices[0].name}(track.devices[0].parameters)`);
-        //DAWSome[track.devices[0].name](track.devices[0].parameters);
-        instNode.connect(channel);
-
-        // Koppel alle clips en notes aan de offline Part
-        const trackClips = projectState.clips.filter(c => c.trackId === track.id);
-        for (const clip of trackClips) {
-          let noteStartInTicks = toTicks(clip.start);
-          let clipEndInTicks = toTicks(clip.end);
-          let clipLengthInTicks = toTicks(clip.length * 4);
-          let events = [];
-          while (noteStartInTicks < clipEndInTicks) {
-            const noteEvents = clip.notes.map(n => ({
-              time: noteStartInTicks + toTicks(n.start),
-              dur: toTicks(n.duration),
-              hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
-              vel: n.velocity,
-              slide: n.slide
-            }));
-            noteEvents.forEach(evt => events.push(evt));
-            if (clip.loop) 
-              noteStartInTicks += clipLengthInTicks;
-            else
-              noteStart = clipEndInTicks;
-          }
-        
-          const part = new Tone.Part((time, ev) => {
-            if (instNode.name == "NoiseSynth") 
-              instNode.triggerAttackRelease(ev.dur, time, ev.vel);
-            else if (instNode.triggerAttackRelease && typeof instNode.triggerAttackRelease === "function") {
-              instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
-            }
-          }, events).start(0);
-        }
-      }
-      console.log("song ready")
-      dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
-      // Start de offline transport
-      Tone.getTransport().start(0);
-
-    }, durationInSeconds);
-
-    // 3. Omzetten naar WAV en automatisch laten downloaden
-    const wavBlob = bufferToWav(renderedBuffer);
-    const url = URL.createObjectURL(wavBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${projectState.name || 'DAWSome_Export'}.wav`;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    if (dom.hint) dom.hint.textContent = "Export succesvol afgerond!";
-  } catch (err) {
-    console.error("Fout tijdens exporteren:", err);
-    alert("Fout tijdens exporteren: " + err.message)
-    if (dom.hint) dom.hint.textContent = `Export mislukt: ${err.message}`;
-  } finally {
-    exportBtn.disabled = false;
-    exportBtn.innerText = "Export";
-  }
-}
-
-// Event listener koppelen aan de button
-$("exportBtn").addEventListener("click", exportAudio);
 const DAWSome = {
     TR909Snare: (parameters) => new TR909Snare(parameters),
     Tb303: (parameters) => new Tb303(parameters)
