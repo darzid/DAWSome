@@ -1146,7 +1146,9 @@ async function DAWSomeApp() {
 
           // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
           const part = new Tone.Part((time, ev) => {
-            if (ch.instrument && typeof ch.instrument.triggerAttackRelease === "function") {
+            if (ch.instrument.name == "NoiseSynth") 
+              ch.instrument.triggerAttackRelease(ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel);
+            else if (ch.instrument && typeof ch.instrument.triggerAttackRelease === "function") {
               ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
             }
           }, events);
@@ -4523,7 +4525,8 @@ async function DAWSomeApp() {
       console.log("creating kick clip");
       const kickNotes = mk([["C2", 0, 0.25, Constants.DEFAULT_VELOCITY]]);
       clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR / 4, kickNotes, 63);
-      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR / 4, kickNotes, 95);
+      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR / 4, kickNotes, 92);
+      clipManager.createClip(kick, 96, Constants.BEATS_PER_BAR / 4, kickNotes, 127);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -4542,7 +4545,7 @@ async function DAWSomeApp() {
         }
       };
       const bass = trackManager.addTrack("Bass", bassSynth, []);
-      const bassNotes = mk([
+      const bassNotes1 = mk([
         ["C#1", 0.00, 0.1, 0.4],
         ["D#1", 0.25, 0.2, Constants.DEFAULT_VELOCITY],
         ["G#1", 0.5, 0.25, Constants.DEFAULT_VELOCITY],
@@ -4583,10 +4586,11 @@ async function DAWSomeApp() {
         ["F1", 7.50, 0.25, Constants.DEFAULT_VELOCITY],
         ["A#1", 7.75, 0.25, Constants.DEFAULT_VELOCITY]
       ]);
-      clipManager.createClip(bass, 0, Constants.BEATS_PER_BAR * 2, bassNotes, 15);
-      clipManager.createClip(bass, 16, Constants.BEATS_PER_BAR * 2, bassNotes, 31);
-      clipManager.createClip(bass, 32, Constants.BEATS_PER_BAR * 2, bassNotes, 63);
-      clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes, 95);
+      clipManager.createClip(bass, 0, Constants.BEATS_PER_BAR * 2, bassNotes1, 15);
+      clipManager.createClip(bass, 16, Constants.BEATS_PER_BAR * 2, bassNotes1, 31);
+      clipManager.createClip(bass, 32, Constants.BEATS_PER_BAR * 2, bassNotes1, 63);
+      clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes1, 94);
+      clipManager.createClip(bass, 96, Constants.BEATS_PER_BAR * 2, bassNotes1, 127);
       console.log("created bass");
 
       
@@ -4621,7 +4625,8 @@ async function DAWSomeApp() {
       ]);
       clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR / 2, chNotes1, 31);
       clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR / 4, chNotes2, 63);
-      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR / 4, chNotes2, 95);
+      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR / 4, chNotes2, 92);
+      clipManager.createClip(closedHat, 96, Constants.BEATS_PER_BAR / 4, chNotes2, 127);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -4649,12 +4654,28 @@ async function DAWSomeApp() {
       const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [openhatReverbSend]);
       let ohNotes = mk([["F#2", 0.5, 0.125]]);
       clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
-      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 95);
+      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 92);
       console.log("created open hat");
+
+      console.log("creating snare");
+      const snareSynth = {
+        name: "DAWSome.TR909Snare",
+        type: "Instrument",
+        parameters: {
+          volume: 0,
+        }
+      };
+      const snare = trackManager.addTrack("Snare", snareSynth, [], null, 0);
+      console.log("creating snare clip");
+      const snareNotes = mk([["C2", 1, 0.25, Constants.DEFAULT_VELOCITY]]);
+      clipManager.createClip(snare, 32, Constants.BEATS_PER_BAR / 2, snareNotes, 63);
+      clipManager.createClip(snare, 64, Constants.BEATS_PER_BAR / 2, snareNotes, 92);
+      clipManager.createClip(snare, 96, Constants.BEATS_PER_BAR / 2, snareNotes, 127);
 
       console.log("creating 303");
       const tb303Synth = {
         name: "DAWSome.Tb303",
+        type: "Instrument",
         parameters: {
           cutoff: 500,
           resonance: 8,
@@ -4681,7 +4702,20 @@ async function DAWSomeApp() {
       tb303.xyPad.yDevice = 0;
       tb303.xyPad.yParameter = "decay";
       
-      const tb303Notes = mk([
+      const tb303Notes1 = mk([
+        ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["C#2", 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["A#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
+        
+        ["G1", 10.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["B1", 11.00, 0.125, Constants.ACCENT_VELOCITY, true],
+        ["C#2", 11.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 11.75, 0.25, Constants.ACCENT_VELOCITY, true],
+      ]);
+      clipManager.createClip(tb303, 0, Constants.BEATS_PER_BAR * 4, tb303Notes1, 31);
+      clipManager.createClip(tb303, 32, Constants.BEATS_PER_BAR * 4, tb303Notes1, 63);
+      
+      const tb303Notes2 = mk([
         ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
         ["C#2", 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
         ["A#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
@@ -4691,7 +4725,24 @@ async function DAWSomeApp() {
         ["C#2", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
         ["A#1", 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 0, Constants.BEATS_PER_BAR * 2, tb303Notes, 96);
+      clipManager.createClip(tb303, 64, Constants.BEATS_PER_BAR * 2, tb303Notes2, 96);
+      
+      const tb303Notes3 = mk([
+        ["C#1", 1.5, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["A#2", 1.75, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["B1", 3.00, 0.125, Constants.ACCENT_VELOCITY, true],
+        ["C#2", 3.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 3.75, 0.25, Constants.ACCENT_VELOCITY, true],
+        
+        ["C#1", 5.5, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["B2", 5.75, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["G1", 6.25, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["B1", 7.00, 0.125, Constants.ACCENT_VELOCITY, true],
+        ["C#2", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
+        ["A#1", 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
+      ]);
+      clipManager.createClip(tb303, 96, Constants.BEATS_PER_BAR * 2, tb303Notes3, 128);
       console.log("created 303");
       
 
@@ -4848,8 +4899,91 @@ async function DAWSomeApp() {
       }
     }
   }
-     
+  
+  class TR909Snare {
+    constructor(options = {}) {
+      // 1. De Body (de toon / ketel van de snare, meestal rond G2 / F#2)
+      this.bodySynth = new Tone.MembraneSynth({
+        pitchDecay: 0.01,
+        octaves: 3,
+        oscillator: { type: "triangle" },
+        envelope: {
+          attack: 0.001,
+          decay: 0.18,
+          sustain: 0,
+          release: 0.1
+        }
+      });
+      
+      // 2. De Snappy (de ruis / matjes onder de snare)
+      this.noiseSynth = new Tone.NoiseSynth({
+        noise: { type: "white" },
+        envelope: {
+          attack: 0.001,
+          decay: 0.15,
+          sustain: 0,
+          release: 0.1
+        }
+      });
+      
+      // Optioneel: een filter om de ruis wat warmer/minder scherp te maken (typisch 909)
+      this.filter = new Tone.Filter({
+        frequency: 2500,
+        type: "highpass"
+      });
+      
+      // Master kanaal voor deze snare om volumes te balanceren
+      this.output = new Tone.Channel({
+        volume: options.volume || 0,
+        pan: options.pan || 0
+      });
+      
+      // Routing koppelen
+      this.bodySynth.connect(this.output);
+      this.noiseSynth.connect(this.filter);
+      this.filter.connect(this.output);
+    }
+    
+    get name() { return "DAWSome.TR909Snare"}
+    get volume() { return this.output.volume; }
+    set volume(value) {
+      if (value < -100 || value > 0) throw "Volume must be between -100 and 0";
+      this.output.volume.value = value;
+    }
+    
+    // Koppel direct aan de eindbestemming (speakers)
+    toDestination() {
+      this.output.toDestination();
+      return this;
+    }
+    
+    // Ondersteuning voor standaard Tone.js routing
+    connect(destination) {
+      this.output.connect(destination);
+      return this;
+    }
+    
+    // Trigger methode die beide componenten tegelijk aanstuurt
+    triggerAttackRelease(note = "G2", duration = "16n", time = Tone.now(),
+      velocity = 1) {
+      // Speel de toonhoogte voor de body af
+      this.bodySynth.triggerAttackRelease(note, duration, time, velocity);
+      
+      // Start de ruis exact op hetzelfde moment
+      this.noiseSynth.triggerAttackRelease(duration, time, velocity);
+    }
+    
+    // Netjes opruimen (handig tegen memory leaks!)
+    dispose() {
+      this.bodySynth.dispose();
+      this.noiseSynth.dispose();
+      this.filter.dispose();
+      this.output.dispose();
+    }
+  }
+  
   const DAWSome = {
+    TR909Snare: (parameters) => new TR909Snare(parameters),
     Tb303: (parameters) => new Tb303(parameters)
   }
   

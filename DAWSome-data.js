@@ -628,6 +628,16 @@
       "release": 0.3
     }
   },
+  "instrument\\NoiseSynth\\Snare": {
+    "noise": {
+      "type": "white"
+    },
+    "envelope": {
+      "attack": 0.001,
+      "decay": 0.2,
+      "sustain": 0
+    }
+  },
   "instrument\\NoiseSynth\\Swoosh": {
     "noise": {
       "type": "white",
@@ -875,6 +885,12 @@
       }
     },
 
+    "Noise": {
+      "parameters": {
+        "type": "enumTypes/NoiseType"
+      }
+    },
+    
     "ModulationEnvelope": {
       "parameters": {
         "attack": "unitTypes/AdrRange",
@@ -1017,9 +1033,10 @@
 
     "NoiseSynth": {
       "type": "Instrument",
+      "noPitch": "true",
       "parameters": {
         "volume": "unitTypes/Decibels",
-        "noise": "enumTypes/NoiseType",
+        "noise": "modules/Noise",
         "envelope": "modules/AmplitudeEnvelope"
       }
     },
@@ -1091,6 +1108,15 @@
         "volume": "unitTypes/Decibels",
       }
     },
+    
+    "DAWSome.TR909Snare": {
+      "type": "Instrument",
+      "parameters": {
+        "filter": "modules/Filter",
+        "volume": "unitTypes/Decibels"
+      }
+    },
+    
     "AutoFilter": {
       "type": "Effect",
       "parameters": {
