@@ -5135,15 +5135,21 @@ async function exportAudio() {
         //DAWSome[track.devices[0].name](track.devices[0].parameters);
         if (instNode) instNode.connect(channel);
 
+        const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.Transport.PPQ));
+        const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
+    
         // Koppel alle clips en notes aan de offline Part
         const trackClips = projectState.clips.filter(c => c.trackId === track.id);
         for (const clip of trackClips) {
-          const events = clip.notes.map(n => ({
-            time: (clip.start + n.start) * (60 / bpm),
-            dur: n.duration * (60 / bpm),
-            hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
-            vel: n.velocity
-          }));
+          const events = clip.notes
+            .filter((n) => n.start < clip.length - Constants.EPS)
+            .map((n) => ({
+              time: toTicks(n.start),
+              hz: hz(n.pitch),
+              dur: toTicks(Math.min(n.duration, clip.length - n.start)),
+              vel: n.velocity,
+              slide: n.slide
+            }));
 
           // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
           const part = new Tone.Part((time, ev) => {
@@ -5163,7 +5169,6 @@ async function exportAudio() {
             part.loop = true;
             part.stop(helpers.beatsToTime(clip.end));
           }
-          
         }
       }
 
