@@ -148,7 +148,7 @@ class Mixer {
               
               projectMuteButton.classList.add("on");
               projectMuteButton.disabled="true";
-              let muteTrackId = projectMuteButton.id.replace("-mute", "");
+              let muteTrackId = parseInt(projectMuteButton.id.replace("-mute", ""));
               document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: muteTrackId, muted: true }}));
             }
           })
@@ -159,7 +159,7 @@ class Mixer {
           muteButtons.forEach(projectMuteButton => {
             projectMuteButton.disabled="";
             projectMuteButton.classList.remove("on");
-            let muteTrackId = projectMuteButton.id.replace("-mute", "");
+            let muteTrackId = parseInt(projectMuteButton.id.replace("-mute", ""));
             document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: muteTrackId, muted: false }}));
           })
           
@@ -233,6 +233,11 @@ class Mixer {
       sendAmountInput.step = 0.1;
       sendAmountInput.id = `${track.id}-sendamount`;
       sendAmountInput.className = "send-amount";
+      sendAmountInput.oninput = () => {
+        console.log("send amount changed to " + sendAmountInput.value)
+        track.sends[0].volume = parseFloat(sendAmountInput.value)
+        document.dispatchEvent(new CustomEvent("SendChanged", { detail: { trackId: track.id, sends: track.sends }}));
+      };
 
       faderContainer.appendChild(sendAmountInput);
       

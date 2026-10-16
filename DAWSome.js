@@ -914,7 +914,7 @@ async function DAWSomeApp() {
     const chain = (trackId) => chains.get(trackId);
     const deviceNode = (deviceId) => deviceNodes.get(deviceId);
     document.addEventListener("MuteChanged", (e) => {
-      const ch = chain(e.detail.trackId);
+      const ch = chain(parseInt(e.detail.trackId));
       ch.channel.mute = e.detail.muted;
       console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
     });
@@ -922,6 +922,11 @@ async function DAWSomeApp() {
       const ch = chain(e.detail.channelId);
       ch.channel.volume.value = e.detail.volume;
       console.log(`audio.VolumeChanged: ${e.detail.channelId}, volume changed to ${ch.channel.volume}`);
+    });
+    document.addEventListener("SendChanged", (e) => {
+      const ch = chain(parseInt(e.detail.trackId));
+      console.log("Audio: Updating track channel sends", e.detail.sends);
+      e.detail.sends.forEach(send => ch.channel.send(send.name, send.volume));
     });
     document.addEventListener("InstrumentChanged", (e) => {
       //updateInstrument(e.detail.trackId, e.detail.instrumentName);
@@ -1029,6 +1034,7 @@ async function DAWSomeApp() {
           ch.modulators = makeToneNodes(track.modulators.map(m => m.modulator));
           connectModulators(ch, track);
         }
+        console.log("Updating track sends", track.sends);
         track.sends.forEach(send => ch.channel.send(send.name, send.volume));
       },
       
@@ -1064,9 +1070,24 @@ async function DAWSomeApp() {
       removeTrackChain: (trackId) => {
         const ch = chain(trackId);
         if (!ch) return;
-        console.log("remove track insteument", ch.instrument);
-        ch.instrument.dispose();
-        ch.channel.dispose();
+        console.log("remove track instrument and effects", ch.instrument);
+        
+        // Dispose instrument
+        if (ch.instrument) ch.instrument.dispose();
+        
+        // Dispose effects (Fix voor memory leaks!)
+        if (ch.effects) {
+          ch.effects.forEach(fx => fx.dispose());
+        }
+        
+        // Dispose modulators
+        if (ch.modulators) {
+          ch.modulators.forEach(mod => mod.dispose());
+        }
+        
+        // Dispose channel
+        if (ch.channel) ch.channel.dispose();
+        
         chains.delete(trackId);
       },
       rebuildDevice: (track, deviceIndex) => {
@@ -1112,11 +1133,10 @@ async function DAWSomeApp() {
 
           const ch = chain(clip.trackId);
           if (!ch) throw "No chain found for track " + clip.trackId;
-          //console.log("rebuildClipPart, create events", clip)
+          
           const events = clip.notes
             .filter((n) => n.start < clip.length - Constants.EPS)
             .map((n) => ({
-              //time: toTicks(clip.start + n.start),
               time: toTicks(n.start),
               hz: hz(n.pitch),
               dur: toTicks(Math.min(n.duration, clip.length - n.start)),
@@ -1124,32 +1144,33 @@ async function DAWSomeApp() {
               slide: n.slide
             }));
 
-          const part = new Tone.Part((time, ev) => ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide), events);
-          part.start(helpers.beatsToTime(clip.start));
-          //console.log("part started", audio.helpers.beatsToTime(clip.start));
+          // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
+          const part = new Tone.Part((time, ev) => {
+            if (ch.instrument && typeof ch.instrument.triggerAttackRelease === "function") {
+              ch.instrument.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
+            }
+          }, events);
 
-          //part.start(0);
-          //console.log("check repeating clip")
-          if (clip.loop) { //clip.end > clip.start + clip.length
-            // console.log("repeating clip")
+          part.start(helpers.beatsToTime(clip.start));
+
+          if (clip.loop) {
             let loopEnd = helpers.beatsToTime(clip.length);
-            let partStop = helpers.beatsToTime(clip.end);
             part.loopStart = 0;
             part.loopEnd = loopEnd;
             part.loop = true;
             part.stop(helpers.beatsToTime(clip.end));
-            // console.log("part, start, loopEnd, clipEnd, partStop", clip.start, loopEnd.toBarsBeatsSixteenths(), clip.end, partStop.toBarsBeatsSixteenths())
           }
-          //console.log("rebuild clip")
+          
           parts.set(clip.id, part);
         }
         catch (error) {
-          console.error("rebuild clip", error)
+          console.error("rebuild clip error:", error);
         }
       },
       removeClipPart: (clipId) => {
         const part = parts.get(clipId);
         if (!part) return;
+        part.stop();
         part.dispose();
         parts.delete(clipId);
       },
@@ -3931,9 +3952,9 @@ async function DAWSomeApp() {
     }
   
     updateTrackSends(trackId) {
-      const track = trackById(trackId);
-      this.audio.updateTrackChain(track);
-      console.log("Sends updated for " + trackId)
+      //const track = helpers.trackById(trackId);
+      //this.audio.updateTrackChain(track);
+     // console.log("Sends updated for " + trackId)
     }
     
   /*  removeTrack(trackId) {
@@ -4445,22 +4466,13 @@ async function DAWSomeApp() {
       const returnReverb = {
         name: "Reverb",
         parameters: {
-          roomSize: 0.25,
+          decay: 0.1,
+          preDelay: 0.01,
           wet: 1
         }
       };
       trackManager.addReturn("Reverb", 10, returnReverb);
-      /*
-      const returnDelay = {
-        name: "PingPongDelay",
-        parameters: {
-          delayTime: "8n",
-          feedback: 0.3,
-          wet: 1
-        }
-      }
-      trackManager.addReturn("Delay", 10, returnDelay);
-      */
+
       const noteNameToPitch = (noteName) => {
         let pitch = Tone.Frequency(noteName).toMidi();
         //console.log(`Converted notename ${noteName} to pitch ${pitch}`);
@@ -4577,14 +4589,13 @@ async function DAWSomeApp() {
       clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes, 95);
       console.log("created bass");
 
-      const hatReverbSend = { name: "Reverb", volume: 0 };
       
       console.log("creating closedhat");
       const closedHatSynth = {
         name: "MetalSynth",
         type: "Instrument",
         parameters: {
-          volume: -17,
+          volume: -14,
           portamento: 100,
           modulationIndex: 1,
           octaves: 0,
@@ -4596,8 +4607,9 @@ async function DAWSomeApp() {
           }
         }
       };
+      const closedhatReverbSend = { name: "Reverb", volume: 5 };
       
-      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [hatReverbSend]);
+      const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [closedhatReverbSend]);
       let chNotes1 = mk([
         ["F#2", 1.0, 0.125],
       ]);
@@ -4633,7 +4645,8 @@ async function DAWSomeApp() {
           }
         }
       };
-      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [hatReverbSend]);
+      const openhatReverbSend = { name: "Reverb", volume: 5 };
+      const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [openhatReverbSend]);
       let ohNotes = mk([["F#2", 0.5, 0.125]]);
       clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
       clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 95);
