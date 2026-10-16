@@ -5023,7 +5023,164 @@ async function DAWSomeApp() {
     }
   }
   
-  const DAWSome = {
+  function createDevice(device) {
+    return (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : eval(`${device.name}(device.parameters)`);
+  }
+  
+  // Helper functie om een AudioBuffer om te zetten naar een WAV Blob
+function bufferToWav(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  let result;
+  if (numChannels === 2) {
+    const left = buffer.getChannelData(0);
+    const right = buffer.getChannelData(1);
+    result = interleave(left, right);
+  } else {
+    result = buffer.getChannelData(0);
+  }
+
+  const dataLength = result.length * (bitDepth / 8);
+  const bufferLength = 44 + dataLength;
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(arrayBuffer);
+
+  /* RIFF identifier */
+  writeString(view, 0, 'RIFF');
+  /* RIFF chunk length */
+  view.setUint32(4, 36 + dataLength, true);
+  /* RIFF type */
+  writeString(view, 8, 'WAVE');
+  /* format chunk identifier */
+  writeString(view, 12, 'fmt ');
+  /* format chunk length */
+  view.setUint32(16, 16, true);
+  /* sample format */
+  view.setUint16(20, format, true);
+  /* channel count */
+  view.setUint16(22, numChannels, true);
+  /* sample rate */
+  view.setUint32(24, sampleRate, true);
+  /* byte rate (sampleRate * blockAlign) */
+  view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+  /* block align (numChannels * bytesPerSample) */
+  view.setUint16(32, numChannels * (bitDepth / 8), true);
+  /* bits per sample */
+  view.setUint16(34, bitDepth, true);
+  /* data chunk identifier */
+  writeString(view, 36, 'data');
+  /* data chunk length */
+  view.setUint32(40, dataLength, true);
+
+  // Schrijf float PCM samples om naar 16-bit PCM
+  let offset = 44;
+  for (let i = 0; i < result.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, result[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+
+  function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+
+  function interleave(inputL, inputR) {
+    const length = inputL.length + inputR.length;
+    const result = new Float32Array(length);
+    let index = 0;
+    let inputIndex = 0;
+
+    while (index < length) {
+      result[index++] = inputL[inputIndex];
+      result[index++] = inputR[inputIndex];
+      inputIndex++;
+    }
+    return result;
+  }
+}
+
+async function exportAudio() {
+  const exportBtn = $("exportBtn");
+  exportBtn.disabled = true;
+  exportBtn.innerText = "Rendering...";
+  if (dom.hint) dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
+
+  try {
+    // 1. Bepaal de totale duur van het nummer in seconden
+    const songBeats = stateHelper.songEndBeats(); // Berekent aantal beats[span_3](start_span)[span_3](end_span)
+    const bpm = projectState.bpm; //[span_4](start_span)[span_4](end_span)
+    const durationInSeconds = (songBeats / bpm) * 60 + 2.0; // +2 sec tail voor reverb/delays
+
+    // 2. Render de compositie offline op snelle hardware-snelheid via Tone.Offline
+    const renderedBuffer = await Tone.Offline(async (OfflineContext) => {
+      // Stel BPM en Transport van de offline context in
+      Tone.getTransport().bpm.value = bpm;
+      
+      // Bouw de virtuele Master Channel voor de offline context
+      const offlineMaster = new Tone.Channel(projectState.masterVolume).toDestination();
+
+      // Maak offline afspeel-structuren aan per track/clip
+      for (const track of projectState.tracks) {
+        if (track.mute) continue; // Muted tracks overslaan[span_5](start_span)[span_5](end_span)
+
+        const channel = new Tone.Channel(track.volume).connect(offlineMaster);
+        // Genereer de instrument-node voor deze offline context
+        let instNode = createDevice(track.devices[0]); //(!track.instrumentName.startsWith("DAWSome.")) ? new Tone[track.devices[0].name](track.devices[0].parameters) :null;// eval(`DAWSome.${track.devices[0].name}(track.devices[0].parameters)`);
+        //DAWSome[track.devices[0].name](track.devices[0].parameters);
+        if (instNode) instNode.connect(channel);
+
+        // Koppel alle clips en notes aan de offline Part
+        const trackClips = projectState.clips.filter(c => c.trackId === track.id);
+        for (const clip of trackClips) {
+          const events = clip.notes.map(n => ({
+            time: (clip.start + n.start) * (60 / bpm),
+            dur: n.duration * (60 / bpm),
+            hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
+            vel: n.velocity
+          }));
+
+          new Tone.Part((time, ev) => {
+            if (instNode && instNode.triggerAttackRelease) {
+              instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel);
+            }
+          }, events).start(0);
+        }
+      }
+
+      // Start de offline transport
+      Tone.getTransport().start(0);
+
+    }, durationInSeconds);
+
+    // 3. Omzetten naar WAV en automatisch laten downloaden
+    const wavBlob = bufferToWav(renderedBuffer);
+    const url = URL.createObjectURL(wavBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${projectState.name || 'DAWSome_Export'}.wav`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (dom.hint) dom.hint.textContent = "Export succesvol afgerond!";
+  } catch (err) {
+    console.error("Fout tijdens exporteren:", err);
+    alert("Fout tijdens exporteren: " + err.message)
+    if (dom.hint) dom.hint.textContent = `Export mislukt: ${err.message}`;
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.innerText = "Export";
+  }
+}
+
+// Event listener koppelen aan de button
+$("exportBtn").addEventListener("click", exportAudio);
+const DAWSome = {
     TR909Snare: (parameters) => new TR909Snare(parameters),
     Tb303: (parameters) => new Tb303(parameters)
   }
