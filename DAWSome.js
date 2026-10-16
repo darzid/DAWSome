@@ -5124,7 +5124,8 @@ async function exportAudio() {
       
       // Bouw de virtuele Master Channel voor de offline context
       const offlineMaster = new Tone.Channel(projectState.masterVolume).toDestination();
-
+      const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.getTransport().PPQ));
+      const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
       // Maak offline afspeel-structuren aan per track/clip
       for (const track of projectState.tracks) {
         if (track.mute) continue; // Muted tracks overslaan[span_5](start_span)[span_5](end_span)
@@ -5133,15 +5134,20 @@ async function exportAudio() {
         // Genereer de instrument-node voor deze offline context
         let instNode = createDevice(track.devices[0]); //(!track.instrumentName.startsWith("DAWSome.")) ? new Tone[track.devices[0].name](track.devices[0].parameters) :null;// eval(`DAWSome.${track.devices[0].name}(track.devices[0].parameters)`);
         //DAWSome[track.devices[0].name](track.devices[0].parameters);
-        if (instNode) instNode.connect(channel);
+        instNode.connect(channel);
 
-        const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.Transport.PPQ));
-        const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
-    
         // Koppel alle clips en notes aan de offline Part
         const trackClips = projectState.clips.filter(c => c.trackId === track.id);
         for (const clip of trackClips) {
-          const events = clip.notes
+          const events = clip.notes.map(n => ({
+            time: (clip.start + n.start) * (60 / bpm),
+            dur: n.duration * (60 / bpm),
+            hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
+            vel: n.velocity,
+            slide: n.slide
+          }));
+
+        /*  const events = clip.notes
             .filter((n) => n.start < clip.length - Constants.EPS)
             .map((n) => ({
               time: toTicks(n.start),
@@ -5149,18 +5155,26 @@ async function exportAudio() {
               dur: toTicks(Math.min(n.duration, clip.length - n.start)),
               vel: n.velocity,
               slide: n.slide
-            }));
+            }));*/
 
           // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
+         /* const part = new Tone.Part((time, ev) => {
+            if (instNode.name == "NoiseSynth") 
+              instNode.triggerAttackRelease(ev.dur, time, ev.vel);
+            else if (instNode && typeof instNode.triggerAttackRelease === "function") {
+              instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
+            }
+          }, events);*/
+
           const part = new Tone.Part((time, ev) => {
             if (instNode.name == "NoiseSynth") 
-              instNode.triggerAttackRelease(ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel);
-            else if (instNode && typeof instNode.triggerAttackRelease === "function") {
-              instNode.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
+              instNode.triggerAttackRelease(ev.dur, time, ev.vel);
+            else if (instNode.triggerAttackRelease) {
+              instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
             }
-          }, events);
-
-          part.start(helpers.beatsToTime(clip.start));
+          }, events).start(helpers.beatsToTime(clip.start));
+          
+        //  part.start(helpers.beatsToTime(clip.start));
 
           if (clip.loop) {
             let loopEnd = helpers.beatsToTime(clip.length);
