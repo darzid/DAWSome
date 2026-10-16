@@ -5145,11 +5145,25 @@ async function exportAudio() {
             vel: n.velocity
           }));
 
-          new Tone.Part((time, ev) => {
-            if (instNode && instNode.triggerAttackRelease) {
-              instNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel);
+          // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
+          const part = new Tone.Part((time, ev) => {
+            if (instNode.name == "NoiseSynth") 
+              instNode.triggerAttackRelease(ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel);
+            else if (instNode && typeof instNode.triggerAttackRelease === "function") {
+              instNode.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
             }
-          }, events).start(0);
+          }, events);
+
+          part.start(helpers.beatsToTime(clip.start));
+
+          if (clip.loop) {
+            let loopEnd = helpers.beatsToTime(clip.length);
+            part.loopStart = 0;
+            part.loopEnd = loopEnd;
+            part.loop = true;
+            part.stop(helpers.beatsToTime(clip.end));
+          }
+          
         }
       }
 
