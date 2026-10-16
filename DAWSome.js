@@ -158,6 +158,7 @@ async function DAWSomeApp() {
     constructor(o) {
       this.o = o;   // { gridWrap, gridCanvas, rulerWrap, rulerCanvas, scroller, spacer, hZoom, vZoom, rowHeight, rowCount, contentBeats, render, onLocate, onZoom }
       this.pxPerBeat = 80;
+      this.hZoomFactor = 0.8;
       this.rowHeight = o.rowHeight;
       this.grid = null;
       this.ruler = null;
@@ -235,6 +236,7 @@ async function DAWSomeApp() {
     }
 
     zoomH(factor, anchorX = this.o.scroller.clientWidth / 2) {
+      this.hZoomFactor = anchorX;
       this.setPxPerBeat(this.pxPerBeat * factor, anchorX, (this.o.scroller.scrollLeft + anchorX) / this.pxPerBeat);
     }
 
@@ -407,7 +409,7 @@ async function DAWSomeApp() {
           if (!labelled && barPx < 6) continue;
           c.fillStyle = Constants.COLORS.rulerTick;
           c.fillRect(x, labelled ? 0 : H - 8, 1, labelled ? H : 8);
-          if (labelled) {
+          if (labelled && this.pxPerBeat >= 4) {
             c.fillStyle = Constants.COLORS.rulerText;
             c.fillText(String(bar + 1), x + 3, 2);
           }
@@ -1301,7 +1303,7 @@ async function DAWSomeApp() {
   const av = new TimelineView({
     gridWrap: $("arrGridWrap"), gridCanvas: $("arrGridCanvas"), rulerWrap: $("arrRulerWrap"), rulerCanvas: $("arrRulerCanvas"),
     scroller: $("arrScroller"), spacer: $("arrSpacer"),
-    hZoom: { min: 3, max: 200 },
+    hZoom: { min: 1, max: 200 },
     vZoom: { min: 40, max: 120 },
     rowHeight: 52,
     rowCount: () => project.tracks.length,
