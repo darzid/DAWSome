@@ -407,8 +407,11 @@ async function DAWSomeApp() {
         if (beatInBar === 0) {
           const labelled = bar % labelEvery === 0;
           if (!labelled && barPx < 6) continue;
-          c.fillStyle = Constants.COLORS.rulerTick;
-          c.fillRect(x, labelled ? 0 : H - 8, 1, labelled ? H : 8);
+          if (this.pxPerBeat >= 4) {
+            c.fillStyle = Constants.COLORS.rulerTick;
+            c.fillRect(x, labelled ? 0 : H - 8, 1, labelled ? H : 8);
+          }
+          
           if (labelled && this.pxPerBeat >= 4) {
             c.fillStyle = Constants.COLORS.rulerText;
             c.fillText(String(bar + 1), x + 3, 2);
@@ -4525,11 +4528,16 @@ async function DAWSomeApp() {
       
       const kick = trackManager.addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
-      const kickNotes = mk([["C2", 0, 0.25, Constants.DEFAULT_VELOCITY]]);
-      clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR / 4, kickNotes, 63);
-      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR / 4, kickNotes, 92);
-      clipManager.createClip(kick, 96, Constants.BEATS_PER_BAR / 4, kickNotes, 127);
-      clipManager.createClip(kick, 128, Constants.BEATS_PER_BAR / 4, kickNotes, 159);
+      const kickNotes = mk([
+        ["C2", 0, 0.25, Constants.DEFAULT_VELOCITY],
+        ["C2", 1, 0.25, Constants.DEFAULT_VELOCITY],
+        ["C2", 2, 0.25, Constants.DEFAULT_VELOCITY],
+        ["C2", 3, 0.25, Constants.DEFAULT_VELOCITY],
+      ]);
+      clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR, kickNotes, 63);
+      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR, kickNotes, 92);
+      clipManager.createClip(kick, 96, Constants.BEATS_PER_BAR, kickNotes, 127);
+      clipManager.createClip(kick, 128, Constants.BEATS_PER_BAR, kickNotes, 159);
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -4620,18 +4628,35 @@ async function DAWSomeApp() {
       const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [closedhatReverbSend]);
       let chNotes1 = mk([
         ["F#2", 1.0, 0.125],
+        ["F#2", 3.0, 0.125],
       ]);
+            clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
+            
       let chNotes2 = mk([
         ["F#2", 0.0, 0.125],
         ["F#2", 0.25, 0.125],
         ["F#2", 0.5, 0.125],
-        ["F#2", 0.75, 0.125]
+        ["F#2", 0.75, 0.125],
+        
+        ["F#2", 1.0, 0.125],
+        ["F#2", 1.25, 0.125],
+        ["F#2", 1.5, 0.125],
+        ["F#2", 1.75, 0.125],
+        
+        ["F#2", 2.0, 0.125],
+        ["F#2", 2.25, 0.125],
+        ["F#2", 2.5, 0.125],
+        ["F#2", 2.75, 0.125],
+        
+        ["F#2", 3.0, 0.125],
+        ["F#2", 3.25, 0.125],
+        ["F#2", 3.5, 0.125],
+        ["F#2", 3.75, 0.125],
       ]);
-      clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR / 2, chNotes1, 31);
-      clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR / 4, chNotes2, 63);
-      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR / 4, chNotes2, 92);
-      clipManager.createClip(closedHat, 96, Constants.BEATS_PER_BAR / 4, chNotes2, 127);
-      clipManager.createClip(closedHat, 128, Constants.BEATS_PER_BAR / 4, chNotes2, 159);
+      clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR, chNotes2, 63);
+      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR, chNotes2, 92);
+      clipManager.createClip(closedHat, 96, Constants.BEATS_PER_BAR, chNotes2, 127);
+      clipManager.createClip(closedHat, 128, Constants.BEATS_PER_BAR, chNotes2, 159);
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -4657,10 +4682,15 @@ async function DAWSomeApp() {
       };
       const openhatReverbSend = { name: "Reverb", volume: -5 };
       const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [openhatReverbSend]);
-      let ohNotes = mk([["F#2", 0.5, 0.125]]);
-      clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR / 4, ohNotes, 63);
-      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR / 4, ohNotes, 92);
-      clipManager.createClip(openHat, 128, Constants.BEATS_PER_BAR / 4, ohNotes, 159);
+      let ohNotes = mk([
+        ["F#2", 0.5, 0.125],
+        ["F#2", 1.5, 0.125],
+        ["F#2", 2.5, 0.125],
+        ["F#2", 3.5, 0.125]
+      ]);
+      clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR, ohNotes, 63);
+      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR, ohNotes, 92);
+      clipManager.createClip(openHat, 128, Constants.BEATS_PER_BAR, ohNotes, 159);
       console.log("created open hat");
 
       console.log("creating snare");
@@ -4673,11 +4703,14 @@ async function DAWSomeApp() {
       };
       const snare = trackManager.addTrack("Snare", snareSynth, [], null, 0);
       console.log("creating snare clip");
-      const snareNotes = mk([["C2", 1, 0.25, Constants.DEFAULT_VELOCITY]]);
-      clipManager.createClip(snare, 32, Constants.BEATS_PER_BAR / 2, snareNotes, 63);
-      clipManager.createClip(snare, 64, Constants.BEATS_PER_BAR / 2, snareNotes, 92);
-      clipManager.createClip(snare, 96, Constants.BEATS_PER_BAR / 2, snareNotes, 127);
-      clipManager.createClip(snare, 128, Constants.BEATS_PER_BAR / 2, snareNotes, 159);
+      const snareNotes = mk([
+        ["C2", 1, 0.25, Constants.DEFAULT_VELOCITY],
+        ["C2", 3, 0.25, Constants.DEFAULT_VELOCITY]
+      ]);
+      clipManager.createClip(snare, 32, Constants.BEATS_PER_BAR, snareNotes, 63);
+      clipManager.createClip(snare, 64, Constants.BEATS_PER_BAR, snareNotes, 92);
+      clipManager.createClip(snare, 96, Constants.BEATS_PER_BAR, snareNotes, 127);
+      clipManager.createClip(snare, 128, Constants.BEATS_PER_BAR, snareNotes, 159);
 
       console.log("creating 303");
       const tb303Synth = {
