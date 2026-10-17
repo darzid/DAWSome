@@ -700,6 +700,7 @@ async function DAWSomeApp() {
       super(projectState, clipState, "clip");
     }
     get trackId() { return this._state.trackId; }
+    set trackId() { this._state.trackId = value; }
     
     get name() { return this._state.name; }
     set name(value) { this.update("name", value); }
@@ -948,22 +949,39 @@ async function DAWSomeApp() {
       console.log(`audio.TrackChainRemoved: ${e.detail.trackId}`);
     });
     
+    
     const createPartFromClip = (clip, instrumentNode) => {
-         const events = clip.notes
-            .filter((n) => n.start < clip.length - Constants.EPS)
-            .map((n) => ({
-              time: toTicks(n.start),
-              hz: hz(n.pitch),
-              dur: toTicks(Math.min(n.duration, clip.length - n.start)),
-              vel: n.velocity,
-              slide: n.slide
-            }));
+      const bpm = Tone.getTransport().bpm.value;
+      const beatDurationInSec = 60 / bpm;
+      const beatDurationInTicks = toTicks(beatDurationInSec);
+      const constrainDuration = (noteDurationInBeats) => {
+        const noteDurationInTicks = toTicks(noteDurationInBeats);
+        if (instrumentNode.name == "MetalSynth") {
+          return Math.min(noteDurationInTicks, beatDurationInTicks);
+        }
+        else {
+          return noteDurationInTicks;
+        }
+      }
+      const events = clip.notes
+        .filter((n) => n.start < clip.length - Constants.EPS)
+        .map((n) => ({
+            time: toTicks(n.start),
+            hz: hz(n.pitch),
+            dur: constrainDuration(n.duration),
+            vel: n.velocity,
+            slide: n.slide
+          }));
 
           // Gebruik Tone.Part met een veilige trigger om clicks te voorkomen
           const part = new Tone.Part((time, ev) => {
             if (instrumentNode.name == "NoiseSynth") 
               instrumentNode.triggerAttackRelease(ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel);
-            else if (instrumentNode && typeof instrumentNode.triggerAttackRelease === "function") {
+            else if (instrumentNode.name == "MetalSynth") {
+              instrumentNode.triggerAttack(ev.hz, time, ev.vel);
+              instrumentNode.triggerRelease(time + ev.dur);
+            }
+            else if (typeof instrumentNode.triggerAttackRelease === "function") {
               instrumentNode.triggerAttackRelease(ev.hz, ev.dur, time + Constants.TONE_NOTE_TRIGGERAHEAD, ev.vel, ev.slide);
             }
           }, events);
@@ -4843,7 +4861,6 @@ async function DAWSomeApp() {
               audio.createClipPart(clip, instNode);
             }
           }
-          alert("song ready")
           dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
           // Start de offline transport
           Tone.getTransport().start(0);
@@ -5092,6 +5109,14 @@ async function DAWSomeApp() {
       
       // Start de ruis exact op hetzelfde moment
       this.noiseSynth.triggerAttackRelease(duration, time, velocity);
+    }
+    
+    triggerRelease( time = Tone.now()) {
+      // Speel de toonhoogte voor de body af
+      this.bodySynth.triggerRelease(time);
+      
+      // Start de ruis exact op hetzelfde moment
+      this.noiseSynth.triggerRelease(time);
     }
     
     // Netjes opruimen (handig tegen memory leaks!)
