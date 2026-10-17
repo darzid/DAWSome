@@ -963,6 +963,48 @@ async function DAWSomeApp() {
           return noteDurationInTicks;
         }
       }
+      
+      let events = [];
+  
+      // Bereken hoe vaak de clip zich herhaalt tussen start en eind
+      const clipLength = helpers.beatsToTime(clip.length);
+      const clipStart = helpers.beatsToTime(clip.start);
+      const clipEnd = helpers.beatsToTime(clip.end);
+      
+      const totalClipDuration = (clipEnd && clipEnd > clipStart) ? (clipEnd - clipStart) : clipLength;
+      const repeats = clip.loop ? Math.ceil(totalClipDuration / clipLength) : 1;
+      console.log("Repeats", repeats)
+      for (let r = 0; r < repeats; r++) {
+        const loopOffset = r * clipLength;
+        
+        // Voeg noten toe voor deze iteratie van de loop
+        for (const n of clip.notes) {
+          // Als de noot buiten de totale clip-eind valt, overslaan
+          if (loopOffset + helpers.beatsToTime(n.start) >= totalClipDuration) continue;
+    
+          events.push({
+            time: (clipStart + loopOffset + helpers.beatsToTime(n.start)),
+            dur: constrainDuration(n.duration),
+            hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
+            vel: n.velocity,
+            slide: n.slide
+          });
+        }
+      }
+    
+      const part = new Tone.Part((time, ev) => {
+        if (instrumentNode.name == "NoiseSynth") 
+          instrumentNode.triggerAttackRelease(ev.dur, time, ev.vel);
+        else if (instrumentNode.name == "MetalSynth") {
+          instrumentNode.triggerAttack(ev.hz, time, ev.vel);
+          instrumentNode.triggerRelease(time + ev.dur);
+        }
+        else if (typeof instrumentNode.triggerAttackRelease === "function") {
+          instrumentNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
+        }
+      }, events).start(0);
+      
+      /*
       const events = clip.notes
         .filter((n) => n.start < clip.length - Constants.EPS)
         .map((n) => ({
@@ -994,10 +1036,10 @@ async function DAWSomeApp() {
             part.loopEnd = loopEnd;
             part.loop = true;
             part.stop(helpers.beatsToTime(clip.end));
-          }
+          }*/
           
-          return part;
-        }
+      return part;
+    }
         
     return {
       available: true,
