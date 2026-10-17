@@ -700,7 +700,7 @@ async function DAWSomeApp() {
       super(projectState, clipState, "clip");
     }
     get trackId() { return this._state.trackId; }
-    set trackId() { this._state.trackId = value; }
+    set trackId(value) { this._state.trackId = value; }
     
     get name() { return this._state.name; }
     set name(value) { this.update("name", value); }
