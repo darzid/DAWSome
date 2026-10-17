@@ -414,7 +414,9 @@ async function DAWSomeApp() {
           
           if (labelled && this.pxPerBeat >= 4) {
             c.fillStyle = Constants.COLORS.rulerText;
-            c.fillText(String(bar + 1), x + 3, 2);
+            
+            let label = (this.pxPerBeat <= 8) ? String(bar + 1) : `${bar + 1}:1:1`;
+            c.fillText(label, x + 3, 2);
           }
         } else if (showBeats) {
           c.fillStyle = Constants.COLORS.rulerTick;
@@ -952,15 +954,15 @@ async function DAWSomeApp() {
     
     const createPartFromClip = (clip, instrumentNode) => {
       const bpm = Tone.getTransport().bpm.value;
-      const beatDuration = helpers.beatsToTime(0.01);
+      const beatDuration = helpers.beatsToTime(1);
      // console.log("beat duration " + beatDuration);
       
       const constrainDuration = (noteDurationInBeats) => {
         const noteDuration = helpers.beatsToTime(noteDurationInBeats);
         if (instrumentNode.name == "MetalSynth") {
           const constrainedValue = Math.min(noteDuration, beatDuration);
-          if (constrainedValue != noteDuration)
-            console.warn("Constrained note duration " + noteDuration + " to " + constrainedValue + " for " + instrumentNode.name + "." + clip.name);
+          //if (constrainedValue != noteDuration)
+            //console.warn("Constrained note duration " + noteDuration + " to " + constrainedValue + " for " + instrumentNode.name + "." + clip.name);
           return Tone.Time(constrainedValue);
         }
         else {
@@ -4546,7 +4548,7 @@ async function DAWSomeApp() {
     for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
 
     function createDemoSong() {
-     // console.log("creating demo song");
+      console.log("creating demo song");
       
       const returnReverb = {
         name: "Reverb",
