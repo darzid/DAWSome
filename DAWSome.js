@@ -963,6 +963,48 @@ async function DAWSomeApp() {
           return noteDurationInTicks;
         }
       }
+      
+      let events = [];
+  
+      // Bereken hoe vaak de clip zich herhaalt tussen start en eind
+      const clipLength = helpers.beatsToTime(clip.length);
+      const clipStart = helpers.beatsToTime(clip.start);
+      const clipEnd = helpers.beatsToTime(clip.end);
+      
+      const totalClipDuration = (clipEnd && clipEnd > clipStart) ? (clipEnd - clipStart) : clipLength;
+      const repeats = clip.loop ? Math.ceil(totalClipDuration / clipLength) : 1;
+      console.log("Repeats", repeats)
+      for (let r = 0; r < repeats; r++) {
+        const loopOffset = r * clipLength;
+        
+        // Voeg noten toe voor deze iteratie van de loop
+        for (const n of clip.notes) {
+          // Als de noot buiten de totale clip-eind valt, overslaan
+          if (loopOffset + helpers.beatsToTime(n.start) >= totalClipDuration) continue;
+    
+          events.push({
+            time: (clipStart + loopOffset + helpers.beatsToTime(n.start)),
+            dur: constrainDuration(n.duration),
+            hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
+            vel: n.velocity,
+            slide: n.slide
+          });
+        }
+      }
+    
+      const part = new Tone.Part((time, ev) => {
+        if (instrumentNode.name == "NoiseSynth") 
+          instrumentNode.triggerAttackRelease(ev.dur, time, ev.vel);
+        else if (instrumentNode.name == "MetalSynth") {
+          instrumentNode.triggerAttack(ev.hz, time, ev.vel);
+          instrumentNode.triggerRelease(time + ev.dur);
+        }
+        else if (typeof instrumentNode.triggerAttackRelease === "function") {
+          instrumentNode.triggerAttackRelease(ev.hz, ev.dur, time, ev.vel, ev.slide);
+        }
+      }, events).start(0);
+      
+      /*
       const events = clip.notes
         .filter((n) => n.start < clip.length - Constants.EPS)
         .map((n) => ({
@@ -994,10 +1036,10 @@ async function DAWSomeApp() {
             part.loopEnd = loopEnd;
             part.loop = true;
             part.stop(helpers.beatsToTime(clip.end));
-          }
+          }*/
           
-          return part;
-        }
+      return part;
+    }
         
     return {
       available: true,
@@ -4650,20 +4692,22 @@ async function DAWSomeApp() {
           octaves: 0,
           envelope: {
             attack: 0.01,
-            decay: 0.02,
-            sustain: 0.1,
-            release: 1.0
+            attackCurve: "linear",
+            decay: 0.01,
+            decayCurve: "expontential",
+            sustain: 0.05,
+            release: 0.3,
+            releaseCurve: "exponential"
           }
         }
       };
       const closedhatReverbSend = { name: "Reverb", volume: 10 };
-      
       const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [closedhatReverbSend]);
       let chNotes1 = mk([
         ["F#2", 1.0, 0.125],
         ["F#2", 3.0, 0.125],
       ]);
-            clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
+      clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
             
       let chNotes2 = mk([
         ["F#2", 0.0, 0.125],
