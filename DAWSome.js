@@ -4650,20 +4650,22 @@ async function DAWSomeApp() {
           octaves: 0,
           envelope: {
             attack: 0.01,
-            decay: 0.02,
-            sustain: 0.1,
-            release: 1.0
+            attackCurve: "linear",
+            decay: 0.01,
+            decayCurve: "expontential",
+            sustain: 0.05,
+            release: 0.3,
+            releaseCurve: "exponential"
           }
         }
       };
       const closedhatReverbSend = { name: "Reverb", volume: 10 };
-      
       const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [closedhatReverbSend]);
       let chNotes1 = mk([
         ["F#2", 1.0, 0.125],
         ["F#2", 3.0, 0.125],
       ]);
-            clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
+      clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
             
       let chNotes2 = mk([
         ["F#2", 0.0, 0.125],
