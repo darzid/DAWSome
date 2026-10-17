@@ -4827,8 +4827,6 @@ async function DAWSomeApp() {
           
           // Bouw de virtuele Master Channel voor de offline context
           const offlineMaster = new Tone.Channel(projectState.masterVolume).toDestination();
-          const toTicks = (beats) => Tone.Ticks(Math.round(beats * Tone.getTransport().PPQ));
-          //const hz = (pitch) => Tone.Frequency(pitch, "midi").toFrequency();
           // Maak offline afspeel-structuren aan per track/clip
           for (const track of projectState.tracks) {
             if (track.mute) continue; // Muted tracks overslaan[span_5](start_span)[span_5](end_span)
