@@ -12,7 +12,7 @@ class PresetBrowser {
   
     async loadPresets() {
       if (presetBankJson) {
-        console.log("Use presets")
+       // console.log("Use presets")
         try {
         
         this.parsePresets(presetBankJson);
@@ -21,10 +21,10 @@ class PresetBrowser {
           console.error("failed to parse prezets", error)
           throw error;
         }
-        console.log("parsed presets")
+     //   console.log("parsed presets")
       }
       else {
-        console.log("Load presets")
+      //  console.log("Load presets")
         await fetch('preset-bank.json')
           .then(response => {
             if (!response.ok) {
@@ -44,10 +44,10 @@ class PresetBrowser {
     parsePresets(data) {
       this.presets = data;
           
-          console.log("getting elements")
+      //    console.log("getting elements")
           let presetBrowser = document.getElementById("PresetBrowser");
           document.getElementById('presets-data').textContent = JSON.stringify(data, null, 2);
-          console.log("parsing presets")
+      //    console.log("parsing presets")
           let presetPaths = Object.keys(data);
           presetPaths.forEach(fullPresetPath => {
             let presetPath = fullPresetPath.replace("effect\\", "").replace("instrument\\", "").replace(".json", "");
@@ -80,7 +80,7 @@ class PresetBrowser {
             option.innerText = presetPath.split("\\")[1];
             devicePresetSelect.appendChild(option);
           })
-          console.log(`Loaded presets to presets-data`, document.getElementById("presets-data"));
+       //   console.log(`Loaded presets to presets-data`, document.getElementById("presets-data"));
     }
   }
   

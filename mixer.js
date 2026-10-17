@@ -41,7 +41,7 @@ class Mixer {
       this.addTrackEvents(returnChannel, faderContainer);
       this.addVuMeter(returnChannel, faderContainer);
       
-      console.log("addReturnFader", returnChannel)
+      //console.log("addReturnFader", returnChannel)
       return faderContainer;
     }
     
@@ -85,7 +85,7 @@ class Mixer {
         faderValue.value = 0;
         channel.volume = fader.value;
         fader.value = faderValue.value;
-        console.log("dbl click vol change", channel)
+      //  console.log("dbl click vol change", channel)
         document.dispatchEvent(new CustomEvent("VolumeChanged", { detail: { channelId: channel.id, volume: channel.volume }}));
       }
     }
@@ -104,12 +104,12 @@ class Mixer {
         if (!muteButton.classList.contains("on")) {
           track.mute = false;
           document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
-          console.log("track unmuted")
+        //  console.log("track unmuted")
         }
         else {
           track.mute = true;
           document.dispatchEvent(new CustomEvent("MuteChanged", { detail: { trackId: track.id, muted: track.mute }}));
-          console.log("track muted")
+         // console.log("track muted")
         }
         if (track.mute != oldMute) {
          // this.audio.updateTrack(track);
@@ -153,7 +153,7 @@ class Mixer {
             }
           })
           
-          console.log("track solod")
+          //console.log("track solod")
         }
         else {
           muteButtons.forEach(projectMuteButton => {
@@ -184,11 +184,11 @@ class Mixer {
 
               }
            // }
-            console.log("soloed", soloedMuteButtons)
+           // console.log("soloed", soloedMuteButtons)
           })
           muteButton.classList.remove("on");
         
-          console.log("track unsolod")
+          //console.log("track unsolod")
         }
       };
     }
@@ -198,7 +198,7 @@ class Mixer {
       sendSelect.id = `${track.id}-sendselect`;
       sendSelect.className = "send";
       const returnChannels = this.audio.getReturnChannels();
-      console.log("ret channels", returnChannels);
+     // console.log("ret channels", returnChannels);
       sendSelect.innerHTML = "<option value=''>-Send-</option>";
       returnChannels.forEach(returnChannel => sendSelect.innerHTML += `<option value="${returnChannel.name}">${returnChannel.name}</option>`);
       faderContainer.appendChild(sendSelect);
@@ -245,7 +245,7 @@ class Mixer {
       let sendAmountInput = document.getElementById(`${track.id}-sendamount`);
       
       sendAmountInput.oninput = () => {
-        console.log("send amount changed to " + sendAmountInput.value)
+       // console.log("send amount changed to " + sendAmountInput.value)
         track.sends[0].volume = parseFloat(sendAmountInput.value)
         document.dispatchEvent(new CustomEvent("SendChanged", { detail: { trackId: track.id, sends: track.sends }}));
       };
@@ -256,17 +256,17 @@ class Mixer {
     addTrackEvents(track, faderContainer) {
       document.addEventListener("TrackRemoved", (e) => {
         if (e.detail.trackId !== track.id) return;
-        console.log("Mixer: Track fader removed", e.detail)
+      //  console.log("Mixer: Track fader removed", e.detail)
         this.removeTrackFader(track.id);
       })
       document.addEventListener("TrackNameChanged", (e) => {
         if (e.detail.trackId !== track.id) return;
-        console.log("Trackname changed", e.detail)
+      //  console.log("Trackname changed", e.detail)
         faderContainer.querySelector("label").innerText = e.detail.trackName;
       })
       document.addEventListener("MuteChanged", (e) => {
         if (e.detail.trackId !== track.id) return;
-        console.log("Mute changed", e.detail)
+      //  console.log("Mute changed", e.detail)
         let muteButton = faderContainer.querySelector("button.mute-button");
         muteButton.classList.toggle("on", e.detail.muted);
       })
@@ -286,7 +286,7 @@ class Mixer {
       faderContainer.after(faderMeterCanvas);
         
       let chain = this.audio.getChain(channel.id);
-      console.log("create vumeter for " + faderMeterCanvas.name)
+     // console.log("create vumeter for " + faderMeterCanvas.name)
       levelMeterManager.register(chain.channel.output, faderMeterCanvas, this.mixer);
     }
     
@@ -299,7 +299,7 @@ class Mixer {
       
       this.mixer.removeChild(faderContainer);
       
-      console.log("Mixer track channel removed " + trackId);
+    //  console.log("Mixer track channel removed " + trackId);
     }
   }
   
