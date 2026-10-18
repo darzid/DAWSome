@@ -82,7 +82,7 @@ jobs:
             .replace(/<script src="js\/modules\/PresetManager\/preset-bank.js"><\/script>/i, `${presetBankScriptBlock}`)
             .replace(/<script src="js\/modules\/PresetManager\/PresetManager.js" type="module"><\/script>/i, `${presetManagerScriptBlock}`)
             .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`)
-            .replace(/<script src="js\/modules\/DAWSome\/DAWSome.js" type="module"><\/script>/i, `${dawsomeScriptBlock}`);
+            .replace(/<script src="js\/modules\/DAWSome\/DAWSome.js" type="module"><\/script>/i, `${dawsomeScriptBlock}`)
             .replace(/<script src="js\/app.js" type="module"><\/script>/i, `${appScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
