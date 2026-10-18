@@ -414,7 +414,9 @@ async function DAWSomeApp() {
           
           if (labelled && this.pxPerBeat >= 4) {
             c.fillStyle = Constants.COLORS.rulerText;
-            c.fillText(String(bar + 1), x + 3, 2);
+            
+            let label = (this.pxPerBeat <= 8) ? String(bar + 1) : `${bar + 1}:1:1`;
+            c.fillText(label, x + 3, 2);
           }
         } else if (showBeats) {
           c.fillStyle = Constants.COLORS.rulerTick;
@@ -475,7 +477,7 @@ async function DAWSomeApp() {
     updating(name, value) {
       if (this._state[name] == value) return;
       if (!this.isValid(name, value)) return;
-      console.log(`Updating ${this._objectType}.${name} from ${this._state[name]} to ${value}`);
+      //console.log(`Updating ${this._objectType}.${name} from ${this._state[name]} to ${value}`);
       this._state[name] = value;
       document.dispatchEvent(
         new CustomEvent(`${this._objectType}Changing`, 
@@ -486,7 +488,7 @@ async function DAWSomeApp() {
     update(name, value) {
       if (!this.isValid(name, value)) return;
       this._state[name] = value;
-      console.log(`Updated ${this._objectType}.${name} to ${value}`);
+      //console.log(`Updated ${this._objectType}.${name} to ${value}`);
       document.dispatchEvent(
         new CustomEvent(`${this._objectType}Changed`, 
         { detail: { id: this.id, name: name, value: value } })
@@ -501,7 +503,7 @@ async function DAWSomeApp() {
           element.addEventListener("input", () => this.updating(name, element.value));
           element.addEventListener("change", () => this.update(name, element.value));
           document.addEventListener(`${this._objectType}Changed`, (e) => {
-            console.log("OnChanged " + e.detail.name, e.detail);
+           // console.log("OnChanged " + e.detail.name, e.detail);
             /*if (e.detail.id != element.dataset.objectid) {
               console.log("Different object id " + name);
               return;
@@ -513,9 +515,9 @@ async function DAWSomeApp() {
             }
             element.value = e.detail.value;
             if (callback) callback();
-            console.log("OnChanged finished " + e.detail.name, e.detail);
+            //console.log("OnChanged finished " + e.detail.name, e.detail);
           });
-          console.log(`Bound ${element.nodeName} to ${name}`, element.value);
+         // console.log(`Bound ${element.nodeName} to ${name}`, element.value);
           break;
         case "BUTTON":
           element.dataset.objectid = this.id;
@@ -530,7 +532,7 @@ async function DAWSomeApp() {
             if (callback) callback();
           });
           
-          console.log(`Bound toggle ${element.nodeName} to ${name}`, element.value);
+        //  console.log(`Bound toggle ${element.nodeName} to ${name}`, element.value);
           break;
       }
     }
@@ -550,7 +552,7 @@ async function DAWSomeApp() {
     }
     
     refresh() {
-      console.log("Refresh");
+     // console.log("Refresh");
       Object.keys(this._state).forEach(name => {
         document.dispatchEvent(
           new CustomEvent(`${this._objectType}Changed`, 
@@ -618,12 +620,12 @@ async function DAWSomeApp() {
     addTrack(name, devices, volume) {
       const track = new Track(this._projectState, { id: this._projectState.nextId++, name: name, color: Constants.TRACK_COLORS[this.tracks.length % Constants.TRACK_COLORS.length], volume: volume, mute: false, solo: false, devices: devices});
       this._projectState.tracks.push(track);
-      console.log("Added track", track )
+     // console.log("Added track", track )
       return track;
     }
     
     removeTrack(trackId) {
-      console.log("Project.removeTrack " + trackId)
+      //console.log("Project.removeTrack " + trackId)
       this.clips.filter(clip => clip.trackId == trackId).forEach(clip => {
         document.dispatchEvent(
           new CustomEvent("ClipRemoved", { detail: { clipId: clip.id } })
@@ -682,7 +684,7 @@ async function DAWSomeApp() {
   
       if (!end) {
         end = start + length;
-        console.log("determined clip end, start, length, end", start, length, end)
+       // console.log("determined clip end, start, length, end", start, length, end)
       }
       //let loop = end - start > length;
       const clipState = { id: this._projectState.nextId++, trackId: this.id, name: `${this.name} ${count}`, start: start, length: length, end: end, loop: loop, notes: notes };
@@ -759,7 +761,7 @@ async function DAWSomeApp() {
   // ===== Audio (Tone.js) =====
   function createAudio() {
     if (typeof Tone === "undefined") return null;
-    console.log("Creating Tone.js audio context");
+   // console.log("Creating Tone.js audio context");
     const transport = Tone.getTransport();
     const PPQ = transport.PPQ;
     const masterChannel = new Tone.Channel(project.masterVolume).toDestination();
@@ -817,7 +819,7 @@ async function DAWSomeApp() {
       let deviceName = deviceNameParts[deviceNameParts.length - 1];
       
       if (deviceNameParts.length > 1) {
-        console.log("Creating DAWSome device " + deviceName)
+       // console.log("Creating DAWSome device " + deviceName)
       }
       let deviceNode = (deviceNameParts.length === 1) ? new Tone[deviceName](device.parameters) : DAWSome[deviceName](device.parameters);
       deviceNodes.set(device.id, deviceNode);
@@ -862,9 +864,9 @@ async function DAWSomeApp() {
     }
     
     const connectDevices = (ch) => {
-      console.log("connecting devices");
+      //console.log("connecting devices");
       let source = ch.instrument;
-      console.log("connecting devices, src", source);
+      //console.log("connecting devices, src", source);
       ch.effects.forEach(fx => {
         source.connect(fx);
         source = fx;
@@ -872,14 +874,14 @@ async function DAWSomeApp() {
       source.connect(ch.channel);
     };
     const connectModulators = (ch, track) => {
-      console.log("connect modulators");
+      //console.log("connect modulators");
       try {
         let modulatorIndex = 0;
         let devices = audio.getTrackDevices(track);
-        console.log("Connect modulators: track devices", devices)
+       // console.log("Connect modulators: track devices", devices)
         ch.modulators.forEach(modulator => {
           let trackModulator = track.modulators[modulatorIndex];
-          console.log("Connect modulators: Modulator " + modulatorIndex, trackModulator, modulator)
+        //  console.log("Connect modulators: Modulator " + modulatorIndex, trackModulator, modulator)
           if (trackModulator.targetDeviceIndex >= devices.length)
             console.warn("Target device index out of range", trackModulator.targetDeviceIndex, devices)
           let device = devices[trackModulator.targetDeviceIndex];
@@ -893,7 +895,7 @@ async function DAWSomeApp() {
           }
           modulator.connect(target);
           modulator.start();
-          console.log(`connected modulator to ${track.name}.${device.name}.${trackModulator.targetParameter}`, modulator, target)
+        //  console.log(`connected modulator to ${track.name}.${device.name}.${trackModulator.targetParameter}`, modulator, target)
           modulatorIndex++;
         });
       }
@@ -924,43 +926,47 @@ async function DAWSomeApp() {
     document.addEventListener("MuteChanged", (e) => {
       const ch = chain(parseInt(e.detail.trackId));
       ch.channel.mute = e.detail.muted;
-      console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
+      //console.log(`audio.MuteChanged: ${e.detail.trackId}, mute changed to ${ch.channel.mute}`);
     });
     document.addEventListener("VolumeChanged", (e) => {
       const ch = chain(e.detail.channelId);
       ch.channel.volume.value = e.detail.volume;
-      console.log(`audio.VolumeChanged: ${e.detail.channelId}, volume changed to ${ch.channel.volume}`);
+      //console.log(`audio.VolumeChanged: ${e.detail.channelId}, volume changed to ${ch.channel.volume}`);
     });
     document.addEventListener("SendChanged", (e) => {
       const ch = chain(parseInt(e.detail.trackId));
-      console.log("Audio: Updating track channel sends", e.detail.sends);
+     // console.log("Audio: Updating track channel sends", e.detail.sends);
       e.detail.sends.forEach(send => ch.channel.send(send.name, send.volume));
     });
     document.addEventListener("InstrumentChanged", (e) => {
       //updateInstrument(e.detail.trackId, e.detail.instrumentName);
-      console.log(`audio.InstrumentChanged: ${e.detail.trackId}, instrument changed to ${e.detail.instrumentName}`);
+      //console.log(`audio.InstrumentChanged: ${e.detail.trackId}, instrument changed to ${e.detail.instrumentName}`);
     });
     document.addEventListener("ClipRemoved", (e) => {
       audio.removeClipPart(e.detail.clipId);
-      console.log(`audio.ClipPartRemoved: ${e.detail.clipId}`);
+      //console.log(`audio.ClipPartRemoved: ${e.detail.clipId}`);
     });
     document.addEventListener("TrackRemoved", (e) => {
       audio.removeTrackChain(e.detail.trackId);
-      console.log(`audio.TrackChainRemoved: ${e.detail.trackId}`);
+      //console.log(`audio.TrackChainRemoved: ${e.detail.trackId}`);
     });
     
     
     const createPartFromClip = (clip, instrumentNode) => {
       const bpm = Tone.getTransport().bpm.value;
-      const beatDurationInSec = 60 / bpm;
-      const beatDurationInTicks = toTicks(beatDurationInSec);
+      const beatDuration = helpers.beatsToTime(1);
+     // console.log("beat duration " + beatDuration);
+      
       const constrainDuration = (noteDurationInBeats) => {
-        const noteDurationInTicks = toTicks(noteDurationInBeats);
+        const noteDuration = helpers.beatsToTime(noteDurationInBeats);
         if (instrumentNode.name == "MetalSynth") {
-          return Math.min(noteDurationInTicks, beatDurationInTicks);
+          const constrainedValue = Math.min(noteDuration, beatDuration);
+          //if (constrainedValue != noteDuration)
+            //console.warn("Constrained note duration " + noteDuration + " to " + constrainedValue + " for " + instrumentNode.name + "." + clip.name);
+          return Tone.Time(constrainedValue);
         }
         else {
-          return noteDurationInTicks;
+          return noteDuration;
         }
       }
       
@@ -973,7 +979,7 @@ async function DAWSomeApp() {
       
       const totalClipDuration = (clipEnd && clipEnd > clipStart) ? (clipEnd - clipStart) : clipLength;
       const repeats = clip.loop ? Math.ceil(totalClipDuration / clipLength) : 1;
-      console.log("Repeats", repeats)
+      
       for (let r = 0; r < repeats; r++) {
         const loopOffset = r * clipLength;
         
@@ -983,7 +989,7 @@ async function DAWSomeApp() {
           if (loopOffset + helpers.beatsToTime(n.start) >= totalClipDuration) continue;
     
           events.push({
-            time: (clipStart + loopOffset + helpers.beatsToTime(n.start)),
+            time: (clipStart + loopOffset + helpers.beatsToTime(n.start) + Constants.TONE_NOTE_TRIGGERAHEAD),
             dur: constrainDuration(n.duration),
             hz: Tone.Frequency(n.pitch, "midi").toFrequency(),
             vel: n.velocity,
@@ -1047,18 +1053,18 @@ async function DAWSomeApp() {
       setBpm: (bpm) => { 
         if (bpm == transport.bpm.value) return;
         transport.bpm.value = bpm; 
-        console.log("Updated audio bpm to " + bpm);
+       // console.log("Updated audio bpm to " + bpm);
       },
       setLoop: (on, endBeats) => {
         transport.loop = on;
         transport.loopStart = 0;
         transport.loopEnd = toTicks(endBeats);
-        console.log("Updated audio loop to " + on + " " + endBeats)
+      //  console.log("Updated audio loop to " + on + " " + endBeats)
       },
       addReturnChannel: (send) => {
         const channel = new Tone.Channel(send.volume);
         channel.receive(send.name);
-        console.log("Send fx", send)
+       // console.log("Send fx", send)
         const effectNode = makeToneNode(send.sendEffect);
         const chain = {
           name: send.name,
@@ -1497,7 +1503,7 @@ async function DAWSomeApp() {
 
   // Track headers are DOM so names and instruments are editable; they scroll with the lanes.
   function renderTrackHeaders() {
-    console.log("render track headers")
+    //console.log("render track headers")
     const rh = av.rowHeight;
     dom.trackHeaders.style.transform = `translateY(${-av.o.scroller.scrollTop}px)`;
     const existing = new Map([...dom.trackHeaders.children].map((el) => [Number(el.dataset.id), el]));
@@ -1559,7 +1565,7 @@ async function DAWSomeApp() {
       //document.dispatchEvent(new CustomEvent("TrackRemoved", { detail: { trackId: track.id } }));
     } else if (e.target.classList.contains("name")) {
       //bottomPanelManager.refreshActivePanel();
-      console.log("name click");
+      //console.log("name click");
       e.preventDefault();
       e.stopPropagation();
       e.cancelBubble = true;
@@ -1571,7 +1577,7 @@ async function DAWSomeApp() {
   });
 
   dom.trackHeaders.addEventListener("change", (e) => {
-    console.log("change")
+    //console.log("change")
     const el = e.target.closest(".track");
     if (!el) return;
     const track = stateHelper.trackById(Number(el.dataset.id));
@@ -1586,14 +1592,14 @@ async function DAWSomeApp() {
   });
 
   function fillDevicePresets(el, presets, deviceName) {
-    console.log("fillDevicePresets", presets, deviceName)
+    //console.log("fillDevicePresets", presets, deviceName)
 
     let instSelect = el.querySelector(".inst");
     let presetSelect = el.querySelector(".instPreset");
     presetSelect.innerHTML = "";
     if (!presets[deviceName])
       return;
-    console.log("found presets for " + deviceName, presets[deviceName])
+    //console.log("found presets for " + deviceName, presets[deviceName])
     Object.keys(presets[deviceName]).forEach(presetName => {
       presetSelect.innerHTML += `<option value="${presetName}">${presetName}</option>`;
     })
@@ -1611,10 +1617,10 @@ async function DAWSomeApp() {
     const clip = clipAt(p.beat, p.row);
     if (!clip) {
       clipManager.deselectClip();
-      console.log("deselect xlip")
+      //console.log("deselect xlip")
       return;
     }
-    console.log("scroller.pointerdown select clip", p)
+    //console.log("scroller.pointerdown select clip", p)
     clipManager.selectClip(clip);
     if (!projectState.drawClips) return;
     aDrag = {
@@ -1648,7 +1654,7 @@ async function DAWSomeApp() {
       if (track && track.id !== d.clip.trackId) {
         d.clip.trackId = track.id;
         trackManager.selectTrack(track);
-        console.log("pointer move rth")
+       // console.log("pointer move rth")
         renderTrackHeaders();
       }
     } else {
@@ -2059,7 +2065,7 @@ async function DAWSomeApp() {
       keyOff();
       keyDrag.mode = Math.abs(dx) > Math.abs(dy) ? "zoom" : "scroll";
     }
-    console.log("ed pointermove")
+    //console.log("ed pointermove")
     if (keyDrag.mode === "scroll") ev.o.scroller.scrollTop = keyDrag.scrollTop0 - dy;
     else ev.setRowHeight(keyDrag.rowHeight0 * Math.exp(dx * 0.01), keyDrag.anchorY, keyDrag.rowAtAnchor);
   });
@@ -2068,7 +2074,7 @@ async function DAWSomeApp() {
   dom.edKeysCanvas.addEventListener("pointercancel", endKeyPointer);
   dom.edKeysCanvas.addEventListener("wheel", (e) => {
     e.preventDefault();
-    console.log("wheel")
+    //console.log("wheel")
     const { dy } = wheelDeltas(e);
     if (e.altKey || e.ctrlKey || e.metaKey) ev.zoomV(Math.exp(-dy * 0.002), e.clientY - dom.edKeysCanvas.getBoundingClientRect().top);
     else ev.o.scroller.scrollTop += dy;
@@ -2162,7 +2168,7 @@ async function DAWSomeApp() {
   }
   
   function loadProject(projectData, fileName) {
-    console.log("loadProject " + fileName, projectData)
+    //console.log("loadProject " + fileName, projectData)
     clearProject();
     projectState = projectData;
 
@@ -2171,36 +2177,36 @@ async function DAWSomeApp() {
     let first = null;
     
     projectData.sends.forEach(send => {
-      console.log("loading send", send)
+      //console.log("loading send", send)
       audio.addReturnChannel(send);
       mixer.addReturnFader(send);
     });
     
     for (const ts of projectData.tracks) {
       let track = trackManager.loadTrack(ts);
-      console.log("loadProject - added track", track);
+      //console.log("loadProject - added track", track);
 
       let clips = projectState.clips.filter(c => c.trackId == ts.id);
       clips.forEach(c => {
-        console.log("loadProject - adding clip", c)
+        //console.log("loadProject - adding clip", c)
         audio.rebuildClipPart(c);
       })
     }
 
-    console.log("loadProject - parsed " + fileName, projectData)
+    //console.log("loadProject - parsed " + fileName, projectData)
     
     if (first) clipManager.selectClip(first);
     
     updateManager.arrangementChanged();
     updateManager.editorClipChanged();
-    console.log("loadProject - finished", projectState.tracks.length)
+    //console.log("loadProject - finished", projectState.tracks.length)
     return projectData.tracks.length;
   }
 
   function saveProject() {
     let projectJson = JSON.stringify(projectState);
     if (window.navigator.userAgent.toString().startsWith("Mozilla/5.0 (Linux; Android 16; SM-A556B")) {
-      console.log("Project saved", { "json": projectJson });
+      //console.log("Project saved", { "json": projectJson });
       return;
     }
 
@@ -2237,7 +2243,7 @@ async function DAWSomeApp() {
   dom.loadBtn.addEventListener("click", () => dom.projectFile.click());
   dom.projectFile.addEventListener("change", async () => {
     const file = dom.projectFile.files[0];
-    console.log("loading file", file)
+    //console.log("loading file", file)
     dom.projectFile.value = "";
     if (!file) return;
     try {
@@ -2246,7 +2252,7 @@ async function DAWSomeApp() {
         var contents = e.target.result;
         try {
           let projectFile = JSON.parse(contents);
-          console.log("loading file", projectFile);
+          //console.log("loading file", projectFile);
           loadProject(projectFile, file.name.replace(/\.json?$/i, ""));
         }
         catch (error) {
@@ -2362,14 +2368,13 @@ async function DAWSomeApp() {
     ev.requestRender();
   });
   
-  console.log("loopClip", dom.loopClip)
   dom.loopClip.addEventListener("click", () => {
     
     const clip = stateHelper.currentClip();
     if (!clip) return;
     dom.loopClip.classList.toggle("on");
     clip.loop = dom.loopClip.classList.contains("on");
-    console.log("loop changed", clip.loop)
+    //console.log("loop changed", clip.loop)
   });
   bindToggle(dom.loopClip, ed, "loop", () => { });
   bindToggle(dom.triplet, ed, "triplet", () => { dom.gridReadout.textContent = editorGrid().label; ev.requestRender(); });
@@ -2421,6 +2426,15 @@ async function DAWSomeApp() {
     snapRound: (beat, step) => (step ? Math.round(beat / step) * step : beat),
     ceilBars: (beats) => Math.ceil(beats / Constants.BEATS_PER_BAR - Constants.EPS) * Constants.BEATS_PER_BAR,
     clipEnd: (clip) => clip.end ? clip.end : clip.start + clip.length,
+    noteTimeToBeats: (noteTime) => {
+        let bbs = Tone.Time(noteTime).toBarsBeatsSixteenths();
+        let parts = bbs.split(":");
+        let beats = parseInt(parts[1]);
+        beats += (parseFloat(parts[2]) / 4);
+        beats += parseInt(parts[0]) * 4;
+        //console=.log(`Converted notename ${noteName} to pitch ${pitch}`);
+        return beats;
+      },
     beatsToTime: (beats) => {
       let remainingBeats = beats;
       let bars = Math.floor(beats / 4);
@@ -2492,7 +2506,7 @@ async function DAWSomeApp() {
       try {
         helpers.updateDeviceParameter(device, parameterPath, value);
         helpers.updateDeviceStateParameter(deviceState, parameterPath, value);
-        console.log(`Updated ${device.name}.${parameterPath} to ${value}`);
+        //console.log(`Updated ${device.name}.${parameterPath} to ${value}`);
       }
       catch (error) {
         throw `Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`;
@@ -2532,7 +2546,7 @@ async function DAWSomeApp() {
         this.parseDevices(devicesJson);
       }
       else {
-        console.log("Load devices")
+        //console.log("Load devices")
         await fetch("devices.json")
           .then(response => {
             if (!response.ok) {
@@ -2550,7 +2564,7 @@ async function DAWSomeApp() {
     }
 
     parseDevices(data) {
-      console.log("parsing devices");
+     // console.log("parsing devices");
       deviceList = data;
       this.metadata = data;
       Object.keys(data.devices).forEach(deviceName => {
@@ -2563,7 +2577,7 @@ async function DAWSomeApp() {
     }
     
     getDeviceMetadata(deviceName) {
-      console.log("getDeviceMetadata for " + deviceName)
+      //console.log("getDeviceMetadata for " + deviceName)
       if (!this.deviceParameters[deviceName]) {
         let componentMetadata = this.metadata.devices[deviceName] ? this.metadata.devices[deviceName] : this.metadata.modules[deviceName];
         if (!componentMetadata.parameters) console.warn("No params", componentMetadata)
@@ -2593,7 +2607,7 @@ async function DAWSomeApp() {
     }
     
     getDeviceValueParameters(deviceName) {
-      console.log("getDeviceValueParameters for " + deviceName)
+     // console.log("getDeviceValueParameters for " + deviceName)
       let deviceMetadata = this.getDeviceMetadata(deviceName);
       
       let results = [];
@@ -2641,7 +2655,7 @@ async function DAWSomeApp() {
     }
     
     _traverseParams(deviceName, metadataContext, paramPath) {
-      console.log("traverseParams for " + deviceName + "." + paramPath)
+      //console.log("traverseParams for " + deviceName + "." + paramPath)
       Object.keys(metadataContext).forEach(parameterName => {
         if (!parameterName) throw "empty param name"
         let paramMetadataPath = metadataContext[parameterName];
@@ -2710,9 +2724,9 @@ async function DAWSomeApp() {
               let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
               let parts = paramMetadata.split("/");
               let deviceName = parts[1];
-              console.log("device nane", deviceName)
+           //   console.log("device nane", deviceName)
               let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
-              console.log("device metadata", deviceMetadata)
+            //  console.log("device metadata", deviceMetadata)
               traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
             }
           });
@@ -2811,7 +2825,7 @@ async function DAWSomeApp() {
       input.min = parameterMetadata.metadata.min;
       input.max = parameterMetadata.metadata.max;
       input.step = parameterMetadata.metadata.step;
-      console.log("renderNumberParameter getDeviceStateParameter for " + this.device.name + "." + parameterMetadata.name, this.deviceState, parameterMetadata);
+      //console.log("renderNumberParameter getDeviceStateParameter for " + this.device.name + "." + parameterMetadata.name, this.deviceState, parameterMetadata);
       let stateValue = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       if (stateValue) 
         input.value = stateValue;
@@ -2826,7 +2840,7 @@ async function DAWSomeApp() {
       let select = document.createElement("select");
       select.dataset.parameter = parameterMetadata.name.replace(".", "-");
       let optionsHtml = "";
-      console.log("renderOptionParameter getDeviceStateParameter for " + this.device.name + "." + parameterMetadata.name, this.deviceState, parameterMetadata)
+     // console.log("renderOptionParameter getDeviceStateParameter for " + this.device.name + "." + parameterMetadata.name, this.deviceState, parameterMetadata)
      // console.log("renderOptionParameter", parameterMetadata.metadata.values)
       let parameterValue = helpers.getDeviceStateParameter(this.deviceState, parameterMetadata.name);
       parameterMetadata.metadata.values.forEach(value => {
@@ -2892,7 +2906,7 @@ async function DAWSomeApp() {
         listMetadata.columns.forEach(name => {
           if (listMetadata.columns.indexOf(name) == listMetadata.columns.length - 1) {
             templateColumns += "auto ";
-            console.log("add column for " + name)
+           // console.log("add column for " + name)
           }
           else {
             templateColumns += "min-content ";
@@ -2928,7 +2942,7 @@ async function DAWSomeApp() {
     }
       
     addListItem(listMetadata, list, listItem, listElement) {
-      console.log("addListItem", listMetadata, list, listItem, listElement);
+      //console.log("addListItem", listMetadata, list, listItem, listElement);
         
       listMetadata.columns.forEach(name => {
         let listItemValue = document.createElement("div");
@@ -2992,7 +3006,7 @@ async function DAWSomeApp() {
     }
     
     render() {
-      console.log("DeviceBaseView.render " + this.currentDevice?.name, this.currentDeviceState, this.devicePickerList)
+      //console.log("DeviceBaseView.render " + this.currentDevice?.name, this.currentDeviceState, this.devicePickerList)
       let devicePickerOptionsHtml = this.devicePickerList.map((deviceName) => `<option value="${deviceName}">${helpers.toShortDeviceName(deviceName)}</option>`).join("");
       this.devicePicker.innerHTML = "<option value=''>-Device-</option>";
       this.devicePicker.innerHTML += devicePickerOptionsHtml;
@@ -3006,32 +3020,32 @@ async function DAWSomeApp() {
     
     devicePicked() {
       if (!this.isNewDevice) {
-        console.log("DeviceBaseView.devicePicked existing device", this, this.lastPageIndex)
+        //console.log("DeviceBaseView.devicePicked existing device", this, this.lastPageIndex)
         if (this.devices[this.pageIndex].name == this.devicePicker.value) return;
-        console.log("DeviceBaseView.devicePicked start update existing " + this.devicePicker.value);
+       // console.log("DeviceBaseView.devicePicked start update existing " + this.devicePicker.value);
         this.track.devices[this.trackDeviceIndex] = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
         this.devices[this.pageIndex] = audio.rebuildDevice(this.track, this.trackDeviceIndex);
       }
       else {
-        console.log("DeviceBaseView.devicePicked start add new " + this.devicePicker.value);
+       // console.log("DeviceBaseView.devicePicked start add new " + this.devicePicker.value);
         
         const newDeviceState = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
         this.track.devices.push(newDeviceState);
         this.deviceStates.push(newDeviceState);
         this._trackDeviceIndex = this.track.devices.indexOf(newDeviceState);
-        console.log("Rebuild device " + this._trackDeviceIndex);
+       // console.log("Rebuild device " + this._trackDeviceIndex);
         this.devices.push(audio.rebuildDevice(this.track, this.trackDeviceIndex));
       }
       
       metadataManager.buildDeviceState(this.currentDevice, this.currentDeviceState);
       
-      console.log("Track updated for Selected device " + this.currentDevice.name)
+      //console.log("Track updated for Selected device " + this.currentDevice.name)
       this.currentDeviceState.presetName = "";
-      console.log("Preset set for Selected instrument " + this.currentDevice.name);
+    //  console.log("Preset set for Selected instrument " + this.currentDevice.name);
       
       this.fillPresetsPicker();
       
-      console.log("DeviceBaseView.devicePicked render params for " + this.devicePicker.value)
+     // console.log("DeviceBaseView.devicePicked render params for " + this.devicePicker.value)
       this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
       //this.render();
       this.updateUIState();
@@ -3043,7 +3057,7 @@ async function DAWSomeApp() {
         this.devicePresetPicker.innerHTML = "";
         return;
       }
-      console.log("DeviceBaseView.devicePicked presets for " + this.devicePicker.value, this.devicePresetPickerList[this.devicePicker.value])
+      //console.log("DeviceBaseView.devicePicked presets for " + this.devicePicker.value, this.devicePresetPickerList[this.devicePicker.value])
       
       this.devicePresetPicker.innerHTML = "<option value=''>-Preset-</option>";
       if (this.devicePresetPickerList[this.devicePicker.value]) {
@@ -3095,16 +3109,16 @@ async function DAWSomeApp() {
     }
     
     init(track, deviceState, device) {
-      console.log("InstrumentView.init, state, device", deviceState, device)
+      //console.log("InstrumentView.init, state, device", deviceState, device)
       super.init(track, [deviceState], [device], metadataManager.getInstrumentNames(), instrumentPresets);
     }
     
     devicePicked() {
-      console.log("InstrumentView.devicePicked " + this.devicePicker.value)
+     // console.log("InstrumentView.devicePicked " + this.devicePicker.value)
       super.devicePicked();
 
       this.track.instrumentName = this.devicePicker.value;
-      console.log("Selected instrument " + this.track.instrumentName)
+     // console.log("Selected instrument " + this.track.instrumentName)
      // document.dispatchEvent(new CustomEvent("InstrumentChanged", { detail: { trackId: this.track.id, instrumentName: this.devicePicker.value } }));
     }
     
@@ -3113,7 +3127,7 @@ async function DAWSomeApp() {
       
       this.track.instrumentParameters = instrumentPresets[this.track.instrumentName][this.devicePresetPicker.value];
     //  this.track.devices[0].presetName = this.devicePresetPicker.value;
-      console.log("Preset selected " + this.devicePresetPicker.value, this.track.instrumentParameters);
+     // console.log("Preset selected " + this.devicePresetPicker.value, this.track.instrumentParameters);
       //audio.updateTrackChain(this.track);
     //  document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: this.track.id, presetName: this.devicePresetPicker.value } }));
     }
@@ -3275,7 +3289,7 @@ async function DAWSomeApp() {
         }
         if (panelButton.classList.contains("on") && panelButton.disabled) {
           this.hidePanel(panelButton.dataset.panelId);
-          console.log("setButtonStates: hidden disabled panel " + panelButton.dataset.panelId, this.projectState.selectedTrackId)
+          //console.log("setButtonStates: hidden disabled panel " + panelButton.dataset.panelId, this.projectState.selectedTrackId)
         }
       });
     }
@@ -3307,7 +3321,7 @@ async function DAWSomeApp() {
     }
     
     refreshActivePanel() {
-      console.log("refresh active panel")
+      //console.log("refresh active panel")
       this.setButtonStates();
       const activeButton = document.querySelector(".bottom-panel").querySelector(".tab-strip button.on");
       if (!activeButton) return;
@@ -3340,7 +3354,7 @@ async function DAWSomeApp() {
     renderEffectsPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
-        console.log("no track fx")
+        console.warn("no track fx")
         panel.style.display = "none";
         return;
       }
@@ -3355,7 +3369,7 @@ async function DAWSomeApp() {
     renderFxPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
-        console.log("no track fx")
+        //console.log("no track fx")
         panel.style.display = "none";
         return;
       }
@@ -3367,7 +3381,7 @@ async function DAWSomeApp() {
     renderModulationPanel(panel) {
       let track = projectState.tracks.find(track => track.id === projectState.selectedTrackId);
       if (!track) {
-        console.log("no track")
+        console.warn("no track")
         panel.style.display = "none";
         return;
       }
@@ -3376,7 +3390,7 @@ async function DAWSomeApp() {
       let modulatorsStartIndex = 1 + track.effects.length;
 
       panel.innerHTML = "";
-      console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
+      //console.log("show modulators", trackModulators, modulatorsStartIndex, track.devices[modulatorsStartIndex]);
       try {
         trackModulators.forEach(mod => this.renderDevice(panel, track, mod, modulatorsStartIndex + trackModulators.indexOf(mod), modulatorNames, modulatorPresets, "LFO"));
       }
@@ -3387,10 +3401,10 @@ async function DAWSomeApp() {
     }
 
     renderXypadPanel(panel) {
-      console.log("xypad render", this.projectState.tracks, this.projectState.selectedTrackId)
+      //console.log("xypad render", this.projectState.tracks, this.projectState.selectedTrackId)
       let track = this.projectState.tracks.find(track => track.id === this.projectState.selectedTrackId);
       if (!track) {
-        console.log("no track")
+        console.warn("no track")
         panel.style.display = "none";
         return;
       }
@@ -3437,7 +3451,7 @@ async function DAWSomeApp() {
         prevBtn.disabled = pageNumber == 0 ? "disabled" : "";
         //prevBtn.disabled = false;
         nextBtn.disabled = pageNumber === lastEffectIndex + 1 ? "disabled" : "";
-        console.log("updateButtonStates " + deviceIndex, prevBtn.disabled, nextBtn.disabled);
+        //console.log("updateButtonStates " + deviceIndex, prevBtn.disabled, nextBtn.disabled);
       }
       
       if (isMultiDevicePanel) {
@@ -3467,30 +3481,30 @@ async function DAWSomeApp() {
       let targetParamMetadata = null;
       if (hasPresets) {
         let instrumentSelect = devicePanel.querySelector(".inst");
-        console.log("get instrument select", instrumentSelect);
+        //console.log("get instrument select", instrumentSelect);
         let instrumentPresetSelect = devicePanel.querySelector(".instPreset");
-        console.log("inst preset select", instrumentPresetSelect);
+        //console.log("inst preset select", instrumentPresetSelect);
 
         instrumentSelect.value = trackDeviceNode.name;
         fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
         if (isInstrument) {
           instrumentPresetSelect.value = track.devices[0].presetName;
-          console.log("Preset", track.devices[0].presetName)
+          //console.log("Preset", track.devices[0].presetName)
         }
 
         instrumentSelect.oninput = async (e) => {
           if (isInstrument) {
             track.instrumentName = e.target.value;
-            console.log("Selected instrument " + track.instrumentName)
+           // console.log("Selected instrument " + track.instrumentName)
             audio.updateTrackChain(track);
-            console.log("Yrack updated for Selected instrument " + track.instrumentName)
+            //console.log("Yrack updated for Selected instrument " + track.instrumentName)
             track.devices[0].presetName = "default";
-            console.log("Preset set for Selected instrument " + track.instrumentName)
+            //console.log("Preset set for Selected instrument " + track.instrumentName)
             trackDeviceNode = audio.getTrackInstrument(track);
             if (trackDeviceNode.name !== track.instrumentName)
               throw "mismatch"
             fillDevicePresets(devicePanel, devicePresets, track.instrumentName);
-            console.log("device changed to " + track.instrumentName, trackDeviceNode)
+           // console.log("device changed to " + track.instrumentName, trackDeviceNode)
           }
           else {
             if (trackDeviceNode.name === "") {
@@ -3498,10 +3512,10 @@ async function DAWSomeApp() {
               track.effects.push(newFx);
               track.devices.push(newFx);
               audio.updateTrackChain(track);
-              console.log("updated track with new effect " + e.target.value);
+             // console.log("updated track with new effect " + e.target.value);
               let effects = audio.getTrackEffects(track);
               trackDeviceNode = effects[effects.length - 1];
-              console.log("added effect", trackDeviceNode)
+             // console.log("added effect", trackDeviceNode)
               fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
 
               updateButtonStates(deviceIndex);
@@ -3526,7 +3540,7 @@ async function DAWSomeApp() {
             track.devices[0].presetName = e.target.value;
           }
 
-          console.log("Preset selected " + e.target.value, track.instrumentParameters)
+         // console.log("Preset selected " + e.target.value, track.instrumentParameters)
           audio.updateTrackChain(track);
           renderDeviceParameters();
           document.dispatchEvent(new CustomEvent("InstrumentPresetChanged", { detail: { trackId: track.id, presetName: e.target.value } }));
@@ -3551,12 +3565,12 @@ async function DAWSomeApp() {
 
           targetDeviceSelect.oninput = (e) => fillTargetParameters(track, targetDeviceSelect, targetParameterSelect);
           targetParameterSelect.oninput = (e) => {
-            console.log("param selected")
+           // console.log("param selected")
             modulation.targetParameter = targetParameterSelect.value;
             let targetDevice = track.devices[targetDeviceSelect.value];
             let targetDeviceMetadata = deviceList.devices[targetDevice.name];
             targetParamMetadata = targetDeviceMetadata.parameters[modulation.targetParameter];
-            console.log("param render " + modulation.targetParameter, targetDeviceMetadata, targetParamMetadata)
+           // console.log("param render " + modulation.targetParameter, targetDeviceMetadata, targetParamMetadata)
             renderDeviceParameters(targetParamMetadata);
           }
         }
@@ -3987,7 +4001,7 @@ async function DAWSomeApp() {
           yDevice: "", yParameter: ""
         }
       }
-      console.log("addTrack " + name)
+      //console.log("addTrack " + name)
       let devices = [];
       instrument.presetName = "Default";
       devices.push(instrument);
@@ -4025,7 +4039,7 @@ async function DAWSomeApp() {
         this.audio.addTrackChain(track);
         this.selectTrack(track);
         this.mixer.addTrackFader(track);
-        console.log("added track model", track)
+       // console.log("added track model", track)
       }
       catch (error) {
         console.error("error while adding track", error)
@@ -4071,7 +4085,14 @@ async function DAWSomeApp() {
     
     createClip(track, start, length, notes = [], end = null) {
       const count = this.projectState.clips.filter((c) => c.trackId === track.id).length + 1;
-  
+      
+      if (typeof start == "string")
+        start = helpers.noteTimeToBeats(start);
+      if (typeof length == "string")
+        length = helpers.noteTimeToBeats(length);
+      if (typeof end == "string")
+        end = helpers.noteTimeToBeats(end);
+        
       if (!end) {
         end = start + length;
         console.log("determined clip end, start, length, end", start, length, end)
@@ -4126,7 +4147,7 @@ async function DAWSomeApp() {
     
       // Everything that must follow a change to clip placement, tracks, or loop length.
     arrangementChanged() {
-      console.log("arrangement changed, ", projectState)
+      //console.log("arrangement changed, ", projectState)
       this.audio.setLoop(this.projectState.loop, stateHelper.songEndBeats());
       this.av.updateSpacer();
       this.renderTrackHeaders();
@@ -4507,7 +4528,7 @@ async function DAWSomeApp() {
     let deviceState = { name: "MonoSynth", parameters: { volume: -10 }};
     let device = new Tone.MonoSynth();
     metadataManager.buildDeviceState(device, deviceState);
-    console.log("Device state", deviceState);
+   // console.log("Device state", deviceState);
     
     await presetBrowser.loadPresets();
 
@@ -4561,8 +4582,46 @@ async function DAWSomeApp() {
         return pitch;
       }
       
-      const mk = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: noteNameToPitch(noteName), start, duration, velocity, slide }));
       
+      const makeNotes = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: noteNameToPitch(noteName), start: helpers.noteTimeToBeats(start), duration: helpers.noteTimeToBeats(duration), velocity, slide }));
+      
+      
+      const mk = (list) => {
+        const notes = makeNotes(list);
+        let index = 0;
+        let log = "";
+        list.forEach(origNote => {
+          let note = notes[index];
+          log += `[${index}]: "${origNote[0]}", ${note.start}, ${note.duration} -> "${origNote[1]}", "${origNote[2]}"\r\n`;
+          index++;
+          if (index % 4 == 0) 
+            log += "\r\n";
+        })
+        console.log("result: \r\n", log);
+        return notes;
+      }
+      
+      /*
+      let noteTime = "1:3:2";
+      let noteTimeInBeats = noteTimeToBeats(noteTime);
+      console.log("Note time " + noteTime, noteTimeInBeats)
+      */
+      
+      /*
+      
+      let noteDuration = "16n";
+      let noteDurationInBeats = noteTimeToBeats(noteDuration);
+      console.log("Note duration " + noteDuration, noteDurationInBeats);
+      */
+      
+    /*  let noteLengthInBeats = 0.25;
+      let noteLength = helpers.beatsToTime(noteLengthInBeats);
+      console.log("Note length " + noteLengthInBeats, noteLength, noteLength.toNotation());
+      
+      let noteTimeInBeats = 6.25;
+      let noteTime = helpers.beatsToTime(noteTimeInBeats);
+      console.log("Note time " + noteTimeInBeats, noteTime, noteTime.toBarsBeatsSixteenths());
+      */
       console.log("creating kick");
       const kickSynth = {
         name: "MembraneSynth",
@@ -4604,15 +4663,15 @@ async function DAWSomeApp() {
       const kick = trackManager.addTrack("Kick", kickSynth, [kickDistortion, kickCompressor], null, -3);
       console.log("creating kick clip");
       const kickNotes = mk([
-        ["C2", 0, 0.25, Constants.DEFAULT_VELOCITY],
-        ["C2", 1, 0.25, Constants.DEFAULT_VELOCITY],
-        ["C2", 2, 0.25, Constants.DEFAULT_VELOCITY],
-        ["C2", 3, 0.25, Constants.DEFAULT_VELOCITY],
+        ["C2", "0:0:0", "16n", Constants.DEFAULT_VELOCITY],
+        ["C2", "0:1:0", "16n", Constants.DEFAULT_VELOCITY],
+        ["C2", "0:2:0", "16n", Constants.DEFAULT_VELOCITY],
+        ["C2", "0:3:0", "16n", Constants.DEFAULT_VELOCITY],
       ]);
-      clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR, kickNotes, 63);
-      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR, kickNotes, 92);
-      clipManager.createClip(kick, 96, Constants.BEATS_PER_BAR, kickNotes, 127);
-      clipManager.createClip(kick, 128, Constants.BEATS_PER_BAR, kickNotes, 159);
+      clipManager.createClip(kick,  "4:0:0", Constants.BEATS_PER_BAR, kickNotes, "15:3:0");
+      clipManager.createClip(kick, "16:0:0", Constants.BEATS_PER_BAR, kickNotes, "23:0:0");
+      clipManager.createClip(kick, "24:0:0", Constants.BEATS_PER_BAR, kickNotes, "31:3:0");
+      clipManager.createClip(kick, "32:0:0", Constants.BEATS_PER_BAR, kickNotes, "39:3:0");
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -4632,52 +4691,52 @@ async function DAWSomeApp() {
       };
       const bass = trackManager.addTrack("Bass", bassSynth, []);
       const bassNotes1 = mk([
-        ["C#1", 0.00, 0.1, 0.4],
-        ["D#1", 0.25, 0.2, Constants.DEFAULT_VELOCITY],
-        ["G#1", 0.5, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 0.75, 0.2, Constants.ACCENT_VELOCITY],
+        ["C#1", "0:0:0", "64n.", 0.4],
+        ["D#1", "0:0:1", "32n.", Constants.DEFAULT_VELOCITY],
+        ["G#1", "0:0:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "0:0:3", "32n.", Constants.ACCENT_VELOCITY],
 
-        ["D#1", 1.00, 0.1, 0.4],
-        ["F1", 1.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 1.5, 0.25, Constants.DEFAULT_VELOCITY],
-        ["G#1", 1.75, 0.25, Constants.DEFAULT_VELOCITY],
+        ["D#1", "0:1:0", "64n.", 0.4],
+        ["F1",  "0:1:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "0:1:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["G#1", "0:1:3", "16n", Constants.DEFAULT_VELOCITY],
 
-        ["F#1", 2.00, 0.2, 0.4],
-        ["G#1", 2.25, 0.2, Constants.DEFAULT_VELOCITY],
-        ["D#1", 2.5, 0.25, Constants.DEFAULT_VELOCITY],
-        ["D#1", 2.75, 0.2, Constants.ACCENT_VELOCITY],
+        ["F#1", "0:2:0", "32n.", 0.4],
+        ["G#1", "0:2:1", "32n.", Constants.DEFAULT_VELOCITY],
+        ["D#1", "0:2:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["D#1", "0:2:3", "32n.", Constants.ACCENT_VELOCITY],
 
-        ["G#1", 3.00, 0.2, 0.4],
-        ["A#1", 3.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["C#2", 3.50, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["G#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY],
+        ["G#1", "0:3:0", "32n.", 0.4],
+        ["A#1", "0:3:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["C#2", "0:3:2", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["G#1", "0:3:3", "16n", Constants.DEFAULT_VELOCITY],
 
-        ["D#1", 4.00, 0.2, 0.4],
-        ["F1", 4.25, 0.2, Constants.DEFAULT_VELOCITY],
-        ["G#1", 4.50, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 4.75, 0.2, Constants.DEFAULT_VELOCITY, true],
+        ["D#1", "1:0:0", "32n.", 0.4],
+        ["F1",  "1:0:1", "32n.", Constants.DEFAULT_VELOCITY],
+        ["G#1", "1:0:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "1:0:3", "32n.", Constants.DEFAULT_VELOCITY, true],
 
-        ["D#1", 5.00, 0.2, 0.4],
-        ["F1", 5.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 5.50, 0.25, Constants.DEFAULT_VELOCITY],
-        ["G#1", 5.75, 0.25, Constants.DEFAULT_VELOCITY],
+        ["D#1", "1:1:0", "32n.", 0.4],
+        ["F1",  "1:1:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "1:1:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["G#1", "1:1:3", "16n", Constants.DEFAULT_VELOCITY],
 
-        ["F#1", 6.00, 0.2, 0.4],
-        ["G#1", 6.25, 0.2, Constants.DEFAULT_VELOCITY, true],
-        ["F1", 6.5, 0.25, Constants.DEFAULT_VELOCITY],
-        ["D#1", 6.75, 0.2, Constants.ACCENT_VELOCITY],
+        ["F#1", "1:2:0", "32n.", 0.4],
+        ["G#1", "1:2:1", "32n.", Constants.DEFAULT_VELOCITY, true],
+        ["F1",  "1:2:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["D#1", "1:2:3", "32n.", Constants.ACCENT_VELOCITY],
         
-        ["F#1", 7.00, 0.2, 0.4],
-        ["G#1", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["F1", 7.50, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 7.75, 0.25, Constants.DEFAULT_VELOCITY]
+        ["F#1", "1:3:0", "32n.", 0.4],
+        ["G#1", "1:3:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["F1",  "1:3:2", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "1:3:3", "16n", Constants.DEFAULT_VELOCITY]
       ]);
-      clipManager.createClip(bass, 0, Constants.BEATS_PER_BAR * 2, bassNotes1, 15);
-      clipManager.createClip(bass, 16, Constants.BEATS_PER_BAR * 2, bassNotes1, 31);
-      clipManager.createClip(bass, 32, Constants.BEATS_PER_BAR * 2, bassNotes1, 63);
-      clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes1, 94);
-      clipManager.createClip(bass, 96, Constants.BEATS_PER_BAR * 2, bassNotes1, 127);
-      clipManager.createClip(bass, 128, Constants.BEATS_PER_BAR * 2, bassNotes1, 159);
+      clipManager.createClip(bass,  "0:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1,  "3:3:0");
+      clipManager.createClip(bass,  "4:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1,  "7:3:0");
+      clipManager.createClip(bass,  "8:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "15:3:0");
+      clipManager.createClip(bass, "16:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "23:3:0");
+      clipManager.createClip(bass, "24:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "31:3:0");
+      clipManager.createClip(bass, "32:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "39:3:0");
       console.log("created bass");
 
       
@@ -4704,36 +4763,36 @@ async function DAWSomeApp() {
       const closedhatReverbSend = { name: "Reverb", volume: 10 };
       const closedHat = trackManager.addTrack("ClosedHat", closedHatSynth, [], [], 0, false, [closedhatReverbSend]);
       let chNotes1 = mk([
-        ["F#2", 1.0, 0.125],
-        ["F#2", 3.0, 0.125],
+        ["F#2", "0:1:0", "32n"],
+        ["F#2", "0:3:0", "32n"],
       ]);
-      clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
+      clipManager.createClip(closedHat, "0:0:0", Constants.BEATS_PER_BAR, chNotes1, "7:3:0");
             
       let chNotes2 = mk([
-        ["F#2", 0.0, 0.125],
-        ["F#2", 0.25, 0.125],
-        ["F#2", 0.5, 0.125],
-        ["F#2", 0.75, 0.125],
+        ["F#2", "0:0:0", "32n"],
+        ["F#2", "0:0:1", "32n"],
+        ["F#2", "0:0:2", "32n"],
+        ["F#2", "0:0:3", "32n"],
         
-        ["F#2", 1.0, 0.125],
-        ["F#2", 1.25, 0.125],
-        ["F#2", 1.5, 0.125],
-        ["F#2", 1.75, 0.125],
+        ["F#2", "0:1:0", "32n"],
+        ["F#2", "0:1:1", "32n"],
+        ["F#2", "0:1:2", "32n"],
+        ["F#2", "0:1:3", "32n"],
         
-        ["F#2", 2.0, 0.125],
-        ["F#2", 2.25, 0.125],
-        ["F#2", 2.5, 0.125],
-        ["F#2", 2.75, 0.125],
+        ["F#2", "0:2:0", "32n"],
+        ["F#2", "0:2:1", "32n"],
+        ["F#2", "0:2:2", "32n"],
+        ["F#2", "0:2:3", "32n"],
         
-        ["F#2", 3.0, 0.125],
-        ["F#2", 3.25, 0.125],
-        ["F#2", 3.5, 0.125],
-        ["F#2", 3.75, 0.125],
+        ["F#2", "0:3:0", "32n"],
+        ["F#2", "0:3:1", "32n"],
+        ["F#2", "0:3:2", "32n"],
+        ["F#2", "0:3:3", "32n"],
       ]);
-      clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR, chNotes2, 63);
-      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR, chNotes2, 92);
-      clipManager.createClip(closedHat, 96, Constants.BEATS_PER_BAR, chNotes2, 127);
-      clipManager.createClip(closedHat, 128, Constants.BEATS_PER_BAR, chNotes2, 159);
+      clipManager.createClip(closedHat,  "8:0:0", Constants.BEATS_PER_BAR, chNotes2, "15:3:0");
+      clipManager.createClip(closedHat, "16:0:0", Constants.BEATS_PER_BAR, chNotes2, "23:3:0");
+      clipManager.createClip(closedHat, "24:0:0", Constants.BEATS_PER_BAR, chNotes2, "31:3:0");
+      clipManager.createClip(closedHat, "32:0:0", Constants.BEATS_PER_BAR, chNotes2, "39:3:0");
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -4760,14 +4819,14 @@ async function DAWSomeApp() {
       const openhatReverbSend = { name: "Reverb", volume: -5 };
       const openHat = trackManager.addTrack("OpenHat", openHatSynth, [], [], 0, false, [openhatReverbSend]);
       let ohNotes = mk([
-        ["F#2", 0.5, 0.125],
-        ["F#2", 1.5, 0.125],
-        ["F#2", 2.5, 0.125],
-        ["F#2", 3.5, 0.125]
+        ["F#2", "0:0:2", "32n"],
+        ["F#2", "0:1:2", "32n"],
+        ["F#2", "0:2:2", "32n"],
+        ["F#2", "0:3:2", "32n"]
       ]);
-      clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR, ohNotes, 63);
-      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR, ohNotes, 92);
-      clipManager.createClip(openHat, 128, Constants.BEATS_PER_BAR, ohNotes, 159);
+      clipManager.createClip(openHat, "12:0:0", Constants.BEATS_PER_BAR, ohNotes, "15:3:0");
+      clipManager.createClip(openHat, "16:0:0", Constants.BEATS_PER_BAR, ohNotes, "23:0:0");
+      clipManager.createClip(openHat, "32:0:0", Constants.BEATS_PER_BAR, ohNotes, "39:3:0");
       console.log("created open hat");
 
       console.log("creating snare");
@@ -4781,13 +4840,13 @@ async function DAWSomeApp() {
       const snare = trackManager.addTrack("Snare", snareSynth, [], null, 0);
       console.log("creating snare clip");
       const snareNotes = mk([
-        ["C2", 1, 0.25, Constants.DEFAULT_VELOCITY],
-        ["C2", 3, 0.25, Constants.DEFAULT_VELOCITY]
+        ["C2", "0:1:0", "16n", Constants.DEFAULT_VELOCITY],
+        ["C2", "0:3:0", "16n", Constants.DEFAULT_VELOCITY]
       ]);
-      clipManager.createClip(snare, 32, Constants.BEATS_PER_BAR, snareNotes, 63);
-      clipManager.createClip(snare, 64, Constants.BEATS_PER_BAR, snareNotes, 92);
-      clipManager.createClip(snare, 96, Constants.BEATS_PER_BAR, snareNotes, 127);
-      clipManager.createClip(snare, 128, Constants.BEATS_PER_BAR, snareNotes, 159);
+      clipManager.createClip(snare,  "8:0:0", Constants.BEATS_PER_BAR, snareNotes, "15:3:0");
+      clipManager.createClip(snare, "16:0:0", Constants.BEATS_PER_BAR, snareNotes, "23:0:0");
+      clipManager.createClip(snare, "24:0:0", Constants.BEATS_PER_BAR, snareNotes, "31:3:0");
+      clipManager.createClip(snare, "32:0:0", Constants.BEATS_PER_BAR, snareNotes, "39:3:0");
 
       console.log("creating 303");
       const tb303Synth = {
@@ -4820,47 +4879,47 @@ async function DAWSomeApp() {
       tb303.xyPad.yParameter = "decay";
       
       const tb303Notes1 = mk([
-        ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["C#2", 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["A#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["G1",  "0:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["C#2", "0:3.0", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["A#1", "0:3:3", "16n", Constants.DEFAULT_VELOCITY, true],
         
-        ["G1", 10.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["B1", 11.00, 0.125, Constants.ACCENT_VELOCITY, true],
-        ["C#2", 11.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 11.75, 0.25, Constants.ACCENT_VELOCITY, true],
+        ["G1",  "2:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["B1",  "2:3:0", "32n", Constants.ACCENT_VELOCITY, true],
+        ["C#2", "2:3:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "2:3:3", "16n", Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 0, Constants.BEATS_PER_BAR * 4, tb303Notes1, 31);
-      clipManager.createClip(tb303, 32, Constants.BEATS_PER_BAR * 4, tb303Notes1, 63);
+      clipManager.createClip(tb303, "0:0:0", Constants.BEATS_PER_BAR * 4, tb303Notes1,  "7:3:0");
+      clipManager.createClip(tb303, "8:0:0", Constants.BEATS_PER_BAR * 4, tb303Notes1, "15:3:0");
       
       const tb303Notes2 = mk([
-        ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["C#2", 3.00, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["A#1", 3.75, 0.25, Constants.DEFAULT_VELOCITY, true],
+        ["G1",  "0:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["C#2", "0:3:0", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["A#1", "0:3:3", "16n", Constants.DEFAULT_VELOCITY, true],
         
-        ["G1", 6.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["B1", 7.00, 0.125, Constants.ACCENT_VELOCITY, true],
-        ["C#2", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
+        ["G1",  "1:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["B1",  "1:3:0", "32n", Constants.ACCENT_VELOCITY, true],
+        ["C#2", "1:3:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "1:3:3", "16n", Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 64, Constants.BEATS_PER_BAR * 2, tb303Notes2, 96);
+      clipManager.createClip(tb303, "16:0:0", Constants.BEATS_PER_BAR * 2, tb303Notes2, "24:0:0");
       
       const tb303Notes3 = mk([
-        ["C#1", 1.5, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["A#2", 1.75, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["G1", 2.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["B1", 3.00, 0.125, Constants.ACCENT_VELOCITY, true],
-        ["C#2", 3.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 3.75, 0.25, Constants.ACCENT_VELOCITY, true],
+        ["C#1", "0:1:2", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["A#2", "0:1:3", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["G1",  "0:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["B1",  "0:3:0", "32n", Constants.ACCENT_VELOCITY, true],
+        ["C#2", "0:3:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "0:3:3", "16n", Constants.ACCENT_VELOCITY, true],
         
-        ["G#3", 4.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["C#1", 5.5, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["B2", 5.75, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["G1", 6.25, 0.25, Constants.DEFAULT_VELOCITY, true],
-        ["B1", 7.00, 0.125, Constants.ACCENT_VELOCITY, true],
-        ["C#2", 7.25, 0.25, Constants.DEFAULT_VELOCITY],
-        ["A#1", 7.75, 0.25, Constants.ACCENT_VELOCITY, true],
+        ["G#3", "1:0:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["C#1", "1:1:2", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["B2",  "1:1:3", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["G1",  "1:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
+        ["B1",  "1:3:0", "32n", Constants.ACCENT_VELOCITY, true],
+        ["C#2", "1:3:1", "16n", Constants.DEFAULT_VELOCITY],
+        ["A#1", "1:3:3", "16n", Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 96, Constants.BEATS_PER_BAR * 2, tb303Notes3, 160);
+      clipManager.createClip(tb303, "24:0:0", Constants.BEATS_PER_BAR * 2, tb303Notes3, "40:0:0");
       console.log("created 303");
       
 
@@ -4938,7 +4997,7 @@ async function DAWSomeApp() {
   class Tb303  {
     constructor(parameters) {
       
-      console.log("Tb303 create")
+     // console.log("Tb303 create")
       if (!parameters) parameters = {};
       if (parameters.cutoff == undefined) parameters.cutoff = 400;
       if (parameters.resonance == undefined) parameters.resonance = 7;
@@ -4982,7 +5041,7 @@ async function DAWSomeApp() {
       });
       this._monoSynth.connect(this._distortion);
       
-      console.log("Tb303 setup", parameters.resonance)
+     // console.log("Tb303 setup", parameters.resonance)
       this.cutoff = parameters.cutoff;
       this.resonance = parameters.resonance;
       this._envelopeModulation = parameters.envelopeModulation;
@@ -4991,7 +5050,7 @@ async function DAWSomeApp() {
       this.drive = parameters.drive;
       this.waveform = parameters.waveform;
       this.volume = parameters.volume;
-      console.log("Tb303 created")
+    //  console.log("Tb303 created")
     }
        
     get name() { return "DAWSome.Tb303"; }
