@@ -4933,13 +4933,13 @@ async function DAWSomeApp() {
       const exportBtn = $("exportBtn");
       exportBtn.disabled = true;
       exportBtn.innerText = "Rendering...";
-      if (dom.hint) dom.hint.textContent = "Offline rendering voorbereiden...";
-    
+      if (dom.hint) dom.hint.textContent = "Preparing offline rendering...";
+      
       try {
         // 1. Bepaal de totale duur van het nummer in seconden
         const songBeats = stateHelper.songEndBeats(); // Berekent aantal beats[span_3](start_span)[span_3](end_span)
         const bpm = projectState.bpm; //[span_4](start_span)[span_4](end_span)
-        const durationInSeconds = (songBeats / bpm) * 60 + 2.0; // +2 sec tail voor reverb/delays
+        const durationInSeconds = (songBeats / bpm) * 60 + 2; // +2 sec tail voor reverb/delays
     
         // 2. Render de compositie offline op snelle hardware-snelheid via Tone.Offline
         const renderedBuffer = await Tone.Offline(async (OfflineContext) => {
@@ -4964,13 +4964,34 @@ async function DAWSomeApp() {
               audio.createClipPart(clip, instNode);
             }
           }
-          dom.hint.textContent = "Offline rendering gestart op maximale kwaliteit...";
+          var progressLoop = new Tone.Loop(function(time){
+          	//instead of scheduling visuals inside of here
+          	//schedule a deferred callback with Tone.Draw
+          	Tone.Draw.schedule(function(){
+          	  if (!exportBtn.disabled) return;
+          	  
+          	  let position = audio.positionBeat();
+          	  let offlineTime = OfflineContext.currentTime;
+          	  if (time < durationInSeconds) {
+          	    let progress = Math.round(time / durationInSeconds * 100);
+          	    
+          	    dom.hint.textContent = `Offline rendering...${time.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
+          	  } else {
+          	    dom.hint.textContent = "Almost ready";
+          	    //OfflineContext.transport().stop();
+          	  }
+          	}, time) //use AudioContext time of the event
+          }, "1n");
+          progressLoop.start();
+          
+          dom.hint.textContent = "Offline rendering started...";
           // Start de offline transport
-          Tone.getTransport().start(0);
+          OfflineContext.transport.start(0);
     
         }, durationInSeconds);
     
         // 3. Omzetten naar WAV en automatisch laten downloaden
+        dom.hint.textContent = "Converting to WAV";
         const wavBlob = bufferToWav(renderedBuffer);
         const url = URL.createObjectURL(wavBlob);
         const a = document.createElement("a");
@@ -4979,11 +5000,11 @@ async function DAWSomeApp() {
         a.click();
         URL.revokeObjectURL(url);
     
-        if (dom.hint) dom.hint.textContent = "Export succesvol afgerond!";
+        if (dom.hint) dom.hint.textContent = "Export completed!";
       } catch (err) {
         console.error("Fout tijdens exporteren:", err);
         alert("Fout tijdens exporteren: " + err.message)
-        if (dom.hint) dom.hint.textContent = `Export mislukt: ${err.message}`;
+        if (dom.hint) dom.hint.textContent = `Export failed: ${err.message}`;
       } finally {
         exportBtn.disabled = false;
         exportBtn.innerText = "Export";
