@@ -4935,6 +4935,7 @@ async function DAWSomeApp() {
       exportBtn.innerText = "Rendering...";
       if (dom.hint) dom.hint.textContent = "Preparing offline rendering...";
       
+      const showProgress = true;
       try {
         // 1. Bepaal de totale duur van het nummer in seconden
         const songBeats = stateHelper.songEndBeats(); // Berekent aantal beats[span_3](start_span)[span_3](end_span)
@@ -4964,26 +4965,28 @@ async function DAWSomeApp() {
               audio.createClipPart(clip, instNode);
             }
           }
-          var progressLoop = new Tone.Loop(function(time){
-          	//instead of scheduling visuals inside of here
-          	//schedule a deferred callback with Tone.Draw
-          	Tone.Draw.schedule(function(){
-          	  if (!exportBtn.disabled) return;
-          	  
-          	  let position = audio.positionBeat();
-          	  let offlineTime = OfflineContext.currentTime;
-          	  if (time < durationInSeconds) {
-          	    let progress = Math.round(time / durationInSeconds * 100);
-          	    
-          	    dom.hint.textContent = `Offline rendering...${time.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
-          	  } else {
-          	    dom.hint.textContent = "Almost ready";
-          	    //OfflineContext.transport().stop();
-          	  }
-          	}, time) //use AudioContext time of the event
-          }, "1n");
-          progressLoop.start();
           
+          if (showProgress) {
+            var progressLoop = new Tone.Loop(function(time){
+            	//instead of scheduling visuals inside of here
+            	//schedule a deferred callback with Tone.Draw
+            	Tone.Draw.schedule(function(){
+            	  if (!exportBtn.disabled) return;
+            	  
+            	  let position = audio.positionBeat();
+            	  let offlineTime = OfflineContext.currentTime;
+            	  if (offlineTime < durationInSeconds) {
+            	    let progress = Math.floor(offlineTime / durationInSeconds * 100);
+            	    
+            	    dom.hint.textContent = `Offline rendering...${offlineTime.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
+            	  } else {
+            	    dom.hint.textContent = "Almost ready";
+            	    //OfflineContext.transport().stop();
+            	  }
+            	}, time) //use AudioContext time of the event
+            }, "1n");
+            progressLoop.start();
+          }
           dom.hint.textContent = "Offline rendering started...";
           // Start de offline transport
           OfflineContext.transport.start(0);
