@@ -752,7 +752,7 @@ async function DAWSomeApp() {
   project.bind(dom.bpm, "bpm", () => audio.setBpm);
   project.onchanged("bpm", () => audio.setBpm(project.bpm));
   project.bind(dom.loop, "loop", () => audio.setLoop(project.loop, project.loopLength));
-  project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
+  //project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
   project.bind(dom.follow, "follow");
   project.bind(dom.drawClips, "drawClips");
 
@@ -4597,7 +4597,7 @@ async function DAWSomeApp() {
           if (index % 4 == 0) 
             log += "\r\n";
         })
-        console.log("result: \r\n", log);
+        //console.log("result: \r\n", log);
         return notes;
       }
       
@@ -4975,10 +4975,10 @@ async function DAWSomeApp() {
             	  
             	  let position = audio.positionBeat();
             	  let offlineTime = OfflineContext.currentTime;
-            	  if (offlineTime < durationInSeconds) {
-            	    let progress = Math.floor(offlineTime / durationInSeconds * 100);
+            	  if (time < durationInSeconds) {
+            	    let progress = Math.floor(time / durationInSeconds * 100);
             	    
-            	    dom.hint.textContent = `Offline rendering...${offlineTime.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
+            	    dom.hint.textContent = `Offline rendering...${time.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
             	  } else {
             	    dom.hint.textContent = "Almost ready";
             	    //OfflineContext.transport().stop();
