@@ -1,7 +1,4 @@
-import * as DAWSome from "./modules/DAWSome/DAWSome.js"
-import PresetManager from "./modules/PresetManager/PresetManager.js"
-
-async function App() {
+async function DAWSomeApp() {
   let toneInitialized = false;
   let swRegistration = null;
 
@@ -92,7 +89,9 @@ async function App() {
     lastDuration: 0.25, selected: new Set(), activeKey: null,
   };
   
-  
+  var deviceList = null;
+  var instrumentNames = [];
+  var effectNames = [];
   var instrumentPresetNames = [];
   var instrumentPresets = {};
   var effectPresetNames = [];
@@ -795,7 +794,7 @@ async function App() {
           if (deviceNodeContext[paramName]) {
             if (!deviceStateContext[paramName])
               deviceStateContext[paramName] = {};
-            getValueParams(logSteps, deviceNodeContext[paramName], deviceStateContext[paramName], metadataManager.deviceList[parts[0]][parts[1]].parameters, paramPath);
+            getValueParams(logSteps, deviceNodeContext[paramName], deviceStateContext[paramName], deviceList[parts[0]][parts[1]].parameters, paramPath);
           }
         }
         else {
@@ -822,12 +821,12 @@ async function App() {
       if (deviceNameParts.length > 1) {
        // console.log("Creating DAWSome device " + deviceName)
       }
-      let deviceNode = (deviceNameParts.length === 1) ? new Tone[deviceName](device.parameters) : new DAWSome[deviceName](device.parameters);
+      let deviceNode = (deviceNameParts.length === 1) ? new Tone[deviceName](device.parameters) : DAWSome[deviceName](device.parameters);
       deviceNodes.set(device.id, deviceNode);
       if (logSteps) console.log(`makeToneNode: created device "${device.name}"`, deviceNode);
 
       let deviceNodeContext = deviceNode;
-      let deviceMetadataContext = metadataManager.deviceList.devices[device.name].parameters;
+      let deviceMetadataContext = deviceList.devices[device.name].parameters;
       let deviceContext = device.parameters;
       let paramContextPath = "";
 
@@ -1300,11 +1299,6 @@ async function App() {
         toneInitialized = true;
         console.log("Starting Tone, context state: " + Tone.getContext().state);
         await Tone.start();
-        
-        const snare = new DAWSome.TR909Snare();
-        console.log("Created snare");
-        snare.triggerAttackRelease();
-        console.log("Triggered snare");
       }
     }
   }
@@ -2432,11 +2426,6 @@ async function App() {
     snapRound: (beat, step) => (step ? Math.round(beat / step) * step : beat),
     ceilBars: (beats) => Math.ceil(beats / Constants.BEATS_PER_BAR - Constants.EPS) * Constants.BEATS_PER_BAR,
     clipEnd: (clip) => clip.end ? clip.end : clip.start + clip.length,
-    noteNameToPitch: (noteName) => {
-      let pitch = Tone.Frequency(noteName).toMidi();
-        //console.log(`Converted notename ${noteName} to pitch ${pitch}`);
-      return pitch;
-    },
     noteTimeToBeats: (noteTime) => {
         let bbs = Tone.Time(noteTime).toBarsBeatsSixteenths();
         let parts = bbs.split(":");
@@ -2548,12 +2537,161 @@ async function App() {
     }
   }
 
-  
+  class MetadataManager {
+    metadata;
+    deviceParameters = {};
+    
+    async loadDevices() {
+      if (devicesJson) {
+        this.parseDevices(devicesJson);
+      }
+      else {
+        //console.log("Load devices")
+        await fetch("devices.json")
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("HTTP error! Status: ${response.status}");
+            }
+            return response.json();
+          })
+          .then(data => {
+            this.parseDevices(data);
+          })
+          .catch(error => {
+            console.error("Error loading JSON:", error);
+          });
+      }
+    }
+
+    parseDevices(data) {
+     // console.log("parsing devices");
+      deviceList = data;
+      this.metadata = data;
+      Object.keys(data.devices).forEach(deviceName => {
+        if (data.devices[deviceName].type == "Instrument") {
+          instrumentNames.push(deviceName);
+        } else if (data.devices[deviceName].type == "Effect") {
+          effectNames.push(deviceName);
+        }
+      });
+    }
+    
+    getDeviceMetadata(deviceName) {
+      //console.log("getDeviceMetadata for " + deviceName)
+      if (!this.deviceParameters[deviceName]) {
+        let componentMetadata = this.metadata.devices[deviceName] ? this.metadata.devices[deviceName] : this.metadata.modules[deviceName];
+        if (!componentMetadata.parameters) console.warn("No params", componentMetadata)
+        this._traverseParams(deviceName, componentMetadata.parameters, "");
+      }
+      return this.deviceParameters[deviceName];
+    }
+    
+    getEffectNames() {
+      return Object.entries(this.metadata.devices).filter(entry => entry[1].type == "Effect").map(entry => entry[0]);
+    }
+    
+    getInstrumentNames() {
+      return Object.entries(this.metadata.devices).filter(entry => entry[1].type == "Instrument").map(entry => entry[0]);
+    }
+    
+    getDeviceNumberParameters(deviceName) {
+      //console.log("getDeviceNumberParameters for " + deviceName)
+      let deviceMetadata = this.getDeviceMetadata(deviceName);
+      
+      let results = [];
+      Object.entries(deviceMetadata).forEach(item => {
+        if (item[1].type == "Number") results.push({ name: item[0], metadata: item[1].metadata}) });
+        
+      //console.log("number params ", results);
+      return results;
+    }
+    
+    getDeviceValueParameters(deviceName) {
+     // console.log("getDeviceValueParameters for " + deviceName)
+      let deviceMetadata = this.getDeviceMetadata(deviceName);
+      
+      let results = [];
+      Object.entries(deviceMetadata).forEach(item => {
+        if (item[1].type == "Number" || item[1].type == "Option") results.push({ name: item[0], type: item[1].type, metadata: item[1].metadata}) });
+        
+      //console.log("value params ", results);
+      return results;
+    }
+    
+    getParameter(deviceName, parameterName) {
+      //console.log("getDeviceNumberParameters for " + deviceName)
+      let deviceMetadata = this.getDeviceMetadata(deviceName);
+      return deviceMetadata[parameterName].metadata;
+    }
+    
+    buildDeviceState(device, deviceState) {
+      let deviceMetadata = this.getDeviceMetadata(device.name);
+      let deviceContext = device;
+      let deviceStateContext = deviceState.parameters;
+      Object.keys(deviceMetadata).forEach(paramNamespace => {
+        let parts = paramNamespace.split(".");
+        let deviceContext = device;
+        let deviceStateContext = deviceState.parameters;
+        for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+          let part = parts[partIndex];
+          deviceContext = deviceContext[part];
+          if (!deviceStateContext[part]) deviceStateContext[part] = {};
+          deviceStateContext = deviceStateContext[part];
+        }
+        let paramName = parts[parts.length - 1];
+        if (!deviceStateContext[paramName] && deviceContext[paramName]) {
+          try {
+            let paramValue = deviceContext[paramName].name ? deviceContext[paramName].value : deviceContext[paramName];
+            deviceStateContext[paramName] = paramValue;
+          }
+          catch (error) {
+            console.error(`Failed to retrieve param value ${paramName}`, deviceContext[paramName]);
+            
+            throw error;
+          }
+          
+        }
+      })
+    }
+    
+    _traverseParams(deviceName, metadataContext, paramPath) {
+      //console.log("traverseParams for " + deviceName + "." + paramPath)
+      Object.keys(metadataContext).forEach(parameterName => {
+        if (!parameterName) throw "empty param name"
+        let paramMetadataPath = metadataContext[parameterName];
+        //console.log("Param metadata of " + deviceName + "." + parameterName, metadataContext)
+        if (!paramMetadataPath) throw `missing param metadata for "${paramPath}.${parameterName}"`;
+        
+        if (paramMetadataPath.startsWith("unitTypes") || paramMetadataPath.startsWith("enumTypes")) {
+          let currentParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+          let parts = paramMetadataPath.split("/");
+          let metadataContainer = this.metadata[parts[0]];
+          //console.log("Looking up " + parts[1] + " in " + parts[0], metadataContainer);
+          let paramMetadata = metadataContainer[parts[1]];
+          let paramType = paramMetadataPath.startsWith("unitTypes") ? "Number" : "Option";
+          this._addParameterMetadata(deviceName, currentParamPath, paramType, paramMetadata);
+        }
+        else if (paramMetadataPath.startsWith("device") || paramMetadataPath.startsWith("module")) {
+          let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
+          let parts = paramMetadataPath.split("/");
+          let componentName = parts[1];
+          let componentMetadata = parts[0] == "devices" ? this.metadata.devices[componentName] : this.metadata.modules[componentName];
+          this._traverseParams(deviceName, componentMetadata.parameters, childParamPath);
+        }
+      });
+    }
+    
+    _addParameterMetadata(deviceName, parameterPath, parameterType, parameterMetadata) {
+      if (!this.deviceParameters[deviceName]) this.deviceParameters[deviceName] = {};
+      this.deviceParameters[deviceName][parameterPath] = { type: parameterType, metadata: parameterMetadata };
+      //console.log("added parameter metadata for " + deviceName + "." + parameterPath, parameterMetadata);
+    }
+  }
 
   const fillTargetParameters = (track, targetDeviceSelect, targetParameterSelect) => {
         targetParameterSelect.innerHTML = "";
         let trackDevice = track.devices[targetDeviceSelect.value];
-        let trackDeviceMetadata = metadataManager.deviceList.devices[trackDevice.name].parameters;
+        let trackDeviceMetadata = deviceList.devices[trackDevice.name].parameters;
 
         let targetParameters = [];
         let paramContext = trackDevice.parameters;
@@ -2587,7 +2725,7 @@ async function App() {
               let parts = paramMetadata.split("/");
               let deviceName = parts[1];
            //   console.log("device nane", deviceName)
-              let deviceMetadata = parts[0] == "devices" ? metadataManager.deviceList.devices[deviceName] : metadataManager.deviceList.modules[deviceName];
+              let deviceMetadata = parts[0] == "devices" ? deviceList.devices[deviceName] : deviceList.modules[deviceName];
             //  console.log("device metadata", deviceMetadata)
               traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
             }
@@ -2747,7 +2885,7 @@ async function App() {
       let deviceIndex = this.track.devices.indexOf(this.deviceState);
       if (deviceIndex == this.track.devices.length) return;
       
-      let trackDeviceMetadata = metadataManager.deviceList.devices[this.device.name];
+      let trackDeviceMetadata = deviceList.devices[this.device.name];
       if (!trackDeviceMetadata) console.error("No metadata", this.deviceState);
       if (!trackDeviceMetadata.lists) return;
       Object.keys(trackDeviceMetadata.lists).forEach(listName => {
@@ -3050,8 +3188,8 @@ async function App() {
         }
       }
       else {
-        console.log("Update device " + effectName, metadataManager.deviceList);
-        this.track.devices[1 + this.pageIndex] = metadataManager.deviceList.devices[effectName];
+        console.log("Update device " + effectName, deviceList);
+        this.track.devices[1 + this.pageIndex] = deviceList.devices[effectName];
         audio.updateTrackChain(this.track);
         console.log("Track updated with new effect " + effectName);
         this.track.devices[1 + this.pageIndex].presetName = "default";
@@ -3199,7 +3337,7 @@ async function App() {
 
       let deviceToInspect = audio.getTrackInstrument(track);
       panel.innerHTML = "";
-      this.renderDevice(panel, track, deviceToInspect, 0, metadataManager, instrumentPresets, "Instrument");
+      this.renderDevice(panel, track, deviceToInspect, 0, instrumentNames, instrumentPresets, "Instrument");
     }
 
     renderInstPanel(panel) {
@@ -3224,8 +3362,8 @@ async function App() {
       let trackEffects = audio.getTrackEffects(track);
 
       panel.innerHTML = "";
-      trackEffects.forEach(fx => this.renderDevice(panel, track, fx, 1 + trackEffects.indexOf(fx), metadataManager.effectNames, effectPresets, "Effect", trackEffects.indexOf(fx)));
-     // this.renderDevice(panel, track, { name: "" }, 1, metadataManager.effectNames, effectPresets, "Effect");
+      trackEffects.forEach(fx => this.renderDevice(panel, track, fx, 1 + trackEffects.indexOf(fx), effectNames, effectPresets, "Effect", trackEffects.indexOf(fx)));
+     // this.renderDevice(panel, track, { name: "" }, 1, effectNames, effectPresets, "Effect");
     }
 
     renderFxPanel(panel) {
@@ -3383,7 +3521,7 @@ async function App() {
               updateButtonStates(deviceIndex);
               //nextBtn.disabled = deviceIndex == lastEffectIndex ? "disabled" : "";
               renderDeviceParameters();
-              renderDevice(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, metadataManager.effectNames, effectPresets, "Effect");
+              renderDevice(effectsPanel, track, { name: "", parameters: {} }, track.effects.length, effectNames, effectPresets, "Effect");
             }
             else {
               fillDevicePresets(devicePanel, devicePresets, trackDeviceNode.name);
@@ -3423,14 +3561,14 @@ async function App() {
           fillTargetParameters(track, targetDeviceSelect, targetParameterSelect);
           targetParameterSelect.value = modulation.targetParameter;
           let targetDevice = track.devices[targetDeviceSelect.value];
-          targetParamMetadata = metadataManager.deviceList.devices[targetDevice.name].parameters[modulation.targetParameter];
+          targetParamMetadata = deviceList.devices[targetDevice.name].parameters[modulation.targetParameter];
 
           targetDeviceSelect.oninput = (e) => fillTargetParameters(track, targetDeviceSelect, targetParameterSelect);
           targetParameterSelect.oninput = (e) => {
            // console.log("param selected")
             modulation.targetParameter = targetParameterSelect.value;
             let targetDevice = track.devices[targetDeviceSelect.value];
-            let targetDeviceMetadata = metadataManager.deviceList.devices[targetDevice.name];
+            let targetDeviceMetadata = deviceList.devices[targetDevice.name];
             targetParamMetadata = targetDeviceMetadata.parameters[modulation.targetParameter];
            // console.log("param render " + modulation.targetParameter, targetDeviceMetadata, targetParamMetadata)
             renderDeviceParameters(targetParamMetadata);
@@ -3453,7 +3591,7 @@ async function App() {
         }
         if (deviceIndex < track.devices.length) {
           let trackDeviceState = track.devices[deviceIndex].parameters;
-          let trackDeviceMetadata = metadataManager.deviceList.devices[trackDeviceNode.name];
+          let trackDeviceMetadata = deviceList.devices[trackDeviceNode.name];
           console.log("create device html, track/trackDeviceNode/trackDeviceState/trackDeviceMetadata", track, trackDeviceNode, trackDeviceState, trackDeviceMetadata);
 
           Object.keys(trackDeviceMetadata.parameters).forEach(parameterName => renderDeviceParameter(parameterName, trackDeviceMetadata, trackDeviceState, targetParamMetadata));
@@ -3473,7 +3611,7 @@ async function App() {
   
           let parameterMetadataPath = deviceMetadata.parameters[parameterName];
           let parts = parameterMetadataPath.split("/");
-          let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : metadataManager.deviceList[parts[0]][parts[1]];
+          let paramMetadata = targetParameterMetadata && (parameterName == "min" || parameterName == "max") ? targetParameterMetadata : deviceList[parts[0]][parts[1]];
   
           //console.log("param metadata", parameterMetadataPath, paramMetadata);
   
@@ -3588,11 +3726,11 @@ async function App() {
             })
   
             if (parts[0] == "modules") {
-              let moduleMetadata = metadataManager.deviceList.modules[parts[1]];
+              let moduleMetadata = deviceList.modules[parts[1]];
               Object.keys(moduleMetadata.parameters).forEach(childParameterName => renderDeviceParameter(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
             }
             else if (parts[0] == "devices") {
-              let moduleMetadata = metadataManager.deviceList.devices[parts[1]];
+              let moduleMetadata = deviceList.devices[parts[1]];
               Object.keys(moduleMetadata.parameters).forEach(childParameterName => renderDeviceParameter(parameterName + "." + childParameterName, moduleMetadata, trackDeviceState));
             }
           }
@@ -3646,7 +3784,7 @@ async function App() {
         console.log("renderDeviceLists")
         if (deviceIndex < track.devices.length) {
           let trackDeviceListsState = track.devices[deviceIndex].lists;
-          let trackDeviceMetadata = metadataManager.deviceList.devices[track.devices[deviceIndex].name];
+          let trackDeviceMetadata = deviceList.devices[track.devices[deviceIndex].name];
           if (!trackDeviceMetadata) console.error("Metadata not found for " + trackDeviceNode.name)
           if (trackDeviceMetadata.lists) {
             console.log("create device lists html", track, trackDeviceNode, trackDeviceListsState, trackDeviceMetadata);
@@ -4360,9 +4498,11 @@ async function App() {
     av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
   }
 
+  
+  
   var stateHelper = new StateHelper(projectState, helpers);
   var metadataManager = new MetadataManager();
-  var presetBrowser = new PresetManager();
+  var presetBrowser = new PresetBrowser(presets, instrumentPresets, instrumentPresetNames, effectPresets, effectPresetNames);
   var bottomPanelManager = new BottomPanelManager(helpers, projectState);
   var mixer = new Mixer(audio, projectState);
   var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
@@ -4382,6 +4522,14 @@ async function App() {
   
   async function init() {
     await metadataManager.loadDevices();
+    //console.log("Metadata test", metadataManager.getDeviceMetadata("MonoSynth"));
+    //console.log("Metadata number test", metadataManager.getDeviceNumberParameters("MonoSynth"));
+    
+    let deviceState = { name: "MonoSynth", parameters: { volume: -10 }};
+    let device = new Tone.MonoSynth();
+    metadataManager.buildDeviceState(device, deviceState);
+   // console.log("Device state", deviceState);
+    
     await presetBrowser.loadPresets();
 
     const coarse = window.matchMedia("(pointer: coarse)").matches;
@@ -4428,10 +4576,14 @@ async function App() {
       };
       trackManager.addReturn("Reverb", 10, returnReverb);
 
+      const noteNameToPitch = (noteName) => {
+        let pitch = Tone.Frequency(noteName).toMidi();
+        //console.log(`Converted notename ${noteName} to pitch ${pitch}`);
+        return pitch;
+      }
       
       
-      
-      const makeNotes = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: helpers.noteNameToPitch(noteName), start: helpers.noteTimeToBeats(start), duration: helpers.noteTimeToBeats(duration), velocity, slide }));
+      const makeNotes = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: noteNameToPitch(noteName), start: helpers.noteTimeToBeats(start), duration: helpers.noteTimeToBeats(duration), velocity, slide }));
       
       
       const mk = (list) => {
@@ -4524,7 +4676,7 @@ async function App() {
 
       console.log("creating bass");
       const bassSynth = {
-        name: "DAWSome.TB303",
+        name: "DAWSome.Tb303",
         type: "Instrument",
         parameters: {
           cutoff: 300,
@@ -4698,7 +4850,7 @@ async function App() {
 
       console.log("creating 303");
       const tb303Synth = {
-        name: "DAWSome.TB303",
+        name: "DAWSome.Tb303",
         type: "Instrument",
         parameters: {
           cutoff: 500,
@@ -4866,10 +5018,245 @@ async function App() {
     $("exportBtn").addEventListener("click",  () => exportAudio());
   }
 
+  class Tb303  {
+    constructor(parameters) {
+      
+     // console.log("Tb303 create")
+      if (!parameters) parameters = {};
+      if (parameters.cutoff == undefined) parameters.cutoff = 400;
+      if (parameters.resonance == undefined) parameters.resonance = 7;
+      if (parameters.envelopeModulation == undefined) parameters.envelopeModulation = 0.6;
+      if (parameters.decay == undefined) parameters.decay = 0.3;
+      if (parameters.accent == undefined) parameters.accent = 0.8;
+      if (parameters.drive == undefined) parameters.drive = 0.35;
+      if (parameters.waveform == undefined) parameters.waveform = "sawtooth";
+      if (parameters.volume == undefined) parameters.volume = -30;
+      
+      this._monoSynth = new Tone.MonoSynth({
+        portamento: 0.08,
+        volume: 0,
+        oscillator: {
+          type: "sawtooth"
+        },
+        envelope: {
+          attack: 0.005,
+          decay: 0.2,
+          sustain: 0,
+          release: 0.1
+        },
+        filter: {
+          Q: 6, 
+          type: "lowpass",
+          rolloff: -24 
+        },
+        filterEnvelope: {
+          attack: 0.005,
+          decay: 0.25,
+          sustain: 0.0,
+          release: 0.2,
+          baseFrequency: 400,
+          octaves: 4.5,
+          exponent: 2
+        }
+      });
+      this._distortion = new Tone.Distortion({
+        distortion: 0.35,
+        wet: 0.6
+      });
+      this._monoSynth.connect(this._distortion);
+      
+     // console.log("Tb303 setup", parameters.resonance)
+      this.cutoff = parameters.cutoff;
+      this.resonance = parameters.resonance;
+      this._envelopeModulation = parameters.envelopeModulation;
+      this._decay = parameters.decay;
+      this._accent = parameters.accent;
+      this.drive = parameters.drive;
+      this.waveform = parameters.waveform;
+      this.volume = parameters.volume;
+    //  console.log("Tb303 created")
+    }
+       
+    get name() { return "DAWSome.Tb303"; }
+    
+    get cutoff() { return this._monoSynth.filterEnvelope.baseFrequency; }
+    set cutoff(value) { this._monoSynth.filterEnvelope.baseFrequency = value; }
+        
+    get resonance() { return this._monoSynth.filter.Q; }
+    set resonance(value) { this._monoSynth.filter.Q.value = value; }
+        
+    get envelopeModulation() { return this._envelopeModulation; }
+    set envelopeModulation(value) { 
+      if (value < 0 || value > 1) throw "Envelope modulation must be between 0 and 1";
+      this._envelopeModulation = value;
+    }
+           
+    get decay() { return this._decay; }
+    set decay(value) { 
+      if (value < 0 || value > 1.2) throw "Decay must be between 0 and 1.2";
+      this._decay = value; 
+    }
+        
+    get accent() { return this._accent; }
+    set accent(value) { 
+      if (value < 0 || value > 1) throw "Accent must be between 0 and 1";
+      this._accent = value;
+    }
+        
+    get drive() { return this._distortion.distortion; }
+    set drive(value) {
+      if (value < 0 || value > 1) throw "Drive must be between 0 and 1";
+      this._distortion.distortion = value;
+    }
+        
+    get waveform() { return this._monoSynth.oscillator.type; }
+    set waveform(value) {
+      if (value !== "sawtooth" && value != "square") throw "Waveform must be 'sawtooth' or 'square'";
+      this._monoSynth.oscillator.type = value;
+    }
+        
+    get volume() { return this._volume; }
+    set volume(value) {
+      if (value < -100 || value > 0) throw "Volume must be between -100 and 0";
+      this._volume = value;
+    }
+        
+    connect(destination) {
+      this._distortion.connect(destination);
+    }
+    
+    triggerAttack(note, time = 0, velocity, slide = false) {
+      this._prepareNote(time, velocity, slide);
+      this._monoSynth.triggerAttack(note, time, velocity);
+    }
+    
+    triggerRelease(time) {
+      this._monoSynth.triggerRelease(time);
+    }
+    
+    triggerAttackRelease(note, duration = "16n", time = 0, velocity, slide = false) {
+      this._prepareNote(time, velocity, slide)
+      this._monoSynth.triggerAttackRelease(note, duration, time, velocity);
+    }
+    
+    dispose() {
+      this._monoSynth.dispose();
+      this._distortion.dispose();
+    }
+    _prepareNote(time, velocity, slide) {
+      if (velocity == Constants.ACCENT_VELOCITY) {
+       // console.log("Accent")
+        this._monoSynth.volume.setValueAtTime(this.volume, time);
+        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 7.5 * this.accent;
+        this._monoSynth.envelope.decay = this.decay * 0.7; 
+      } else {
+        //console.log("Default")
+        this._monoSynth.volume.setValueAtTime(this.volume - 4, time);
+        this._monoSynth.filterEnvelope.octaves = this.envelopeModulation * 4.5;
+        this._monoSynth.envelope.decay = this.decay;
+      }
+           
+      if (slide) {
+      //  console.log("Slide")
+        this._monoSynth.portamento = 0.08;
+      } else {
+        this._monoSynth.portamento = 0;
+      }
+    }
+  }
   
+  class TR909Snare {
+    constructor(options = {}) {
+      // 1. De Body (de toon / ketel van de snare, meestal rond G2 / F#2)
+      this.bodySynth = new Tone.MembraneSynth({
+        pitchDecay: 0.01,
+        octaves: 3,
+        oscillator: { type: "triangle" },
+        envelope: {
+          attack: 0.001,
+          decay: 0.18,
+          sustain: 0,
+          release: 0.1
+        }
+      });
+      
+      // 2. De Snappy (de ruis / matjes onder de snare)
+      this.noiseSynth = new Tone.NoiseSynth({
+        noise: { type: "white" },
+        envelope: {
+          attack: 0.001,
+          decay: 0.15,
+          sustain: 0,
+          release: 0.1
+        }
+      });
+      
+      // Optioneel: een filter om de ruis wat warmer/minder scherp te maken (typisch 909)
+      this.filter = new Tone.Filter({
+        frequency: 2500,
+        type: "highpass"
+      });
+      
+      // Master kanaal voor deze snare om volumes te balanceren
+      this.output = new Tone.Channel({
+        volume: options.volume || 0,
+        pan: options.pan || 0
+      });
+      
+      // Routing koppelen
+      this.bodySynth.connect(this.output);
+      this.noiseSynth.connect(this.filter);
+      this.filter.connect(this.output);
+    }
+    
+    get name() { return "DAWSome.TR909Snare"}
+    get volume() { return this.output.volume; }
+    set volume(value) {
+      if (value < -100 || value > 0) throw "Volume must be between -100 and 0";
+      this.output.volume.value = value;
+    }
+    
+    // Koppel direct aan de eindbestemming (speakers)
+    toDestination() {
+      this.output.toDestination();
+      return this;
+    }
+    
+    // Ondersteuning voor standaard Tone.js routing
+    connect(destination) {
+      this.output.connect(destination);
+      return this;
+    }
+    
+    // Trigger methode die beide componenten tegelijk aanstuurt
+    triggerAttackRelease(note = "G2", duration = "16n", time = Tone.now(),
+      velocity = 1) {
+      // Speel de toonhoogte voor de body af
+      this.bodySynth.triggerAttackRelease(note, duration, time, velocity);
+      
+      // Start de ruis exact op hetzelfde moment
+      this.noiseSynth.triggerAttackRelease(duration, time, velocity);
+    }
+    
+    triggerRelease( time = Tone.now()) {
+      // Speel de toonhoogte voor de body af
+      this.bodySynth.triggerRelease(time);
+      
+      // Start de ruis exact op hetzelfde moment
+      this.noiseSynth.triggerRelease(time);
+    }
+    
+    // Netjes opruimen (handig tegen memory leaks!)
+    dispose() {
+      this.bodySynth.dispose();
+      this.noiseSynth.dispose();
+      this.filter.dispose();
+      this.output.dispose();
+    }
+  }
   
   function createDevice(device) {
-    return (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : new DAWSome[device.name](device.parameters);
+    return (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : eval(`${device.name}(device.parameters)`);
   }
   
   // Helper functie om een AudioBuffer om te zetten naar een WAV Blob
@@ -4950,6 +5337,12 @@ function bufferToWav(buffer) {
   }
 }
 
+
+const DAWSome = {
+    TR909Snare: (parameters) => new TR909Snare(parameters),
+    Tb303: (parameters) => new Tb303(parameters)
+  }
+  
   await init();
 }
-App();
+DAWSomeApp();
