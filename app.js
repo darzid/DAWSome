@@ -4957,7 +4957,6 @@ function bufferToWav(buffer) {
   }
 }
   await init();
-  alert("App initialized");
 }
 
 await MyApp();
