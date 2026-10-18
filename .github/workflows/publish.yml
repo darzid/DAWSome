@@ -42,9 +42,6 @@ jobs:
           const css = fs.readFileSync('DAWSome.css', 'utf8');
           const styleBlock = `<style>\n${css}\n</style>\n`;
           
-          const devicesScript  = fs.readFileSync('js/devices.js', 'utf8');
-          const devicesScriptBlock = `<script>\n${devicesScript}\n</script>\n`;
-          
           const metadataManagerScript = fs.readFileSync('js/MetadataManager.js', 'utf8');
           const metadataManagerScriptBlock = `<script>\n${metadataManagerScript}\n</script>\n`;
           
@@ -54,17 +51,8 @@ jobs:
           const vuMeterScript = fs.readFileSync('js/vu-meter.js', 'utf8');
           const vuMeterScriptBlock = `<script>\n${vuMeterScript}\n</script>\n`;
           
-          const presetBankScript = fs.readFileSync('js/modules/PresetManager/preset-bank.js', 'utf8');
-          const presetBankScriptBlock = `<script>\n${presetBankScript}\n</script>\n`;
-          
-          const presetManagerScript = fs.readFileSync('js/modules/PresetManager/PresetManager.js', 'utf8');
-          const presetManagerScriptBlock = `<script type="module">\n${presetManagerScript}\n</script>\n`;
-          
           const mixerScript = fs.readFileSync('js/mixer.js', 'utf8');
           const mixerScriptBlock = `<script>\n${mixerScript}\n</script>\n`;
-          
-          const dawsomeScript = fs.readFileSync('js/modules/DAWSome/DAWSome.js', 'utf8');
-          const dawsomeScriptBlock = `<script type="module">\n${dawsomeScript}\n</script>\n`;
           
           const appScript = fs.readFileSync('js/app.js', 'utf8');
           const appScriptBlock = `<script type="module">\n${appScript}\n</script>\n`;
@@ -75,14 +63,10 @@ jobs:
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
             .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
-            .replace(/<script src="js\/devices.js"><\/script>/i, `${devicesScriptBlock}`)
             .replace(/<script src="js\/MetadataManager.js"><\/script>/i, `${metadataManagerScriptBlock}`)
             .replace(/<script src="js\/level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
             .replace(/<script src="js\/vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
-            .replace(/<script src="js\/modules\/PresetManager\/preset-bank.js"><\/script>/i, `${presetBankScriptBlock}`)
-            .replace(/<script src="js\/modules\/PresetManager\/PresetManager.js" type="module"><\/script>/i, `${presetManagerScriptBlock}`)
             .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`)
-            .replace(/<script src="js\/modules\/DAWSome\/DAWSome.js" type="module"><\/script>/i, `${dawsomeScriptBlock}`)
             .replace(/<script src="js\/app.js" type="module"><\/script>/i, `${appScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
