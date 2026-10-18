@@ -1,9 +1,6 @@
 import * as DAWSome from "https://darzid.github.io/ToneJS/DAWSome/DAWSome.js"
 import PresetManager from "https://darzid.github.io/ToneJS/PresetManager/PresetManager.js"
 
-console.log("before myapp")
-
-
 async function MyApp() {
   console.log("MyApp")
   let toneInitialized = false;
@@ -4959,9 +4956,8 @@ function bufferToWav(buffer) {
     return result;
   }
 }
-console.log("before init")
   await init();
+  alert("App initialized");
 }
 
-console.log("test")
 await MyApp();
