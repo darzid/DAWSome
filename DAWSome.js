@@ -4975,10 +4975,10 @@ async function DAWSomeApp() {
             	  
             	  let position = audio.positionBeat();
             	  let offlineTime = OfflineContext.currentTime;
-            	  if (offlineTime < durationInSeconds) {
-            	    let progress = Math.floor(offlineTime / durationInSeconds * 100);
+            	  if (time < durationInSeconds) {
+            	    let progress = Math.floor(time / durationInSeconds * 100);
             	    
-            	    dom.hint.textContent = `Offline rendering...${offlineTime.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
+            	    dom.hint.textContent = `Offline rendering...${time.toFixed(1)} of ${durationInSeconds.toFixed(1)} (${progress}%)`;
             	  } else {
             	    dom.hint.textContent = "Almost ready";
             	    //OfflineContext.transport().stop();
