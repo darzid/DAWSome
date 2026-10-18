@@ -56,7 +56,7 @@ export class TB303  {
       console.log("Tb303 created")
     }
        
-    get name() { return "DAWSome.Tb303"; }
+    get name() { return "DAWSome.TB303"; }
     
     get cutoff() { return this._monoSynth.filterEnvelope.baseFrequency; }
     set cutoff(value) { this._monoSynth.filterEnvelope.baseFrequency = value; }
