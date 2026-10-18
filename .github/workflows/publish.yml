@@ -42,9 +42,6 @@ jobs:
           const css = fs.readFileSync('DAWSome.css', 'utf8');
           const styleBlock = `<style>\n${css}\n</style>\n`;
           
-          const devicesScript  = fs.readFileSync('js/devices.js', 'utf8');
-          const devicesScriptBlock = `<script>\n${devicesScript}\n</script>\n`;
-          
           const metadataManagerScript = fs.readFileSync('js/MetadataManager.js', 'utf8');
           const metadataManagerScriptBlock = `<script>\n${metadataManagerScript}\n</script>\n`;
           
@@ -66,7 +63,6 @@ jobs:
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
             .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
-            .replace(/<script src="js\/devices.js"><\/script>/i, `${devicesScriptBlock}`)
             .replace(/<script src="js\/MetadataManager.js"><\/script>/i, `${metadataManagerScriptBlock}`)
             .replace(/<script src="js\/level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
             .replace(/<script src="js\/vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
