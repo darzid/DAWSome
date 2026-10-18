@@ -1,1 +1,111 @@
-bla
+name: Build and publish merged DAWSome page
+
+on:
+  push:
+    branches: [ "MainRestore" ]
+  pull_request:
+    branches: [ "MainRestore" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        
+      - name: Version Increment
+        uses: reecetech/version-increment@2026.8.4
+        id: version
+        with:
+          scheme: semver
+          increment: patch
+  
+      - name: Merge CSS and script into HTML
+        run: |
+          mkdir -p _site/dev
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const html = fs.readFileSync('DAWSome.html', 'utf8');
+          const css = fs.readFileSync('DAWSome.css', 'utf8');
+          const styleBlock = `<style>\n${css}\n</style>\n`;
+          
+          const mainScript = fs.readFileSync('DAWSome.js', 'utf8');
+          const mainScriptBlock = `<script>\n${mainScript}\n</script>\n`;
+          
+          const dataScript = fs.readFileSync('DAWSome-data.js', 'utf8');
+          const dataScriptBlock = `<script>\n${dataScript}\n</script>\n`;
+          
+          const presetBrowserScript = fs.readFileSync('presetbrowser.js', 'utf8');
+          const presetBrowserScriptBlock = `<script>\n${presetBrowserScript}\n</script>\n`;
+          
+          const levelMeterScript = fs.readFileSync('level-meter.js', 'utf8');
+          const levelMeterScriptBlock = `<script>\n${levelMeterScript}\n</script>\n`;
+          
+          const vuMeterScript = fs.readFileSync('vu-meter.js', 'utf8');
+          const vuMeterScriptBlock = `<script>\n${vuMeterScript}\n</script>\n`;
+          
+          const mixerScript = fs.readFileSync('mixer.js', 'utf8');
+          const mixerScriptBlock = `<script>\n${mixerScript}\n</script>\n`;
+          
+          if (!/<\/head>/i.test(html)) {
+            throw new Error('DAWSome.html does not contain a </head> tag');
+          }
+
+          const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
+            .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
+            .replace(/<script src="DAWSome-data.js"><\/script>/i, `${dataScriptBlock}`)
+            .replace(/<script src="presetbrowser.js"><\/script>/i, `${presetBrowserScriptBlock}`)
+            .replace(/<script src="level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
+            .replace(/<script src="vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
+            .replace(/<script src="mixer.js"><\/script>/i, `${mixerScriptBlock}`)
+            .replace(/<script src="DAWSome.js" type="module"><\/script>/i, `${mainScriptBlock}`);
+          
+          fs.writeFileSync('_site/dev/index.html', merged);
+          
+          NODE
+          
+      - name: Copy icon
+        run: |
+          cp favicon.ico _site/dev
+          cp manifest.json _site/dev
+          cp service-worker.js _site/dev
+      
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+          tags: "DAWSome:${{ steps.version.outputs.version }}"
+
+      - name: Create tag & GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: false
+          generate_release_notes: true
+          prerelease: false
+          tag_name: ${{ steps.version.outputs.version }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
