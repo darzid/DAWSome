@@ -1,7 +1,11 @@
-import * as DAWSome from "./modules/DAWSome/DAWSome.js"
-import PresetManager from "./modules/PresetManager/PresetManager.js"
+import * as DAWSome from "https://darzid.github.io/ToneJS/DAWSome/DAWSome.js"
+import PresetManager from "https://darzid.github.io/ToneJS/PresetManager/PresetManager.js"
 
-async function App() {
+console.log("before myapp")
+
+
+async function MyApp() {
+  console.log("MyApp")
   let toneInitialized = false;
   let swRegistration = null;
 
@@ -91,15 +95,9 @@ async function App() {
     gridMode: "medium", triplet: false, accent: false, slide: false, snap: true, loop: true, drawMode: true,
     lastDuration: 0.25, selected: new Set(), activeKey: null,
   };
-  
-  
-  var instrumentPresetNames = [];
-  var instrumentPresets = {};
-  var effectPresetNames = [];
-  var effectPresets = {};
+
   var modulatorNames = ["LFO"];
-  var modulatorPresets = {};
-  var presets = null;
+
 
   // ===== DOM =====
   const $ = (id) => document.getElementById(id);
@@ -937,7 +935,7 @@ async function App() {
     document.addEventListener("SendChanged", (e) => {
       const ch = chain(parseInt(e.detail.trackId));
      // console.log("Audio: Updating track channel sends", e.detail.sends);
-      e.detail.sends.forEach(send => ch.channel.send(send.name, send.volume));
+      e.detail.sends.forEach(send => ch.sendKnobs[e.detail.sends.indexOf(send)].gain.value = send.volume);
     });
     document.addEventListener("InstrumentChanged", (e) => {
       //updateInstrument(e.detail.trackId, e.detail.instrumentName);
@@ -1079,12 +1077,15 @@ async function App() {
       },
       getReturnChannel: (send) => { return returnChannels(send.id) },
       getReturnChannels: (send) => { return returnChannels },
+      
       addTrackChain: (track) => {
         //console.log("adding track")
         const channel = new Tone.Channel(track.volume).connect(masterChannel);
         channel.mute = track.mute;
         track.devices[0].parameters = track.instrumentParameters;
         //console.log("making chain");
+        let sendKnobs = [];
+        track.sends.forEach(send => sendKnobs.push(channel.send(send.name, send.volume)));
         chains.set(track.id,
           {
             instrument: makeToneNode(track.devices[0]),
@@ -1092,11 +1093,12 @@ async function App() {
             instrumentName: track.devices[0].name,
             instrumentParameters: track.instrumentParameters,
             effects: makeToneNodes(track.effects),
-            modulators: makeToneNodes(track.modulators.map(m => m.modulator))
+            modulators: makeToneNodes(track.modulators.map(m => m.modulator)),
+            sendKnobs: sendKnobs
           });
         //console.log("made chain");
         
-        track.sends.forEach(send => channel.send(send.name, send.volume));
+        
         const ch = chain(track.id);
         if (ch.instrument == null) throw "instrument null"
         connectDevices(ch);
@@ -2150,9 +2152,9 @@ async function App() {
     const startBeat = helpers.snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
     let first = null;
     for (const t of parsed.tracks) {
-      
-        
-      const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, Constants.DEFAULT_INSTRUMENT);
+      let instrumentString = JSON.stringify(Constants.DEFAULT_INSTRUMENT);
+      let instrument = JSON.parse(instrumentString);
+      const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, instrument);
       const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
       const notes = t.notes.map((n) => ({ id: projectState.nextId++, ...n }));
       const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), notes);
@@ -2314,7 +2316,9 @@ async function App() {
 //  bindToggle(dom.follow, projectState, "follow", () => { });
 //  bindToggle(dom.drawClips, projectState, "drawClips", () => { });
   dom.addTrack.addEventListener("click", async () => {
-    trackManager.addTrack(`Track ${projectState.tracks.length + 1}`, Constants.DEFAULT_INSTRUMENT);
+    let instrumentString = JSON.stringify(Constants.DEFAULT_INSTRUMENT);
+    let instrument = JSON.parse(instrumentString);
+    trackManager.addTrack(`Track ${projectState.tracks.length + 1}`, instrument);
     updateManager.arrangementChanged();
   });
   dom.addClip.addEventListener("click", () => {
@@ -2522,6 +2526,14 @@ async function App() {
       catch (error) {
         throw `Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`;
       }
+    },
+    clone: (obj) => {
+      if (null == obj || "object" != typeof obj) return obj;
+      var copy = obj.constructor();
+      for (var attr in obj) {
+          if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
+      }
+      return copy;
     }
   }
   
@@ -2972,7 +2984,7 @@ async function App() {
     
     init(track, deviceState, device) {
       //console.log("InstrumentView.init, state, device", deviceState, device)
-      super.init(track, [deviceState], [device], metadataManager.getInstrumentNames(), instrumentPresets);
+      super.init(track, [deviceState], [device], metadataManager.getInstrumentNames(), presetManager.instrumentPresets);
     }
     
     devicePicked() {
@@ -3009,7 +3021,7 @@ async function App() {
     }
     
     init(track, deviceStates, devices) {
-      super.init(track, deviceStates, devices, metadataManager.getEffectNames(), effectPresets);
+      super.init(track, deviceStates, devices, metadataManager.getEffectNames(), metadataManager.effectPresets);
     }
     
     previousPage() {
@@ -4361,8 +4373,8 @@ async function App() {
   }
 
   var stateHelper = new StateHelper(projectState, helpers);
-  var metadataManager = new MetadataManager();
-  var presetBrowser = new PresetManager();
+  const metadataManager = new MetadataManager();
+  const presetManager = new PresetManager();
   var bottomPanelManager = new BottomPanelManager(helpers, projectState);
   var mixer = new Mixer(audio, projectState);
   var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
@@ -4381,9 +4393,11 @@ async function App() {
   */
   
   async function init() {
+    console.log("init");
     await metadataManager.loadDevices();
-    await presetBrowser.loadPresets();
-
+    console.log("loading presets")
+    await presetManager.loadPresets();
+    console.log("presets loaded", presetManager.presets)
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     dom.hint.textContent = coarse
       ? "Arrangement: tap clip to edit, drag to move, drag edge to resize, pinch to zoom. Editor: tap adds, tap note deletes, drag moves. Rulers: tap to locate, drag ↕ zoom ↔ scroll."
@@ -4416,7 +4430,7 @@ async function App() {
     for (const el of [$("arrGridWrap"), $("arrRulerWrap"), $("edGridWrap"), $("edRulerWrap"), dom.edKeysWrap]) observer.observe(el);
 
     function createDemoSong() {
-      console.log("creating demo song");
+      console.log("creating demo song 2");
       
       const returnReverb = {
         name: "Reverb",
@@ -4945,7 +4959,9 @@ function bufferToWav(buffer) {
     return result;
   }
 }
-
+console.log("before init")
   await init();
 }
-App();
+
+console.log("test")
+await MyApp();
