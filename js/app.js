@@ -4428,11 +4428,7 @@ async function App() {
       };
       trackManager.addReturn("Reverb", 10, returnReverb);
 
-      
-      
-      
       const makeNotes = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: helpers.noteNameToPitch(noteName), start: helpers.noteTimeToBeats(start), duration: helpers.noteTimeToBeats(duration), velocity, slide }));
-      
       
       const mk = (list) => {
         const notes = makeNotes(list);
@@ -4478,7 +4474,7 @@ async function App() {
           "detune": -1000,
           "pitchDecay": 0.05,
           "octaves": 8,
-          "volume": -3,
+          "volume": 0,
           "envelope": {
             "attack": 0.001,
             "attackCurve": "linear",
@@ -4534,7 +4530,7 @@ async function App() {
           accent: 0.32,
           drive: 0.8,
           waveform: "sawtooth",
-          volume: 0
+          volume: -1
         }
       };
       const bass = trackManager.addTrack("Bass", bassSynth, []);
