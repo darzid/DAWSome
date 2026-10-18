@@ -75,15 +75,15 @@ jobs:
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
             .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
-            .replace(/<script src="js/devices.js"><\/script>/i, `${devicesScriptBlock}`)
-            .replace(/<script src="js/MetadataManager.js"><\/script>/i, `${metadataManagerScriptBlock}`)
-            .replace(/<script src="js/level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
-            .replace(/<script src="js/vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
-            .replace(/<script src="js/modules/PresetManager/preset-bank.js"><\/script>/i, `${presetBankScriptBlock}`)
-            .replace(/<script src="js/modules/PresetManager/PresetManager.js" type="module"><\/script>/i, `${presetManagerScriptBlock}`)
-            .replace(/<script src="js/mixer.js"><\/script>/i, `${mixerScriptBlock}`)
-            .replace(/<script src="js/modules/DAWSome/DAWSome.js" type="module"><\/script>/i, `${dawsomeScriptBlock}`);
-            .replace(/<script src="js/app.js" type="module"><\/script>/i, `${appScriptBlock}`);
+            .replace(/<script src="js\/devices.js"><\/script>/i, `${devicesScriptBlock}`)
+            .replace(/<script src="js\/MetadataManager.js"><\/script>/i, `${metadataManagerScriptBlock}`)
+            .replace(/<script src="js\/level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
+            .replace(/<script src="js\/vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
+            .replace(/<script src="js\/modules\/PresetManager\/preset-bank.js"><\/script>/i, `${presetBankScriptBlock}`)
+            .replace(/<script src="js\/modules\/PresetManager\/PresetManager.js" type="module"><\/script>/i, `${presetManagerScriptBlock}`)
+            .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`)
+            .replace(/<script src="js\/modules\/DAWSome\/DAWSome.js" type="module"><\/script>/i, `${dawsomeScriptBlock}`);
+            .replace(/<script src="js\/app.js" type="module"><\/script>/i, `${appScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
           
