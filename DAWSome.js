@@ -2426,6 +2426,15 @@ async function DAWSomeApp() {
     snapRound: (beat, step) => (step ? Math.round(beat / step) * step : beat),
     ceilBars: (beats) => Math.ceil(beats / Constants.BEATS_PER_BAR - Constants.EPS) * Constants.BEATS_PER_BAR,
     clipEnd: (clip) => clip.end ? clip.end : clip.start + clip.length,
+    noteTimeToBeats: (noteTime) => {
+        let bbs = Tone.Time(noteTime).toBarsBeatsSixteenths();
+        let parts = bbs.split(":");
+        let beats = parseInt(parts[1]);
+        beats += (parseFloat(parts[2]) / 4);
+        beats += parseInt(parts[0]) * 4;
+        //console=.log(`Converted notename ${noteName} to pitch ${pitch}`);
+        return beats;
+      },
     beatsToTime: (beats) => {
       let remainingBeats = beats;
       let bars = Math.floor(beats / 4);
@@ -4076,7 +4085,14 @@ async function DAWSomeApp() {
     
     createClip(track, start, length, notes = [], end = null) {
       const count = this.projectState.clips.filter((c) => c.trackId === track.id).length + 1;
-  
+      
+      if (typeof start == "string")
+        start = helpers.noteTimeToBeats(start);
+      if (typeof length == "string")
+        length = helpers.noteTimeToBeats(length);
+      if (typeof end == "string")
+        end = helpers.noteTimeToBeats(end);
+        
       if (!end) {
         end = start + length;
         console.log("determined clip end, start, length, end", start, length, end)
@@ -4566,16 +4582,8 @@ async function DAWSomeApp() {
         return pitch;
       }
       
-      const noteTimeToBeats = (noteTime) => {
-        let bbs = Tone.Time(noteTime).toBarsBeatsSixteenths();
-        let parts = bbs.split(":");
-        let beats = parseInt(parts[1]);
-        beats += (parseFloat(parts[2]) / 4);
-        beats += parseInt(parts[0]) * 4;
-        //console=.log(`Converted notename ${noteName} to pitch ${pitch}`);
-        return beats;
-      }
-      const makeNotes = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: noteNameToPitch(noteName), start: noteTimeToBeats(start), duration: noteTimeToBeats(duration), velocity, slide }));
+      
+      const makeNotes = (list) => list.map(([noteName, start, duration, velocity, slide]) => ({ id: projectState.nextId++, pitch: noteNameToPitch(noteName), start: helpers.noteTimeToBeats(start), duration: helpers.noteTimeToBeats(duration), velocity, slide }));
       
       
       const mk = (list) => {
@@ -4660,10 +4668,10 @@ async function DAWSomeApp() {
         ["C2", "0:2:0", "16n", Constants.DEFAULT_VELOCITY],
         ["C2", "0:3:0", "16n", Constants.DEFAULT_VELOCITY],
       ]);
-      clipManager.createClip(kick, 16, Constants.BEATS_PER_BAR, kickNotes, 63);
-      clipManager.createClip(kick, 64, Constants.BEATS_PER_BAR, kickNotes, 92);
-      clipManager.createClip(kick, 96, Constants.BEATS_PER_BAR, kickNotes, 127);
-      clipManager.createClip(kick, 128, Constants.BEATS_PER_BAR, kickNotes, 159);
+      clipManager.createClip(kick,  "4:0:0", Constants.BEATS_PER_BAR, kickNotes, "15:3:0");
+      clipManager.createClip(kick, "16:0:0", Constants.BEATS_PER_BAR, kickNotes, "23:0:0");
+      clipManager.createClip(kick, "24:0:0", Constants.BEATS_PER_BAR, kickNotes, "31:3:0");
+      clipManager.createClip(kick, "32:0:0", Constants.BEATS_PER_BAR, kickNotes, "39:3:0");
       console.log("created kick clip");
 
       console.log("creating bass");
@@ -4723,12 +4731,12 @@ async function DAWSomeApp() {
         ["F1",  "1:3:2", "16n", Constants.DEFAULT_VELOCITY],
         ["A#1", "1:3:3", "16n", Constants.DEFAULT_VELOCITY]
       ]);
-      clipManager.createClip(bass, 0, Constants.BEATS_PER_BAR * 2, bassNotes1, 15);
-      clipManager.createClip(bass, 16, Constants.BEATS_PER_BAR * 2, bassNotes1, 31);
-      clipManager.createClip(bass, 32, Constants.BEATS_PER_BAR * 2, bassNotes1, 63);
-      clipManager.createClip(bass, 64, Constants.BEATS_PER_BAR * 2, bassNotes1, 94);
-      clipManager.createClip(bass, 96, Constants.BEATS_PER_BAR * 2, bassNotes1, 127);
-      clipManager.createClip(bass, 128, Constants.BEATS_PER_BAR * 2, bassNotes1, 159);
+      clipManager.createClip(bass,  "0:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1,  "3:3:0");
+      clipManager.createClip(bass,  "4:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1,  "7:3:0");
+      clipManager.createClip(bass,  "8:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "15:3:0");
+      clipManager.createClip(bass, "16:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "23:3:0");
+      clipManager.createClip(bass, "24:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "31:3:0");
+      clipManager.createClip(bass, "32:0:0", Constants.BEATS_PER_BAR * 2, bassNotes1, "39:3:0");
       console.log("created bass");
 
       
@@ -4758,7 +4766,7 @@ async function DAWSomeApp() {
         ["F#2", "0:1:0", "32n"],
         ["F#2", "0:3:0", "32n"],
       ]);
-      clipManager.createClip(closedHat, 0, Constants.BEATS_PER_BAR, chNotes1, 31);
+      clipManager.createClip(closedHat, "0:0:0", Constants.BEATS_PER_BAR, chNotes1, "7:3:0");
             
       let chNotes2 = mk([
         ["F#2", "0:0:0", "32n"],
@@ -4781,10 +4789,10 @@ async function DAWSomeApp() {
         ["F#2", "0:3:2", "32n"],
         ["F#2", "0:3:3", "32n"],
       ]);
-      clipManager.createClip(closedHat, 32, Constants.BEATS_PER_BAR, chNotes2, 63);
-      clipManager.createClip(closedHat, 64, Constants.BEATS_PER_BAR, chNotes2, 92);
-      clipManager.createClip(closedHat, 96, Constants.BEATS_PER_BAR, chNotes2, 127);
-      clipManager.createClip(closedHat, 128, Constants.BEATS_PER_BAR, chNotes2, 159);
+      clipManager.createClip(closedHat,  "8:0:0", Constants.BEATS_PER_BAR, chNotes2, "15:3:0");
+      clipManager.createClip(closedHat, "16:0:0", Constants.BEATS_PER_BAR, chNotes2, "23:3:0");
+      clipManager.createClip(closedHat, "24:0:0", Constants.BEATS_PER_BAR, chNotes2, "31:3:0");
+      clipManager.createClip(closedHat, "32:0:0", Constants.BEATS_PER_BAR, chNotes2, "39:3:0");
       console.log("created closed hat");
 
       console.log("creating openhat");
@@ -4816,9 +4824,9 @@ async function DAWSomeApp() {
         ["F#2", "0:2:2", "32n"],
         ["F#2", "0:3:2", "32n"]
       ]);
-      clipManager.createClip(openHat, 48, Constants.BEATS_PER_BAR, ohNotes, 63);
-      clipManager.createClip(openHat, 64, Constants.BEATS_PER_BAR, ohNotes, 92);
-      clipManager.createClip(openHat, 128, Constants.BEATS_PER_BAR, ohNotes, 159);
+      clipManager.createClip(openHat, "12:0:0", Constants.BEATS_PER_BAR, ohNotes, "15:3:0");
+      clipManager.createClip(openHat, "16:0:0", Constants.BEATS_PER_BAR, ohNotes, "23:0:0");
+      clipManager.createClip(openHat, "32:0:0", Constants.BEATS_PER_BAR, ohNotes, "39:3:0");
       console.log("created open hat");
 
       console.log("creating snare");
@@ -4835,10 +4843,10 @@ async function DAWSomeApp() {
         ["C2", "0:1:0", "16n", Constants.DEFAULT_VELOCITY],
         ["C2", "0:3:0", "16n", Constants.DEFAULT_VELOCITY]
       ]);
-      clipManager.createClip(snare, 32, Constants.BEATS_PER_BAR, snareNotes, 63);
-      clipManager.createClip(snare, 64, Constants.BEATS_PER_BAR, snareNotes, 92);
-      clipManager.createClip(snare, 96, Constants.BEATS_PER_BAR, snareNotes, 127);
-      clipManager.createClip(snare, 128, Constants.BEATS_PER_BAR, snareNotes, 159);
+      clipManager.createClip(snare,  "8:0:0", Constants.BEATS_PER_BAR, snareNotes, "15:3:0");
+      clipManager.createClip(snare, "16:0:0", Constants.BEATS_PER_BAR, snareNotes, "23:0:0");
+      clipManager.createClip(snare, "24:0:0", Constants.BEATS_PER_BAR, snareNotes, "31:3:0");
+      clipManager.createClip(snare, "32:0:0", Constants.BEATS_PER_BAR, snareNotes, "39:3:0");
 
       console.log("creating 303");
       const tb303Synth = {
@@ -4880,8 +4888,8 @@ async function DAWSomeApp() {
         ["C#2", "2:3:1", "16n", Constants.DEFAULT_VELOCITY],
         ["A#1", "2:3:3", "16n", Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 0, Constants.BEATS_PER_BAR * 4, tb303Notes1, 31);
-      clipManager.createClip(tb303, 32, Constants.BEATS_PER_BAR * 4, tb303Notes1, 63);
+      clipManager.createClip(tb303, "0:0:0", Constants.BEATS_PER_BAR * 4, tb303Notes1,  "7:3:0");
+      clipManager.createClip(tb303, "8:0:0", Constants.BEATS_PER_BAR * 4, tb303Notes1, "15:3:0");
       
       const tb303Notes2 = mk([
         ["G1",  "0:2:1", "16n", Constants.DEFAULT_VELOCITY, true],
@@ -4893,7 +4901,7 @@ async function DAWSomeApp() {
         ["C#2", "1:3:1", "16n", Constants.DEFAULT_VELOCITY],
         ["A#1", "1:3:3", "16n", Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 64, Constants.BEATS_PER_BAR * 2, tb303Notes2, 96);
+      clipManager.createClip(tb303, "16:0:0", Constants.BEATS_PER_BAR * 2, tb303Notes2, "24:0:0");
       
       const tb303Notes3 = mk([
         ["C#1", "0:1:2", "16n", Constants.DEFAULT_VELOCITY, true],
@@ -4911,7 +4919,7 @@ async function DAWSomeApp() {
         ["C#2", "1:3:1", "16n", Constants.DEFAULT_VELOCITY],
         ["A#1", "1:3:3", "16n", Constants.ACCENT_VELOCITY, true],
       ]);
-      clipManager.createClip(tb303, 96, Constants.BEATS_PER_BAR * 2, tb303Notes3, 160);
+      clipManager.createClip(tb303, "24:0:0", Constants.BEATS_PER_BAR * 2, tb303Notes3, "40:0:0");
       console.log("created 303");
       
 
