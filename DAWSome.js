@@ -752,7 +752,7 @@ async function DAWSomeApp() {
   project.bind(dom.bpm, "bpm", () => audio.setBpm);
   project.onchanged("bpm", () => audio.setBpm(project.bpm));
   project.bind(dom.loop, "loop", () => audio.setLoop(project.loop, project.loopLength));
-  project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
+  //project.bind(dom.songLoopLength, "loopLength", () => audio.setLoop(project.loop, project.loopLength));
   project.bind(dom.follow, "follow");
   project.bind(dom.drawClips, "drawClips");
 
@@ -4597,7 +4597,7 @@ async function DAWSomeApp() {
           if (index % 4 == 0) 
             log += "\r\n";
         })
-        console.log("result: \r\n", log);
+        //console.log("result: \r\n", log);
         return notes;
       }
       
