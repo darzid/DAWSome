@@ -33,7 +33,7 @@ jobs:
   
       - name: Merge CSS and script into HTML
         run: |
-          mkdir -p _site/dev
+          mkdir -p _site
 
           node <<'NODE'
           const fs = require('fs');
@@ -73,21 +73,21 @@ jobs:
             .replace(/<script src="mixer.js"><\/script>/i, `${mixerScriptBlock}`)
             .replace(/<script src="DAWSome.js" type="module"><\/script>/i, `${mainScriptBlock}`);
           
-          fs.writeFileSync('_site/dev/index.html', merged);
+          fs.writeFileSync('_site/index.html', merged);
           
           NODE
           
       - name: Copy icon
         run: |
-          cp favicon.ico _site/dev
-          cp manifest.json _site/dev
-          cp service-worker.js _site/dev
+          cp favicon.ico _site
+          cp manifest.json _site
+          cp service-worker.js _site
       
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site/dev
+          path: _site
           tags: "DAWSome:${{ steps.version.outputs.version }}"
 
       - name: Create tag & GitHub release
