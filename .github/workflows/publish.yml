@@ -39,7 +39,7 @@ jobs:
           mkdir -p _site/js/modules/DAWSome
           mkdir -p _site/js/modules/PresetManager
 
-          cp DAWSome.html _site
+          cp DAWSome.html _site/index.html
           cp js/*.js _site/js
           cp js/modules/DAWSome/DAWSome.js _site/js/modules/DAWSome
           cp js/modules/PresetManager/PresetManager.js _site/js/modules/PresetManager
