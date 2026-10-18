@@ -54,9 +54,6 @@ jobs:
           const mixerScript = fs.readFileSync('js/mixer.js', 'utf8');
           const mixerScriptBlock = `<script>\n${mixerScript}\n</script>\n`;
           
-          const appScript = fs.readFileSync('js/app.js', 'utf8');
-          const appScriptBlock = `<script type="module">\n${appScript}\n</script>\n`;
-          
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
@@ -66,15 +63,15 @@ jobs:
             .replace(/<script src="js\/MetadataManager.js"><\/script>/i, `${metadataManagerScriptBlock}`)
             .replace(/<script src="js\/level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
             .replace(/<script src="js\/vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
-            .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`)
-            .replace(/<script src="js\/app.js" type="module"><\/script>/i, `${appScriptBlock}`);
+            .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`);
           
           fs.writeFileSync('_site/index.html', merged);
           
           NODE
           
-      - name: Copy icon
+      - name: Copy files
         run: |
+          cp app.js _site
           cp favicon.ico _site
           cp manifest.json _site
           cp service-worker.js _site
