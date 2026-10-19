@@ -4876,7 +4876,7 @@ async function MyApp() {
   
   
   function createDevice(device) {
-    return (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : new DAWSome[device.name](device.parameters);
+    return (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : new DAWSome[device.name.split(".")[1]](device.parameters);
   }
   
   // Helper functie om een AudioBuffer om te zetten naar een WAV Blob

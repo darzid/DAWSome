@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dawsome-v1';
+const CACHE_NAME = 'dawsome-v1.0.100';
 const ASSETS = [
   './',
   './index.html',
