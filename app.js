@@ -2642,7 +2642,8 @@ async function MyApp() {
     }
     
     renderDevice(track, deviceState, device) {
-      console.warn("DeviceParametersView.renderDevice for " + device.name);
+      //if (device) 
+      console.log("DeviceParametersView.renderDevice for " + device.name);
       this.track = track;
       this.deviceState = deviceState;
       this.device = device;
@@ -3046,7 +3047,7 @@ async function MyApp() {
     }
     
     init(track, deviceStates, devices) {
-      super.init(track, deviceStates, devices, metadataManager.getEffectNames(), metadataManager.effectPresets);
+      super.init(track, deviceStates, devices, metadataManager.getEffectNames(), presetManager.effectPresets);
     }
     
     previousPage() {
@@ -4433,6 +4434,19 @@ async function MyApp() {
   
   async function init() {
     console.log("init");
+    // Source - https://stackoverflow.com/a/5328206
+    // Posted by Mike Lewis
+    // Retrieved 2026-10-20, License - CC BY-SA 2.5
+    
+    dom.hint.onclick = () => {
+      alert(dom.hint.textContent);
+    }
+    window.onerror = function(message, url, lineNumber) {  
+      //save error and send to server for example.
+      dom.hint.innerHTML = `<span class="error">Error: ${message}, at: ${url}, line: ${lineNumber}</span>`;
+      return true;
+    };  
+
     await metadataManager.loadDevices();
     console.log("loading presets")
     await presetManager.loadPresets();
