@@ -2486,6 +2486,16 @@ async function MyApp() {
       let parameter = parameterContext[name];
       return parameter;
     },
+    getDeviceParameterParent: (device, parameterPath) => {
+      let parts = parameterPath.split(".");
+      let name = parts[parts.length - 1];
+      
+      let parameterContext = device;
+      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
+        parameterContext = parameterContext[parts[partIndex]];
+      }
+      return parameterContext;
+    },
     getDeviceStateParameter: (deviceState, parameterPath) => {
       let parts = parameterPath.split(".");
       let name = parts[parts.length - 1];
@@ -2495,15 +2505,19 @@ async function MyApp() {
         parameterContext = parameterContext[parts[partIndex]];
       }
       let parameter = parameterContext[name];
-      if (parameter == null) console.warn("No parameter found with name " + name, deviceState, parameterPath)
+      if (parameter == null) throw "No parameter found with name " + name;
+      //, deviceState, parameterPath
       return parameter;
     },
     updateDeviceParameter: (device, parameterPath, value) => {
-      let parameter = helpers.getDeviceParameter(device, parameterPath);
-      if (helpers.isObject(parameter))
-        parameter.value = value;
+      let parts = parameterPath.split(".");
+      let parameterName = parts[parts.length - 1];
+      
+      let parameterParent = helpers.getDeviceParameterParent(device, parameterPath);
+      if (parameterParent[parameterName].name)
+        parameterParent[parameterName].value = value;
       else
-        parameter = value;
+        parameterParent[parameterName] = value;
     },
     updateDeviceStateParameter: (deviceState, parameterPath, value) => {
       let parts = parameterPath.split(".");
@@ -2518,9 +2532,22 @@ async function MyApp() {
       try {
         helpers.updateDeviceParameter(device, parameterPath, value);
         helpers.updateDeviceStateParameter(deviceState, parameterPath, value);
+        if (device[parameterPath].name) {
+          if (device[parameterPath].value != value) {
+            let deviceParam = helpers.getDeviceParameter(device, parameterPath);
+            throw `Device param not as expected: ${deviceParam.name}`;
+          }
+        }
+        else {
+          if (device[parameterPath] != value) {
+            let deviceParam = helpers.getDeviceParameter(device, parameterPath);
+            throw `Device param not as expected: ${deviceParam}`;
+          }
+        }
         //console.log(`Updated ${device.name}.${parameterPath} to ${value}`);
       }
       catch (error) {
+        //alert(`Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`)
         throw `Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`;
       }
     },
@@ -2738,6 +2765,7 @@ async function MyApp() {
     }
   
     updateDeviceParameter(parameterPath, value) {
+      console.log("updating " + parameterPath);
       helpers.updateParameter(this.device, this.deviceState, parameterPath, value);
     }
     
@@ -4778,7 +4806,7 @@ async function MyApp() {
       console.log("created 303");
       
 
-      console.log("created demo song");
+      console.log("created demo song2");
 
       clipManager.deselectClip();
       trackManager.deselectTrack();
@@ -4873,10 +4901,9 @@ async function MyApp() {
     $("exportBtn").addEventListener("click",  () => exportAudio());
   }
 
-  
-  
   function createDevice(device) {
-    return (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : new DAWSome[device.name.split(".")[1]](device.parameters);
+    let deviceNode = (!device.name.startsWith("DAWSome.")) ? new Tone[device.name](device.parameters) : new DAWSome[device.name.split(".")[1]](device.parameters);
+    return deviceNode;
   }
   
   // Helper functie om een AudioBuffer om te zetten naar een WAV Blob
