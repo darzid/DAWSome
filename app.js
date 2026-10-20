@@ -2642,8 +2642,7 @@ async function MyApp() {
     }
     
     renderDevice(track, deviceState, device) {
-      //if (device) 
-      console.log("DeviceParametersView.renderDevice for " + device.name);
+      if (device) console.log("DeviceParametersView.renderDevice for " + device.name);
       this.track = track;
       this.deviceState = deviceState;
       this.device = device;
