@@ -4095,6 +4095,7 @@ async function MyApp() {
   
   class XypadPanel {
     mouseDown = false;
+    pointerType = "";
     xDeviceSelect;
     xParameterSelect;
     xParameterMetadata;
@@ -4143,15 +4144,22 @@ async function MyApp() {
     
       this.updatePosition(this.center)
 
-      this.canvas.ontouchstart = (e) => {
+      this.canvas.onpointerdown = (e) => {
         this.mouseDown = true;
+        this.pointerType = e.pointerType;
         this.updatePosition(this.getMousePositionOnCanvas(e));
       }
-      this.canvas.ontouchend = () => {
+      this.canvas.onpointerup = () => {
         this.mouseDown = false;
+      }
+      this.canvas.onmousemove = (e) => {
+        if (!this.mouseDown) return;
+        if (this.pointerType == "touch") return;
+        this.updatePosition(this.getMousePositionOnCanvas(e));
       }
       this.canvas.ontouchmove = (e) => {
         if (!this.mouseDown) return;
+        if (this.pointerType != "touch") return;
         this.updatePosition(this.getMousePositionOnCanvas(e));
       }
     }
