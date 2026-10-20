@@ -2529,27 +2529,8 @@ async function MyApp() {
       context[parameterName] = value;
     },
     updateParameter: (device, deviceState, parameterPath, value) => {
-      try {
-        helpers.updateDeviceParameter(device, parameterPath, value);
-        helpers.updateDeviceStateParameter(deviceState, parameterPath, value);
-        if (device[parameterPath].name) {
-          if (device[parameterPath].value != value) {
-            let deviceParam = helpers.getDeviceParameter(device, parameterPath);
-            throw `Device param not as expected: ${deviceParam.name}`;
-          }
-        }
-        else {
-          if (device[parameterPath] != value) {
-            let deviceParam = helpers.getDeviceParameter(device, parameterPath);
-            throw `Device param not as expected: ${deviceParam}`;
-          }
-        }
-        //console.log(`Updated ${device.name}.${parameterPath} to ${value}`);
-      }
-      catch (error) {
-        //alert(`Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`)
-        throw `Failed to update ${device.name}.${parameterPath} to ${value}: ${error}`;
-      }
+      helpers.updateDeviceParameter(device, parameterPath, value);
+      helpers.updateDeviceStateParameter(deviceState, parameterPath, value);
     },
     clone: (obj) => {
       if (null == obj || "object" != typeof obj) return obj;
