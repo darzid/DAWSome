@@ -2612,6 +2612,126 @@ async function MyApp() {
         }
       }
   
+  
+    // 303 setup
+  class TB303Knob {
+    constructor(id, onChange) {
+      this.id = id;
+      this.onChange = onChange;
+      
+      this.knob = document.getElementById(id);
+      this.isDragging = false;
+      this.startY = 0;
+      this.currentValue = parseFloat(this.knob.dataset.value || 0.5);
+      
+      this.knob.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    }
+    
+    setValue(value) {
+      this.knob.dataset.value = value;
+      this.updateRotation(value);
+      this.onChange(value);
+    }
+    
+    updateRotation(val) {
+      // Map 0..1 value to degrees (-135deg to +135deg)
+      const degrees = -135 + val * 270;
+      this.knob.style.transform = `rotate(${degrees}deg)`;
+    }
+    
+    onPointerDown(e) {
+      this.isDragging = true;
+      this.startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      document.addEventListener('pointermove', (e) => this.onPointerMove(e));
+      document.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    }
+
+    onPointerMove(e) {
+      if (!this.isDragging) return;
+      const currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      const deltaY = this.startY - currentY;
+      this.startY = currentY;
+
+      this.currentValue = Math.min(1, Math.max(0, this.currentValue + deltaY * 0.008));
+      this.knob.dataset.value = this.currentValue;
+      this.updateRotation(this.currentValue);
+      this.onChange(this.currentValue);
+    }
+
+    onPointerUp() {
+      this.isDragging = false;
+      document.removeEventListener('pointermove', this.onPointerMove);
+      document.removeEventListener('pointerup', this.onPointerUp);
+    }
+  }
+  
+  class TB303View {
+    knobs = {};
+    device = {};
+    state = {};
+    
+    init() {
+      this.knobs.cutoff = new TB303Knob('knob-cutoff', (val) => {
+        // Exponential mapping 100Hz to 8000Hz
+        const freq = 100 * Math.pow(80, val);
+        this.state.cutoff = freq;
+        this.device.cutoff = freq;
+        document.getElementById('val-cutoff').textContent = `${Math.round(freq)} Hz`;
+      });
+      
+      this.knobs.resonance = new TB303Knob('knob-reso', (val) => {
+        // Resonance Q factor 1 to 20
+        const q = 1 + val * 19;
+        this.state.resonance = q;
+        this.device.resonance = q;
+        document.getElementById('val-reso').textContent = q.toFixed(1);
+      });
+
+      this.knobs.envelopeModulation = new TB303Knob('knob-envmod', (val) => {
+        this.state.envelopeModulation = val;
+        this.device.envelopeModulation = val;
+        document.getElementById('val-envmod').textContent = `${Math.round(val * 100)}%`;
+      });
+  
+      this.knobs.decay = new TB303Knob('knob-decay', (val) => {
+        // Decay 0.1s to 1.2s
+        const decayTime = Math.min(0.1, Math.max(1.2, 0.1 + val * 1.1));
+        this.state.decay = decayTime;
+        this.device.decay = val;
+        document.getElementById('val-decay').textContent = `${Math.round(decayTime * 1000)}ms`;
+      });
+  
+      this.knobs.accent = new TB303Knob('knob-accent', (val) => {
+        this.state.accent = val;
+        this.device.accent = val;
+        document.getElementById('val-accent').textContent = `${Math.round(val * 100)}%`;
+      });
+  
+      this.knobs.drive = new TB303Knob('knob-drive', (val) => {
+        const drive = Math.min(0.1, Math.max(1.2, 0.1 + val * 1.1));
+        if (drive > 1.2) 
+          alert("Drive " + drive)
+        this.state.drive = drive;
+        this.device.drive = drive;
+        
+        document.getElementById('val-drive').textContent = `${Math.round(val * 100)}%`;
+      });
+    }
+    
+    attach(device, state) {
+      this.device = device;
+      this.state = state;
+      this.knobs.cutoff.setValue(Math.log(this.device.cutoff/100,80));
+      this.knobs.resonance.setValue(this.device.resonance.value - 1 / 19);
+      this.knobs.envelopeModulation.setValue(this.device.envelopeModulation);
+      this.knobs.decay.setValue(this.device.decay - 0.1 / 1.1);
+      this.knobs.accent.setValue(this.device.accent);
+      this.knobs.drive.setValue(this.device.drive - 0.1 / 1.1);
+    }
+  }
+  
+  var tb303View = new TB303View();
+    
   class DeviceParametersView {
     track;
     deviceState;
@@ -2838,6 +2958,7 @@ async function MyApp() {
     _devicePickerList;
     _devicePresetPickerList;
     canAddNewDevice = false;
+    customDeviceView = null;
     
     constructor(panel) {
       this.panel = panel;
@@ -2894,7 +3015,18 @@ async function MyApp() {
         this.devicePicker.value = this.currentDevice.name;
         this.fillPresetsPicker();
       }
-      this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
+      
+      this.customDeviceView = this.panel.querySelector(`div[data-device="${this.currentDevice.name}"]`);
+      if (this.currentDevice && this.customDeviceView) {
+        this.customDeviceView.style.display = "flex";
+        tb303View.attach(this.currentDevice, this.currentDeviceState);
+        //params = this.currentDeviceState.parameters;
+        //tb303 = this.currentDevice;
+      }
+      else {
+        this.parameterView.renderDevice(this.track, this.currentDeviceState, this.currentDevice);
+      }
+      
       this.updateUIState();
     }
     
@@ -4392,6 +4524,9 @@ async function MyApp() {
     av.zoomV(1 / Constants.ZOOM_BUTTON_FACTOR);
   }
 
+  //var params = {};
+  //var tb303 = null;
+  
   var stateHelper = new StateHelper(projectState, helpers);
   const metadataManager = new MetadataManager();
   const presetManager = new PresetManager();
@@ -4400,7 +4535,7 @@ async function MyApp() {
   var updateManager = new UpdateManager(projectState, audio, av, ev, dom, renderTrackHeaders);
   var clipManager = new ClipManager(projectState, audio, updateManager, bottomPanelManager, ed);
   var trackManager = new TrackManager(projectState, audio, clipManager, updateManager, bottomPanelManager, mixer);
-  
+
   /*
   var project = new Project(projectState);
   project.bind(dom.projectName, "name");
@@ -4412,6 +4547,105 @@ async function MyApp() {
   project.bind(dom.drawClips, "drawClips");
   */
   
+
+  
+  /*
+  
+  function setup303Knob(id, onChange) {
+      const knob = document.getElementById(id);
+      let isDragging = false;
+      let startY = 0;
+      let currentValue = parseFloat(knob.dataset.value || 0.5);
+
+      function updateRotation(val) {
+        // Map 0..1 value to degrees (-135deg to +135deg)
+        const degrees = -135 + val * 270;
+        knob.style.transform = `rotate(${degrees}deg)`;
+      }
+
+      updateRotation(currentValue);
+
+      function onPointerDown(e) {
+        isDragging = true;
+        startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+      }
+
+      function onPointerMove(e) {
+        if (!isDragging) return;
+        const currentY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+        const deltaY = startY - currentY;
+        startY = currentY;
+
+        currentValue = Math.min(1, Math.max(0, currentValue + deltaY * 0.008));
+        knob.dataset.value = currentValue;
+        updateRotation(currentValue);
+        onChange(currentValue);
+      }
+
+      function onPointerUp() {
+        isDragging = false;
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+      }
+
+      knob.addEventListener('pointerdown', onPointerDown);
+    }
+
+function setup303Knobs() {
+      // Initialize Knobs
+    setup303Knob('knob-cutoff', (val) => {
+      // Exponential mapping 100Hz to 8000Hz
+      const freq = 100 * Math.pow(80, val);
+      params.cutoff = freq;
+      tb303.cutoff = freq;
+      document.getElementById('val-cutoff').textContent = `${Math.round(freq)} Hz`;
+    });
+
+    setup303Knob('knob-reso', (val) => {
+      // Resonance Q factor 1 to 20
+      const q = 1 + val * 19;
+      params.resonance = q;
+      tb303.Q = q;
+      document.getElementById('val-reso').textContent = q.toFixed(1);
+    });
+
+    setup303Knob('knob-envmod', (val) => {
+      params.envMod = val;
+      tb303.envelopeModulation = val;
+      document.getElementById('val-envmod').textContent = `${Math.round(val * 100)}%`;
+    });
+
+    setup303Knob('knob-decay', (val) => {
+      // Decay 0.1s to 1.2s
+      const decayTime = 0.1 + val * 1.1;
+      params.decay = decayTime;
+      tb303.decay = val;
+      document.getElementById('val-decay').textContent = `${Math.round(decayTime * 1000)}ms`;
+    });
+
+    setup303Knob('knob-accent', (val) => {
+      params.accent = val;
+      tb303.accent = val;
+      document.getElementById('val-accent').textContent = `${Math.round(val * 100)}%`;
+    });
+
+    setup303Knob('knob-drive', (val) => {
+      const drive = 0.1 + val * 1.1;
+      params.drive = drive;
+      tb303.drive = drive;
+      document.getElementById('val-drive').textContent = `${Math.round(val * 100)}%`;
+    });
+}
+
+function set303Knobs(deviceStateParams, device) {
+  params = deviceStateParams;
+  tb303 = device;
+  
+}
+*/
+
   async function init() {
     console.log("init");
     // Source - https://stackoverflow.com/a/5328206
@@ -4427,6 +4661,9 @@ async function MyApp() {
       return true;
     };  
 
+  //  setup303Knobs();
+    tb303View.init();
+    
     await metadataManager.loadDevices();
     console.log("loading presets")
     await presetManager.loadPresets();

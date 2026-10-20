@@ -73,7 +73,83 @@
           <select class="devicePicker inst" title="Instrument"></select>
           <select class="devicePresetPicker instPreset" title="Preset"></select>
         </div>
-        <div class="content device-parameters param-scroller"></div>
+        <div class="content device-parameters param-scroller">
+          <div data-device="DAWSome.TB303" class="custom-device tb303">
+            <div class="title">TB303</div>
+            <div class="params-row">
+              <!-- Rotary Knobs Sound Controls (8 cols) -->
+           <!--   <div class="lg:col-span-8 bg-slate-300/60 rounded-xl p-4 border border-slate-400/80 shadow-inner grid grid-cols-3 sm:grid-cols-6 gap-3 items-center text-center"> -->
+                <!-- Knob 1: Cutoff -->
+                <div class="flex flex-col items-center param-column">
+                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">CUTOFF</span>
+                  <div class="knob-container" id="knob-cutoff" data-value="0.4">
+                    <div class="knob-body"></div>
+                    <div class="knob-cap"></div>
+                    <div class="knob-indicator"></div>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-cutoff">400 Hz</span>
+                </div>
+        
+                <!-- Knob 2: Resonance -->
+                <div class="flex flex-col items-center param-column">
+                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">RES</span>
+                  <div class="knob-container" id="knob-reso" data-value="0.7">
+                    <div class="knob-body"></div>
+                    <div class="knob-cap"></div>
+                    <div class="knob-indicator"></div>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-reso">7.0</span>
+                </div>
+        
+                <!-- Knob 3: Env Mod -->
+                <div class="flex flex-col items-center param-column">
+                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">ENV MOD</span>
+                  <div class="knob-container" id="knob-envmod" data-value="0.6">
+                    <div class="knob-body"></div>
+                    <div class="knob-cap"></div>
+                    <div class="knob-indicator"></div>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-envmod">60%</span>
+                </div>
+        
+                <!-- Knob 4: Decay -->
+                <div class="flex flex-col items-center param-column">
+                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">DECAY</span>
+                  <div class="knob-container" id="knob-decay" data-value="0.3">
+                    <div class="knob-body"></div>
+                    <div class="knob-cap"></div>
+                    <div class="knob-indicator"></div>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-decay">300ms</span>
+                </div>
+        
+                <!-- Knob 5: Accent -->
+                <div class="flex flex-col items-center param-column">
+                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">ACCENT</span>
+                  <div class="knob-container" id="knob-accent" data-value="0.8">
+                    <div class="knob-body"></div>
+                    <div class="knob-cap"></div>
+                    <div class="knob-indicator"></div>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-accent">80%</span>
+                </div>
+        
+                <!-- Knob 6: Distortion -->
+                <div class="flex flex-col items-center param-column">
+                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">DRIVE</span>
+                  <div class="knob-container" id="knob-drive" data-value="0.35">
+                    <div class="knob-body"></div>
+                    <div class="knob-cap"></div>
+                    <div class="knob-indicator"></div>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-drive">35%</span>
+                </div>
+                
+            <!--  </div>-->
+            </div>
+          </div>
+        </div>
+        
       </div>
     </div>
     <div id="effects-panel" title="Effects" class="effects-panel"></div>
