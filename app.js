@@ -3818,9 +3818,11 @@ async function MyApp() {
   }
 
   class TrackManager {
-    constructor(projectState, audio, bottomPanelManager, mixer) {
+    constructor(projectState, audio, clipManager, updateManager, bottomPanelManager, mixer) {
       this.projectState = projectState;
       this.audio = audio;
+      this.clipManager = clipManager;
+      this.updateManager = updateManager;
       this.bottomPanelManager = bottomPanelManager;
       this.mixer = mixer;
       
@@ -3848,6 +3850,7 @@ async function MyApp() {
       if (trackElement) {
         trackElement.classList.add("selected");
       }
+      this.updateManager.updateClipButtons();
       this.bottomPanelManager.refreshActivePanel();
     }
   
@@ -3856,10 +3859,6 @@ async function MyApp() {
         return;
       }
       this.deselectTrackById(this.projectState.selectedTrackId);
-      clipManager.deselectClip();
-      //this.projectState.selectedClipId = null;
-      this.projectState.selectedTrackId = null;
-      this.bottomPanelManager.refreshActivePanel();
     }
   
     deselectTrackById(trackId) {
@@ -3867,7 +3866,9 @@ async function MyApp() {
       if (trackElement) {
         trackElement.classList.remove("selected");
       }
-      clipManager.deselectClip();
+      this.clipManager.deselectClip();
+      this.projectState.selectedTrackId = null;
+      this.updateManager.updateClipButtons();
       this.bottomPanelManager.refreshActivePanel();
     }
     
@@ -3968,9 +3969,10 @@ async function MyApp() {
   }
   
   class ClipManager {
-    constructor(projectState, audio, bottomPanelManager, clipEditor) {
+    constructor(projectState, audio, updateManager, bottomPanelManager, clipEditor) {
       this.projectState = projectState;
       this.audio = audio;
+      this.updateManager = updateManager;
       this.bottomPanelManager = bottomPanelManager;
       this.ed = clipEditor;
       
@@ -3980,6 +3982,7 @@ async function MyApp() {
     
     clearAll() {
       this.projectState.clips.forEach(clip => this.removeClip(clip.id));
+      this.updateManager.updateClipButtons();
     }
     
     createClip(track, start, length, notes = [], end = null) {
@@ -4008,12 +4011,14 @@ async function MyApp() {
       this.projectState.clips = this.projectState.clips.filter((c) => c.id !== clipId);
       if (this.projectState.selectedClipId === clipId) 
         this.projectState.selectedClipId = null;
+      this.updateManager.updateClipButtons();
     }
   
     deselectClip() {
       this.projectState.selectedClipId = null;
       this.ed.selected.clear();
       document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
+      this.updateManager.updateClipButtons();
     }
     
     selectClip(clip) {
@@ -4029,6 +4034,7 @@ async function MyApp() {
   
       this.ed.selected.clear();
       document.dispatchEvent(new CustomEvent("ClipChanged", { detail: { } }));
+      this.updateManager.updateClipButtons();
     }
   }
 
@@ -4402,9 +4408,9 @@ async function MyApp() {
   const presetManager = new PresetManager();
   var bottomPanelManager = new BottomPanelManager(helpers, projectState);
   var mixer = new Mixer(audio, projectState);
-  var trackManager = new TrackManager(projectState, audio, bottomPanelManager, mixer);
-  var clipManager = new ClipManager(projectState, audio, bottomPanelManager, ed);
   var updateManager = new UpdateManager(projectState, audio, av, ev, dom, renderTrackHeaders);
+  var clipManager = new ClipManager(projectState, audio, updateManager, bottomPanelManager, ed);
+  var trackManager = new TrackManager(projectState, audio, clipManager, updateManager, bottomPanelManager, mixer);
   
   /*
   var project = new Project(projectState);
