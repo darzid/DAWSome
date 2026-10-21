@@ -367,6 +367,7 @@
   "instrument\\MembraneSynth\\Default": {},
   "instrument\\MembraneSynth\\PsyKick": {
     "detune": -1000,
+    "portamento": ,
     "pitchDecay": 0.05,
     "octaves": 8,
     "volume": 0,
@@ -376,6 +377,21 @@
       "decay": 0.1,
       "sustain": 0.2,
       "release": 0.1
+    },
+    "oscillator": {
+      "detune": 0,
+      "frequency": 0,
+      "partialCount": 0,
+      "phase": 0,
+      "type": "sawtooth",
+      "harmonicity": 0,
+      "modulationType": "sawtooth",
+      "modulationIndex": 0,
+      "spread": 0,
+      "count": 0,
+      "width": 0,
+      "volume": 0,
+      "partials": [],
     }
   },
   "instrument\\MetalSynth\\Default": {},

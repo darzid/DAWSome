@@ -12,6 +12,8 @@
 <script src="https://darzid.github.io/html-components/number-input/number-input.js"></script>
 <script src="https://darzid.github.io/ToneJS/PresetManager/PresetManager.js" type="module"></script>
 <script src="https://darzid.github.io/ToneJS/DAWSome/DAWSome.js" type="module"></script>
+<script src="js/viewmodels/CustomDeviceViewModel.js"></script>
+<script src="js/viewmodels/TB303ViewModel.js"></script>
 </head>
 <body>
 
@@ -72,16 +74,19 @@
         <div class="header device-header">
           <select class="devicePicker inst" title="Instrument"></select>
           <select class="devicePresetPicker instPreset" title="Preset"></select>
+          <button class="down">️️🔽</button>
+          <button class="up">️️🔼</button>
         </div>
-        <div class="content device-parameters param-scroller">
-          <div data-device="DAWSome.TB303" class="custom-device tb303">
+        <div class="content param-scroller device-parameters">
+          <div data-device="DAWSome.TB303" class="custom-device tb303 hidden">
             <div class="title">TB303</div>
+            <br>
             <div class="params-row">
               <!-- Rotary Knobs Sound Controls (8 cols) -->
            <!--   <div class="lg:col-span-8 bg-slate-300/60 rounded-xl p-4 border border-slate-400/80 shadow-inner grid grid-cols-3 sm:grid-cols-6 gap-3 items-center text-center"> -->
                 <!-- Knob 1: Cutoff -->
                 <div class="flex flex-col items-center param-column">
-                  <span class="text-[11px] font-extrabold uppercase text-slate-700 mb-1">CUTOFF</span>
+                  <span class="font-extrabold uppercase">CUTOFF</span>
                   <div class="knob-container" id="knob-cutoff" data-value="0.4">
                     <div class="knob-body"></div>
                     <div class="knob-cap"></div>
@@ -145,21 +150,31 @@
                   <span class="text-[10px] font-mono text-slate-600 mt-1" id="val-drive">35%</span>
                 </div>
                 
-            <!--  </div>-->
+
+            </div>
+            <div class="params-row">
+              <div class="flex items-center gap-1 bg-slate-300 p-1 rounded-lg border border-slate-400">
+                <span class="text-[10px] font-bold text-slate-700 px-1">WAVE:</span>
+                <button id="wave-saw" class="switch px-2 py-1 text-xs font-bold rounded synth-btn active-led text-slate-900">SAW</button>
+                <button id="wave-sqr" class="switch px-2 py-1 text-xs font-bold rounded synth-btn text-slate-700">SQR</button>
+              </div>
             </div>
           </div>
+          <div class="generic-device-view">
+          </div>
         </div>
-        
       </div>
     </div>
     <div id="effects-panel" title="Effects" class="effects-panel"></div>
     <div id="fx-panel" title="Effects" class="fx-panel panel">
       <div class="device">
         <div class="header device-header">
+          <button class="up">️️🔼</button>
           <button class="prev">⏪️</button>
           <select class="devicePicker inst" title="Effect"></select>
           <select class="devicePresetPicker instPreset" title="Preset"></select>
           <button class="next">⏩️</button>
+          <button class="down">️️🔽</button>
         </div>
         <div class="content device-parameters param-scroller"></div>
       </div>
@@ -241,6 +256,9 @@
 <script src="js/level-meter.js"></script>
 <script src="js/vu-meter.js"></script>
 <script src="js/mixer.js"></script>
+<script src="js/viewmodels/DevicePanelViewModels.js"></script>
+<script src="js/viewmodels/XYPadViewModel.js"></script>
+<script src="js/viewmodels/BottomPanelViewModel.js"></script>
 <script src="app.js" type="module"></script>
 </body>
 </html>
