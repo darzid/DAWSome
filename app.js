@@ -2411,7 +2411,8 @@ async function MyApp() {
       let parts = parameterPath.split(".");
       let name = parts[parts.length - 1];
       
-      let parameterContext = deviceState.parameters;
+      if (!deviceState) throw new Error("No device state");
+      let parameterContext = deviceState.parameters ? deviceState.parameters : deviceState;
       for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
         parameterContext = parameterContext[parts[partIndex]];
       }
@@ -2426,7 +2427,7 @@ async function MyApp() {
       
       let parameterParent = helpers.getDeviceParameterParent(device, parameterPath);
       if (!parameterParent[parameterName]) 
-        throw `Could not find parameter ${parameterPath} for device ${device.name}`
+        throw new Error(`Could not find parameter ${parameterPath} for device ${device.name}`);
       if (parameterParent[parameterName].name)
         parameterParent[parameterName].value = value;
       else

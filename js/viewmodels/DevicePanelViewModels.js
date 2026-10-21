@@ -94,7 +94,7 @@ class DevicePanelBaseViewModel {
       if (this.customDeviceViewPanel) {
         this.customDeviceView = this.customDeviceViews[this.currentDevice.name];
         if (!this.customDeviceView)
-          throw `Found custom device panel for "${this.currentDevice.name}" but no registered view`;
+          throw new Error(`Found custom device panel for "${this.currentDevice.name}" but no registered view`);
           
         this.customDeviceViewPanel.style.display = "flex";
         this.customDeviceView.attach(this.currentDevice, this.currentDeviceState);
@@ -114,6 +114,7 @@ class DevicePanelBaseViewModel {
     }
     
     devicePicked() {
+      
       if (!this.isNewDevice) {
         //console.log("DeviceBaseView.devicePicked existing device", this, this.lastPageIndex)
         if (this.devices[this.pageIndex].name == this.devicePicker.value) return;
@@ -129,11 +130,13 @@ class DevicePanelBaseViewModel {
         const newDeviceState = { id: this.projectState.nextId++, name: this.devicePicker.value, parameters: {}};
         this.track.devices.push(newDeviceState);
         this.deviceStates.push(newDeviceState);
+        
         this._trackDeviceIndex = this.track.devices.indexOf(newDeviceState);
        // console.log("Rebuild device " + this._trackDeviceIndex);
-        this.devices.push(this.audio.rebuildDevice(this.track, this.trackDeviceIndex));
+       
         
-        
+        let deviceNode = this.audio.rebuildDevice(this.track, this.trackDeviceIndex);
+
       }
       
       this.metadataManager.buildDeviceState(this.currentDevice, this.currentDeviceState);
@@ -251,7 +254,10 @@ class EffectsPanelViewModel extends DevicePanelBaseViewModel {
     
     nextPage() {
       if (!this.nextPageAvailable) return;
+     // alert("device1 " + this.currentDevice + " devices " + this.devices);
+
       this.pageIndex++;
+    //  alert("device " + this.currentDevice + " devices " + this.devices);
       this.render();
     }
     
@@ -317,12 +323,20 @@ class DeviceParametersView {
     }
     
     renderDevice(track, deviceState, device) {
+      try {
+        
+      
       if (device) console.log("DeviceParametersView.renderDevice for " + device.name);
+
       this.valueElements = {};
       this.track = track;
       this.deviceState = deviceState;
       this.device = device;
       this.refresh();
+      }
+      catch (err) {
+        alert("error in refresh " + err + " at " + err.stack)
+      }
     }
     
     refreshValues() {
@@ -333,7 +347,7 @@ class DeviceParametersView {
     
     refresh() {
       this.parametersPanel.innerHTML = "";
-      if (!this.device) {
+      if (!this.device || !this.deviceState) {
         return;
       }
       console.warn("DeviceParametersView.refresh for " + this.device.name);
