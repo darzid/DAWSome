@@ -39,7 +39,7 @@ class BottomPanelManager {
       this.xypadPanel = document.querySelector(".xypad-panel");
       this.mixerPanel = document.querySelector(".mixer");
       
-      this.xyPadViewModel = new XYPadViewModel(this.xypadPanel, this.helpers);
+      this.xyPadViewModel = new XYPadViewModel(this.xypadPanel, this.helpers, this.audio, this.metadataManager);
       this.xypadPanel.style.display = "none";
       
       this.instView = new InstrumentPanelViewModel(this.helpers, this.metadataManager, this.audio, this.projectState, presetManager, customDeviceViews, this.instPanel);
@@ -164,7 +164,7 @@ class BottomPanelManager {
         return;
       }
 
-      let trackEffects = audio.getTrackEffects(track);
+      let trackEffects = this.audio.getTrackEffects(track);
       this.fxView.init(track, track.effects, trackEffects);
     }
     

@@ -120,16 +120,20 @@ class DevicePanelBaseViewModel {
        // console.log("DeviceBaseView.devicePicked start update existing " + this.devicePicker.value);
         this.track.devices[this.trackDeviceIndex] = { id: this.projectState.nextId++, name: this.devicePicker.value, parameters: {}};
         this.devices[this.pageIndex] = this.audio.rebuildDevice(this.track, this.trackDeviceIndex);
+        this.audio.updateTrackChain(this.track);
+        
       }
       else {
        // console.log("DeviceBaseView.devicePicked start add new " + this.devicePicker.value);
         
-        const newDeviceState = { id: projectState.nextId++, name: this.devicePicker.value, parameters: {}};
+        const newDeviceState = { id: this.projectState.nextId++, name: this.devicePicker.value, parameters: {}};
         this.track.devices.push(newDeviceState);
         this.deviceStates.push(newDeviceState);
         this._trackDeviceIndex = this.track.devices.indexOf(newDeviceState);
        // console.log("Rebuild device " + this._trackDeviceIndex);
-        this.devices.push(audio.rebuildDevice(this.track, this.trackDeviceIndex));
+        this.devices.push(this.audio.rebuildDevice(this.track, this.trackDeviceIndex));
+        
+        
       }
       
       this.metadataManager.buildDeviceState(this.currentDevice, this.currentDeviceState);

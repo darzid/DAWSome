@@ -101,7 +101,7 @@ async function MyApp() {
   const dom = {
     projectName: $("project-name"),
     play: $("playBtn"), pos: $("posReadout"), bpm: $("bpmInput"), songLoopLength: $("songLenInput"), loop: $("loopBtn"), follow: $("followBtn"), drawClips: $("drawClipsBtn"),
-    importBtn: $("importBtn"), midiFile: $("midiFile"), addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
+    addTrack: $("addTrackBtn"), addClip: $("addClipBtn"),
     dupClip: $("dupClipBtn"), delClip: $("delClipBtn"),
     newBtn: $("newBtn"), loadBtn: $("loadBtn"), projectFile: $("projectFile"), saveBtn: $("saveBtn"),
     trackHeadersWrap: $("trackHeadersWrap"), trackHeaders: $("trackHeaders"),
@@ -1141,6 +1141,8 @@ async function MyApp() {
         }
         console.log("Updating track sends", track.sends);
         track.sends.forEach(send => ch.channel.send(send.name, send.volume));
+        clipManager.getTrackClips(track.id).forEach(clip => audio.rebuildClipPart(clip));
+        
       },
       
       getChain: (trackId) => { 
@@ -1175,7 +1177,9 @@ async function MyApp() {
       removeTrackChain: (trackId) => {
         const ch = chain(trackId);
         if (!ch) return;
+        
         console.log("remove track instrument and effects", ch.instrument);
+        
         
         // Dispose instrument
         if (ch.instrument) ch.instrument.dispose();
@@ -1194,6 +1198,7 @@ async function MyApp() {
         if (ch.channel) ch.channel.dispose();
         
         chains.delete(trackId);
+        
       },
       rebuildDevice: (track, deviceIndex) => {
         console.log("rebuildDevice ", track.devices[deviceIndex])
@@ -1312,79 +1317,6 @@ async function MyApp() {
     setBpm() { }, setLoop() { }, addTrackChain() { }, updateTrackChain() { }, removeTrackChain() { }, rebuildClipPart() { }, removeClipPart() { },
     async play() { }, stop() { }, seek() { }, positionBeat: () => 0, keyOn() { }, keyOff() { }, preview() { },
   };
-
-  // ===== Standard MIDI File parser (SMF format 0/1, PPQ division) =====
-  function parseMidiFile(buffer) {
-    const bytes = new Uint8Array(buffer);
-    let pos = 0;
-    const u8 = () => bytes[pos++];
-    const u16 = () => { const v = (bytes[pos] << 8) | bytes[pos + 1]; pos += 2; return v; };
-    const u32 = () => { const v = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0; pos += 4; return v; };
-    const str = (n) => { let s = ""; for (let i = 0; i < n; i++) s += String.fromCharCode(bytes[pos++]); return s; };
-    const vlq = () => { let v = 0, b; do { b = u8(); v = (v << 7) | (b & 0x7f); } while (b & 0x80); return v; };
-
-    if (str(4) !== "MThd") throw new Error("Not a MIDI file (missing MThd header).");
-    const headerLength = u32();
-    const format = u16();
-    const trackCount = u16();
-    const division = u16();
-    pos += headerLength - 6;
-    if (division & 0x8000) throw new Error("SMPTE time division is not supported.");
-    const ppq = division;
-
-    let bpm = null;
-    const tracks = [];
-    for (let t = 0; t < trackCount && pos < bytes.length; t++) {
-      if (str(4) !== "MTrk") throw new Error("Malformed track chunk.");
-      const length = u32();
-      const end = pos + length;
-      let tick = 0, status = 0, name = "";
-      const open = new Map();         // channel*128+pitch → { tick, vel }
-      const byChannel = new Map();    // channel → notes
-      const noteOff = (key, at) => {
-        const o = open.get(key);
-        if (!o) return;
-        open.delete(key);
-        byChannel.get(key >> 7).push({
-          noteNumber: key & 127, start: o.tick / ppq, duration: Math.max(at - o.tick, 1) / ppq, velocity: o.vel,
-        });
-      };
-      while (pos < end) {
-        tick += vlq();
-        let b = u8();
-        if (b === 0xff) {                       // meta event
-          const type = u8();
-          const len = vlq();
-          if (type === 0x03 && !name) name = str(len);
-          else if (type === 0x51 && bpm === null) {
-            bpm = 60000000 / ((bytes[pos] << 16) | (bytes[pos + 1] << 8) | bytes[pos + 2]);
-            pos += len;
-          } else pos += len;
-          continue;
-        }
-        if (b === 0xf0 || b === 0xf7) { const len = vlq(); pos += len; continue; }   // sysex
-        if (b >= 0xf1 && b <= 0xfe) { pos += b === 0xf2 ? 2 : (b === 0xf1 || b === 0xf3) ? 1 : 0; continue; }
-        if (b & 0x80) { status = b; b = u8(); }                            // else running status
-        const type = status & 0xf0, channel = status & 0x0f;
-        const d1 = b;
-        const d2 = (type === 0xc0 || type === 0xd0) ? 0 : u8();
-        const key = channel * 128 + d1;
-        if (type === 0x90 && d2 > 0) {
-          if (!byChannel.has(channel)) byChannel.set(channel, []);
-          noteOff(key, tick);
-          open.set(key, { tick, vel: d2 });
-        } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
-          noteOff(key, tick);
-        }
-      }
-      pos = end;
-      for (const key of [...open.keys()]) noteOff(key, tick);
-      for (const [channel, notes] of byChannel) {
-        if (notes.length) tracks.push({ name, channel, notes });
-      }
-    }
-    return { format, bpm, tracks };
-  }
 
 
   // ===== Arrangement view =====
@@ -2142,26 +2074,6 @@ async function MyApp() {
     dom.play.classList.toggle("on", projectState.playing);
   }
 
-  // ===== MIDI import =====
-  function importMidi(parsed, fileName) {
-    if (parsed.bpm) setBpm(helpers.clamp(Math.round(parsed.bpm), 20, 300));
-    const startBeat = helpers.snapFloor(projectState.playheadBeat, Constants.BEATS_PER_BAR);
-    let first = null;
-    for (const t of parsed.tracks) {
-      let instrumentString = JSON.stringify(Constants.DEFAULT_INSTRUMENT);
-      let instrument = JSON.parse(instrumentString);
-      const track = trackManager.addTrack(t.name || `${fileName} ch${t.channel + 1}`, instrument);
-      const lastEnd = t.notes.reduce((m, n) => Math.max(m, n.start + n.duration), 0);
-      const notes = t.notes.map((n) => ({ id: projectState.nextId++, ...n }));
-      const clip = clipManager.createClip(track, startBeat, Math.max(Constants.BEATS_PER_BAR, helpers.ceilBars(lastEnd)), notes);
-      first = first ?? clip;
-    }
-    if (first) clipManager.selectClip(first);
-    updateManager.arrangementChanged();
-    updateManager.editorClipChanged();
-    return parsed.tracks.length;
-  }
-
   function clearProject() {
     clipManager.clearAll();
     trackManager.clearAll();
@@ -2230,19 +2142,6 @@ async function MyApp() {
     //dom.drawClips.classList.toggle("on", projectState.drawClips);
   }
 
-  dom.importBtn.addEventListener("click", () => dom.midiFile.click());
-  dom.midiFile.addEventListener("change", async () => {
-    const file = dom.midiFile.files[0];
-    dom.midiFile.value = "";
-    if (!file) return;
-    try {
-      const count = importMidi(parseMidiFile(await file.arrayBuffer()), file.name.replace(/\.midi?$/i, ""));
-      dom.hint.textContent = count ? `Imported ${count} track${count === 1 ? "" : "s"} from ${file.name} at the playhead.`
-        : `${file.name} contains no notes.`;
-    } catch (err) {
-      dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
-    }
-  });
   dom.newBtn.addEventListener("click", () => clearProject());
   dom.loadBtn.addEventListener("click", () => dom.projectFile.click());
   dom.projectFile.addEventListener("change", async () => {
@@ -2269,7 +2168,7 @@ async function MyApp() {
 
       reader.readAsText(file);
     } catch (err) {
-      dom.hint.textContent = `Could not import ${file.name}: ${err.message}`;
+      dom.hint.textContent = `Could not load ${file.name}: ${err.message}`;
     }
   });
   dom.saveBtn.addEventListener("click", () => saveProject());
@@ -2580,6 +2479,7 @@ async function MyApp() {
         return track;
     }
     clipById(id) { return this.projectState.clips.find((c) => c.id === id); }
+    
     currentClip() { return this.clipById(this.projectState.selectedClipId) ?? null; }
     songEndBeats() {
       let endBeats = Math.max(Constants.MIN_SONG_BEATS, this.helpers.ceilBars(this.projectState.clips.reduce((m, c) => Math.max(m, this.helpers.clipEnd(c)), 0)));
@@ -2798,6 +2698,10 @@ async function MyApp() {
       
       document.addEventListener("ProjectLoaded", (e) => this.projectState = e.detail.projectState);
       document.addEventListener("RemoveClip", (e) => this.removeClip(e.detail.clipId));
+    }
+    
+    getTrackClips(trackId) {
+     return this.projectState.clips.filter(c => c.trackId == trackId);
     }
     
     clearAll() {

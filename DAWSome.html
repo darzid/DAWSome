@@ -37,8 +37,6 @@
 
     </div>
     <div class="group">
-      <button id="importBtn" class="btn" title="Import a Standard MIDI File (.mid)">Import MIDI</button>
-      <input id="midiFile" type="file" accept=".mid,.midi,audio/midi">
       <button id="addTrackBtn" class="btn">+ Track</button>
       <button id="addClipBtn" class="btn" title="New 1-bar clip on the selected track at the playhead">+ Clip</button>
       <button id="dupClipBtn" class="btn" title="Duplicate selected clip (Ctrl+D)">Duplicate</button>
@@ -160,12 +158,13 @@
               </div>
             </div>
           </div>
-          <div class="generic-device-view">
-          </div>
+          <div class="generic-device-view"></div>
         </div>
       </div>
     </div>
-    <div id="effects-panel" title="Effects" class="effects-panel"></div>
+    <div id="effects-panel" title="Effects" class="effects-panel">
+      
+    </div>
     <div id="fx-panel" title="Effects" class="fx-panel panel">
       <div class="device">
         <div class="header device-header">
@@ -176,7 +175,9 @@
           <button class="next">⏩️</button>
           <button class="down">️️🔽</button>
         </div>
-        <div class="content device-parameters param-scroller"></div>
+        <div class="content device-parameters param-scroller">
+          <div class="generic-device-view"></div>
+        </div>
       </div>
     </div>
     <div id="xypad-panel" title="XY pad" class="xypad-panel panel" style="flex-direction: column">
