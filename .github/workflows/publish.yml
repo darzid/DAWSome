@@ -42,6 +42,18 @@ jobs:
           const css = fs.readFileSync('DAWSome.css', 'utf8');
           const styleBlock = `<style>\n${css}\n</style>\n`;
           
+          const customDeviceViewModelScript = fs.readFileSync('js/viewmodels/CustomDeviceViewModel.js', 'utf8');
+          const customDeviceViewModelScriptBlock  = `<script>\n${customDeviceViewModelScript}\n</script>\n`;
+          
+          const tb303ViewModelScript = fs.readFileSync('js/viewmodels/TB303ViewModel.js', 'utf8');
+          const tb303ViewModelScriptBlock  = `<script>\n${tb303ViewModelScript}\n</script>\n`;
+          
+          const constantsScript = fs.readFileSync('js/Constants.js', 'utf8');
+          const constantsScriptBlock = `<script>\n${constantsScript}\n</script>\n`;
+          
+          const helpersScript = fs.readFileSync('js/Helpers.js', 'utf8');
+          const helpersScriptBlock = `<script>\n${helpersScript}\n</script>\n`;
+          
           const metadataManagerScript = fs.readFileSync('js/MetadataManager.js', 'utf8');
           const metadataManagerScriptBlock = `<script>\n${metadataManagerScript}\n</script>\n`;
           
@@ -54,17 +66,36 @@ jobs:
           const mixerScript = fs.readFileSync('js/mixer.js', 'utf8');
           const mixerScriptBlock = `<script>\n${mixerScript}\n</script>\n`;
           
+          const exportScript = fs.readFileSync('js/export.js', 'utf8');
+          const exportScriptBlock = `<script>\n${exportScript}\n</script>\n`;
+          
+          const devicePanelViewModelsScript = fs.readFileSync('js/viewmodels/DevicePanelViewModels.js', 'utf8');
+          const devicePanelViewModelsScriptBlock = `<script>\n${devicePanelViewModelsScript}\n</script>\n`;
+          
+          const xypadViewModelScript = fs.readFileSync('js/viewmodels/XYPadViewModel.js', 'utf8');
+          const xypadViewModelScriptBlock  = `<script>\n${xypadViewModelScript}\n</script>\n`;
+          
+          const bottomPanelViewModelScript = fs.readFileSync('js/viewmodels/BottomPanelViewModel.js', 'utf8');
+          const bottomPanelViewModelScriptBlock  = `<script>\n${bottomPanelViewModelScript}\n</script>\n`;
+          
           if (!/<\/head>/i.test(html)) {
             throw new Error('DAWSome.html does not contain a </head> tag');
           }
 
           const merged = html.replace(/<\/head>/i, `${styleBlock}</head>`)
             .replace(/v0.0.0/i, `${{ steps.version.outputs.version }}`)
+            .replace(/<script src="js\/viewmodels\/CustomDeviceViewModel.js"><\/script>/i, `${customDeviceViewModelScriptBlock}`)
+            .replace(/<script src="js\/viewmodels\/TB303ViewModel.js"><\/script>/i, `${tb303ViewModelScriptBlock}`)
+            .replace(/<script src="js\/Constants.js"><\/script>/i, `${constantsScriptBlock}`)
+            .replace(/<script src="js\/Helpers.js"><\/script>/i, `${helpersScriptBlock}`)
             .replace(/<script src="js\/MetadataManager.js"><\/script>/i, `${metadataManagerScriptBlock}`)
             .replace(/<script src="js\/level-meter.js"><\/script>/i, `${levelMeterScriptBlock}`)
             .replace(/<script src="js\/vu-meter.js"><\/script>/i, `${vuMeterScriptBlock}`)
-            .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`);
-          
+            .replace(/<script src="js\/mixer.js"><\/script>/i, `${mixerScriptBlock}`)
+            .replace(/<script src="js\/export.js"><\/script>/i, `${exportScriptBlock}`)
+            .replace(/<script src="js\/viewmodels\/DevicePanelViewModels.js"><\/script>/i, `${devicePanelViewModelsScriptBlock}`)
+            .replace(/<script src="js\/viewmodels\/XYPadViewModel.js"><\/script>/i, `${xypadViewModelScriptBlock}`)
+            .replace(/<script src="js\/viewmodels\/BottomPanelViewModel.js"><\/script>/i, `${bottomPanelViewModelScriptBlock}`);
           fs.writeFileSync('_site/index.html', merged);
           
           NODE

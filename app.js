@@ -16,60 +16,6 @@ async function MyApp() {
     }
   }
 
-  // ===== Constants =====
-  const Constants = {
-    PITCH_COUNT: 128,
-    TOP_PITCH: 127,
-    BEATS_PER_BAR: 4,                 // fixed 4/4
-    NOTE_NAMES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-    BLACK_KEYS: new Set([1, 3, 6, 8, 10]),
-    DEFAULT_VELOCITY: 0.75,
-    ACCENT_VELOCITY: 1.0,
-    MIN_FREE_DURATION: 1 / 16,
-    EPS: 1e-6,
-    DRAG_THRESHOLD: 4,
-    TAP_SLOP: 8,
-    ZOOM_BUTTON_FACTOR: 1.25,
-    MIN_SONG_BEATS: 8,
-    SONG_TAIL_BEATS: 16,              // empty space kept after the last clip
-
-    TONE_LOOKAHEAD: 0.15,
-    TONE_STARTAHEAD: "+0.5",
-    TONE_PARAM_SCHEDULEAHEAD: "+0.05",
-    TONE_NOTE_TRIGGERAHEAD: 0.05,
-    
-    FIXED_GRIDS: { "1bar": 4, "1/2": 2, "1/4": 1, "1/8": 0.5, "1/16": 0.25, "1/32": 0.125 },
-    ADAPTIVE_MIN_PX: { widest: 96, wide: 48, medium: 24, narrow: 12, narrowest: 6 },
-    ADAPTIVE_STEPS: [4, 2, 1, 0.5, 0.25, 0.125, 0.0625],
-    STEP_LABELS: new Map([[4, "1 Bar"], [2, "1/2"], [1, "1/4"], [0.5, "1/8"], [0.25, "1/16"], [0.125, "1/32"], [0.0625, "1/64"]]),
-    TRACK_COLORS: ["#f2b544", "#5fc9d8", "#e07a7a", "#9bd76e", "#c58cf0", "#f08c4a", "#7ea6f0", "#e6d35a"],
-
-    DEFAULT_INSTRUMENT: {
-      name: "MonoSynth",
-      type: "Instrument",
-      parameters: {
-        "volume": 0,
-        "portamento": 0,
-        "oscillator": {
-          "type": "sawtooth"
-        }
-      }
-    },
-    COLORS: {
-      void: "#141414", rowWhite: "#262626", rowBlack: "#1e1e1e", octaveLine: "#3a3a3a",
-      laneA: "#222222", laneB: "#1f1f1f", laneLine: "#2e2e2e",
-      lineSub: "#2e2e2e", lineBeat: "#3d3d3d", lineBar: "#5a5a5a",
-      regionShade: "rgba(0, 0, 0, 0.4)", regionEdge: "#707070",
-      note: "#f2b544", noteBorder: "#7a5312", noteSelected: "#fff1c9",
-      accentNote: "#f244b5", accentNoteSelected: "#ffc9f1",
-      slideNoteBorder: "#0000ff",
-      playhead: "#ececec", ruler: "#262626", rulerRegion: "#333333", rulerTick: "#5c5c5c", rulerText: "#c0c0c0",
-      keyWhite: "#d8d8d8", keyBlack: "#1a1a1a", keyBorder: "#a9a9a9", keyActive: "#f2b544",
-      keyTextDark: "#333333", keyTextLight: "#b0b0b0",
-      clipText: "#1a1a1a", clipNote: "rgba(0, 0, 0, 0.55)", clipRepeatNote: "rgba(0,0,0, 0.35)", clipSelected: "#ffffff", message: "#777777",
-    }
-  }
-  
   // ===== State =====
   var projectState = {
     name: "DemoProject",
@@ -94,7 +40,6 @@ async function MyApp() {
   };
 
   var modulatorNames = ["LFO"];
-
 
   // ===== DOM =====
   const $ = (id) => document.getElementById(id);
@@ -146,7 +91,6 @@ async function MyApp() {
     return { dx: e.deltaX * unit, dy: e.deltaY * unit };
   }
 
-  
 
   // ===== TimelineView: zoom, scroll, pinch, ruler — shared by arrangement and clip editor =====
   class TimelineView {
@@ -2324,147 +2268,6 @@ async function MyApp() {
     }
   });
 
-  const helpers = {
-    clamp: (v, lo, hi) => Math.min(hi, Math.max(lo, v)),
-    midiName: (pitch) => Constants.NOTE_NAMES[pitch % 12] + (Math.floor(pitch / 12) - 2),  // Ableton: C3 = MIDI 60
-    snapFloor: (beat, step) => (step ? Math.floor(beat / step + Constants.EPS) * step : beat),
-    snapRound: (beat, step) => (step ? Math.round(beat / step) * step : beat),
-    ceilBars: (beats) => Math.ceil(beats / Constants.BEATS_PER_BAR - Constants.EPS) * Constants.BEATS_PER_BAR,
-    clipEnd: (clip) => clip.end ? clip.end : clip.start + clip.length,
-    noteNameToPitch: (noteName) => {
-      let pitch = Tone.Frequency(noteName).toMidi();
-        //console.log(`Converted notename ${noteName} to pitch ${pitch}`);
-      return pitch;
-    },
-    noteTimeToBeats: (noteTime) => {
-        let bbs = Tone.Time(noteTime).toBarsBeatsSixteenths();
-        let parts = bbs.split(":");
-        let beats = parseInt(parts[1]);
-        beats += (parseFloat(parts[2]) / 4);
-        beats += parseInt(parts[0]) * 4;
-        //console=.log(`Converted notename ${noteName} to pitch ${pitch}`);
-        return beats;
-      },
-    beatsToTime: (beats) => {
-      let remainingBeats = beats;
-      let bars = Math.floor(beats / 4);
-      remainingBeats -= (bars * 4);
-      let barBeats = Math.floor(beats % 4);
-      remainingBeats -= barBeats;
-      if (remainingBeats > 1) throw "error";
-      let beatSixteenths = remainingBeats * 4;
-      return Tone.Time(`${bars}:${barBeats}:${beatSixteenths}`);
-    },
-    isObject: (value) => { typeof value === "object" && !Array.isArray(value) && value !== null; },
-    toShortDeviceName: (deviceName) => {
-      let parts = deviceName.split(".");
-      return parts[parts.length - 1];
-    },
-    hasParameter: (device, parameterPath) => {
-      let parts = parameterPath.split(".");
-      let name = parts[parts.length - 1];
-      
-      let parameterContext = device;
-      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-        parameterContext = parameterContext[parts[partIndex]];
-      }
-      if (parameterContext[name] == undefined)
-        return false;
-      else
-        return true;
-    },
-    getDeviceParameter: (device, parameterPath) => {
-      let parts = parameterPath.split(".");
-      let name = parts[parts.length - 1];
-      
-      let parameterContext = device;
-      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-        parameterContext = parameterContext[parts[partIndex]];
-      }
-      let parameter = parameterContext[name];
-      return parameter;
-    },
-    getDeviceParameterValue: (device, parameterPath) => {
-  
-      let parts = parameterPath.split(".");
-      let name = parts[parts.length - 1];
-      
-      let parameter = helpers.getDeviceParameter(device, parameterPath);
-    
-      if (parameter.name) 
-        return parameter.value;
-      else 
-        return parameter;
-    },
-    getDeviceParameterParent: (device, parameterPath) => {
-      let parts = parameterPath.split(".");
-      let name = parts[parts.length - 1];
-      
-      let parameterContext = device;
-      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-        parameterContext = parameterContext[parts[partIndex]];
-      }
-      return parameterContext;
-    },
-    getDeviceStateParameter: (deviceState, parameterPath) => {
-      if (!parameterPath) alert("empty param " + deviceState)
-      let parts = parameterPath.split(".");
-      let name = parts[parts.length - 1];
-      
-      if (!deviceState) throw new Error("No device state");
-      let parameterContext = deviceState.parameters ? deviceState.parameters : deviceState;
-      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-        parameterContext = parameterContext[parts[partIndex]];
-      }
-      let parameter = parameterContext[name];
-      //if (parameter == null) throw `No parameter found with name ${name} for device ${deviceState.name}`;
-      //, deviceState, parameterPath
-      return parameter;
-    },
-    updateDeviceParameter: (device, parameterPath, value) => {
-      let parts = parameterPath.split(".");
-      let parameterName = parts[parts.length - 1];
-      
-      let parameterParent = helpers.getDeviceParameterParent(device, parameterPath);
-      if (!parameterParent[parameterName]) 
-        throw new Error(`Could not find parameter ${parameterPath} for device ${device.name}`);
-      if (parameterParent[parameterName].name)
-        parameterParent[parameterName].value = value;
-      else
-        parameterParent[parameterName] = value;
-    },
-    updateDeviceStateParameter: (deviceState, parameterPath, value) => {
-      let parts = parameterPath.split(".");
-      let context = deviceState.parameters;
-      for (let partIndex = 0; partIndex < parts.length - 1; partIndex++) {
-        context = context[parts[partIndex]];
-      }
-      let parameterName = parts[parts.length - 1];
-      context[parameterName] = value;
-    },
-    updateParameter: (device, deviceState, parameterPath, value) => {
-      helpers.updateDeviceParameter(device, parameterPath, value);
-      helpers.updateDeviceStateParameter(deviceState, parameterPath, value);
-    },
-    clone: (obj) => {
-      if (null == obj || "object" != typeof obj) return obj;
-      var copy = obj.constructor();
-      for (var attr in obj) {
-          if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
-      }
-      return copy;
-    },
-    sizeCanvas(canvas, width, height) {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      const c = canvas.getContext("2d");
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      return c;
-    }
-  }
   
   class StateHelper {
     constructor(projectState, helpers) {
@@ -2489,54 +2292,6 @@ async function MyApp() {
       return endBeats;
     }
   }
-
-  
-
-  const fillTargetParameters = (track, targetDeviceSelect, targetParameterSelect) => {
-        targetParameterSelect.innerHTML = "";
-        let trackDevice = track.devices[targetDeviceSelect.value];
-        let trackDeviceMetadata = metadataManager.deviceList.devices[trackDevice.name].parameters;
-
-        let targetParameters = [];
-        let paramContext = trackDevice.parameters;
-        let paramPath = "";
-        
-        
-        traverseParams(paramContext, paramPath, trackDeviceMetadata);
-
-        targetParameters.sort().forEach(parameterName => {
-          targetParameterSelect.innerHTML += `<option value="${parameterName}">${parameterName}</option>`;
-        })
-
-        function traverseParams(paramContext, paramPath, deviceMetadata) {
-          Object.keys(paramContext).forEach(parameterName => {
-            if (!parameterName) {
-              throw "empty param name"
-            }
-            let paramMetadata = deviceMetadata[parameterName];
-            if (!paramMetadata) {
-              throw `missing param metadata for "${paramPath}.${parameterName}"`;
-            }
-
-            if (paramMetadata.startsWith("unitTypes")) {
-              if (paramPath)
-                targetParameters.push(paramPath + "." + parameterName)
-              else
-                targetParameters.push(parameterName)
-            }
-            else if (paramMetadata.startsWith("device") || paramMetadata.startsWith("module")) {
-              let childParamPath = paramPath ? paramPath + "." + parameterName : parameterName;
-              let parts = paramMetadata.split("/");
-              let deviceName = parts[1];
-           //   console.log("device nane", deviceName)
-              let deviceMetadata = parts[0] == "devices" ? metadataManager.deviceList.devices[deviceName] : metadataManager.deviceList.modules[deviceName];
-            //  console.log("device metadata", deviceMetadata)
-              traverseParams(paramContext[parameterName], childParamPath, deviceMetadata.parameters);
-            }
-          });
-        }
-      }
-  
   
   class TrackManager {
     constructor(projectState, audio, clipManager, updateManager, bottomPanelManager, mixer) {
@@ -2929,27 +2684,7 @@ async function MyApp() {
         return notes;
       }
       
-      /*
-      let noteTime = "1:3:2";
-      let noteTimeInBeats = noteTimeToBeats(noteTime);
-      console.log("Note time " + noteTime, noteTimeInBeats)
-      */
-      
-      /*
-      
-      let noteDuration = "16n";
-      let noteDurationInBeats = noteTimeToBeats(noteDuration);
-      console.log("Note duration " + noteDuration, noteDurationInBeats);
-      */
-      
-    /*  let noteLengthInBeats = 0.25;
-      let noteLength = helpers.beatsToTime(noteLengthInBeats);
-      console.log("Note length " + noteLengthInBeats, noteLength, noteLength.toNotation());
-      
-      let noteTimeInBeats = 6.25;
-      let noteTime = helpers.beatsToTime(noteTimeInBeats);
-      console.log("Note time " + noteTimeInBeats, noteTime, noteTime.toBarsBeatsSixteenths());
-      */
+
       console.log("creating kick");
       const kickSynth = {
         name: "MembraneSynth",
@@ -3351,83 +3086,6 @@ async function MyApp() {
     return deviceNode;
   }
   
-  // Helper functie om een AudioBuffer om te zetten naar een WAV Blob
-function bufferToWav(buffer) {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const format = 1; // PCM
-  const bitDepth = 16;
-  
-  let result;
-  if (numChannels === 2) {
-    const left = buffer.getChannelData(0);
-    const right = buffer.getChannelData(1);
-    result = interleave(left, right);
-  } else {
-    result = buffer.getChannelData(0);
-  }
-
-  const dataLength = result.length * (bitDepth / 8);
-  const bufferLength = 44 + dataLength;
-  const arrayBuffer = new ArrayBuffer(bufferLength);
-  const view = new DataView(arrayBuffer);
-
-  /* RIFF identifier */
-  writeString(view, 0, 'RIFF');
-  /* RIFF chunk length */
-  view.setUint32(4, 36 + dataLength, true);
-  /* RIFF type */
-  writeString(view, 8, 'WAVE');
-  /* format chunk identifier */
-  writeString(view, 12, 'fmt ');
-  /* format chunk length */
-  view.setUint32(16, 16, true);
-  /* sample format */
-  view.setUint16(20, format, true);
-  /* channel count */
-  view.setUint16(22, numChannels, true);
-  /* sample rate */
-  view.setUint32(24, sampleRate, true);
-  /* byte rate (sampleRate * blockAlign) */
-  view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
-  /* block align (numChannels * bytesPerSample) */
-  view.setUint16(32, numChannels * (bitDepth / 8), true);
-  /* bits per sample */
-  view.setUint16(34, bitDepth, true);
-  /* data chunk identifier */
-  writeString(view, 36, 'data');
-  /* data chunk length */
-  view.setUint32(40, dataLength, true);
-
-  // Schrijf float PCM samples om naar 16-bit PCM
-  let offset = 44;
-  for (let i = 0; i < result.length; i++, offset += 2) {
-    const s = Math.max(-1, Math.min(1, result[i]));
-    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-  }
-
-  return new Blob([arrayBuffer], { type: 'audio/wav' });
-
-  function writeString(view, offset, string) {
-    for (let i = 0; i < string.length; i++) {
-      view.setUint8(offset + i, string.charCodeAt(i));
-    }
-  }
-
-  function interleave(inputL, inputR) {
-    const length = inputL.length + inputR.length;
-    const result = new Float32Array(length);
-    let index = 0;
-    let inputIndex = 0;
-
-    while (index < length) {
-      result[index++] = inputL[inputIndex];
-      result[index++] = inputR[inputIndex];
-      inputIndex++;
-    }
-    return result;
-  }
-}
   await init();
 }
 

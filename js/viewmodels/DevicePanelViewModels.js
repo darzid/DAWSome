@@ -325,14 +325,13 @@ class DeviceParametersView {
     renderDevice(track, deviceState, device) {
       try {
         
-      
-      if (device) console.log("DeviceParametersView.renderDevice for " + device.name);
-
-      this.valueElements = {};
-      this.track = track;
-      this.deviceState = deviceState;
-      this.device = device;
-      this.refresh();
+        if (device) console.log("DeviceParametersView.renderDevice for " + device.name);
+  
+        this.valueElements = {};
+        this.track = track;
+        this.deviceState = deviceState;
+        this.device = device;
+        this.refresh();
       }
       catch (err) {
         alert("error in refresh " + err + " at " + err.stack)
